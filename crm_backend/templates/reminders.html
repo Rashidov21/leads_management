@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reminders - CRM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-md">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-graduation-cap text-blue-600 text-2xl"></i>
+                <h1 class="text-2xl font-bold text-gray-800">Education CRM</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="/" class="text-gray-600 hover:text-blue-600">Dashboard</a>
+                <a href="/leads/" class="text-gray-600 hover:text-blue-600">Leads</a>
+                <a href="/import/" class="text-gray-600 hover:text-blue-600">Import</a>
+                <a href="/reminders/" class="text-blue-600 font-semibold">Reminders</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8">Lead Follow-up Reminders</h1>
+
+        <!-- Tabs -->
+        <div class="flex gap-4 mb-8 border-b">
+            <button onclick="switchTab('pending')" id="pendingTab" class="px-6 py-3 font-semibold text-blue-600 border-b-2 border-blue-600">
+                Pending Reminders
+            </button>
+            <button onclick="switchTab('overdue')" id="overdueTab" class="px-6 py-3 font-semibold text-gray-600 hover:text-gray-800">
+                Overdue Reminders
+            </button>
+            <button onclick="switchTab('contacted')" id="contactedTab" class="px-6 py-3 font-semibold text-gray-600 hover:text-gray-800">
+                Contacted
+            </button>
+        </div>
+
+        <!-- Pending Reminders -->
+        <div id="pendingContent" class="space-y-4">
+            <div id="pendingReminders" class="space-y-4">
+                <p class="text-gray-500">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Overdue Reminders -->
+        <div id="overdueContent" class="hidden space-y-4">
+            <div id="overdueReminders" class="space-y-4">
+                <p class="text-gray-500">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Contacted Reminders -->
+        <div id="contactedContent" class="hidden space-y-4">
+            <div id="contactedReminders" class="space-y-4">
+                <p class="text-gray-500">Loading...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Snooze Modal -->
+    <div id="snoozeModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Snooze Reminder</h2>
+
+            <div class="mb-6">
+                <label class="block text-gray-700 font-semibold mb-2">Snooze for (minutes)</label>
+                <select id="snoozeTime" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600">
+                    <option value="5">5 minutes</option>
+                    <option value="15">15 minutes</option>
+                    <option value="30">30 minutes</option>
+                    <option value="60">1 hour</option>
+                </select>
+            </div>
+
+            <div class="flex gap-4">
+                <button onclick="confirmSnooze()" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                    Snooze
+                </button>
+                <button onclick="closeSnoozeModal()" class="flex-1 bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000/api';
+        const authToken = localStorage.getItem('authToken');
+        let currentSnoozeReminderId = null;
+
+        async function loadReminders() {
+            try {
+                // Load pending reminders
+                const pendingResponse = await fetch(`${API_URL}/reminders/pending_reminders/`, {
+                    headers: { 'Authorization': `Token ${authToken}` }
+                });
+                const pendingData = await pendingResponse.json();
+                displayReminders('pending', pendingData);
+
+                // Load overdue reminders
+                const overdueResponse = await fetch(`${API_URL}/reminders/?status=notified`, {
+                    headers: { 'Authorization': `Token ${authToken}` }
+                });
+                const overdueData = await overdueResponse.json();
+                displayReminders('overdue', overdueData);
+
+                // Load contacted reminders
+                const contactedResponse = await fetch(`${API_URL}/reminders/?status=contacted`, {
+                    headers: { 'Authorization': `Token ${authToken}` }
+                });
+                const contactedData = await contactedResponse.json();
+                displayReminders('contacted', contactedData);
+            } catch (error) {
+                console.error('Error loading reminders:', error);
+            }
+        }
+
+        function displayReminders(type, reminders) {
+            const containerId = type === 'pending' ? 'pendingReminders' : 
+                               type === 'overdue' ? 'overdueReminders' : 'contactedReminders';
+            const container = document.getElementById(containerId);
+
+            if (!reminders || reminders.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">No reminders</p>';
+                return;
+            }
+
+            container.innerHTML = reminders.map(reminder => `
+                <div class="bg-white rounded-lg shadow p-6 border-l-4 ${type === 'pending' ? 'border-orange-600' : type === 'overdue' ? 'border-red-600' : 'border-green-600'}">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-800">${reminder.lead_name}</h3>
+                            <p class="text-gray-600">${reminder.lead_phone}</p>
+                        </div>
+                        <span class="px-3 py-1 ${type === 'pending' ? 'bg-orange-100 text-orange-800' : type === 'overdue' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'} rounded-full text-sm font-semibold">${reminder.status}</span>
+                    </div>
+
+                    <div class="mb-4 text-sm text-gray-600">
+                        <p><strong>Deadline:</strong> ${new Date(reminder.contact_deadline).toLocaleString()}</p>
+                        <p><strong>Assigned to:</strong> ${reminder.assigned_to_username || 'Unassigned'}</p>
+                        <p><strong>Reminders sent:</strong> ${reminder.reminder_count}</p>
+                    </div>
+
+                    <div class="flex gap-3">
+                        ${type !== 'contacted' ? `
+                            <button onclick="markContacted(${reminder.id})" class="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2">
+                                <i class="fas fa-check"></i> Contacted
+                            </button>
+                            <button onclick="openSnoozeModal(${reminder.id})" class="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 flex items-center justify-center gap-2">
+                                <i class="fas fa-clock"></i> Snooze
+                            </button>
+                        ` : `
+                            <button onclick="viewLead(${reminder.lead})" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                                View Lead
+                            </button>
+                        `}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function switchTab(tab) {
+            // Update tab buttons
+            document.getElementById('pendingTab').classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
+            document.getElementById('overdueTab').classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
+            document.getElementById('contactedTab').classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
+            document.getElementById(tab + 'Tab').classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
+
+            // Update content
+            document.getElementById('pendingContent').classList.add('hidden');
+            document.getElementById('overdueContent').classList.add('hidden');
+            document.getElementById('contactedContent').classList.add('hidden');
+            document.getElementById(tab + 'Content').classList.remove('hidden');
+        }
+
+        async function markContacted(reminderId) {
+            try {
+                const response = await fetch(`${API_URL}/reminders/${reminderId}/mark_contacted/`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Token ${authToken}` }
+                });
+
+                if (response.ok) {
+                    loadReminders();
+                    alert('Reminder marked as contacted!');
+                } else {
+                    alert('Error marking reminder as contacted');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        function openSnoozeModal(reminderId) {
+            currentSnoozeReminderId = reminderId;
+            document.getElementById('snoozeModal').classList.remove('hidden');
+        }
+
+        function closeSnoozeModal() {
+            document.getElementById('snoozeModal').classList.add('hidden');
+        }
+
+        async function confirmSnooze() {
+            const snoozeMinutes = document.getElementById('snoozeTime').value;
+
+            try {
+                const response = await fetch(`${API_URL}/reminders/${currentSnoozeReminderId}/snooze/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Token ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ snooze_minutes: parseInt(snoozeMinutes) })
+                });
+
+                if (response.ok) {
+                    closeSnoozeModal();
+                    loadReminders();
+                    alert('Reminder snoozed!');
+                } else {
+                    alert('Error snoozing reminder');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        function viewLead(leadId) {
+            window.location.href = `/leads/?leadId=${leadId}`;
+        }
+
+        loadReminders();
+        setInterval(loadReminders, 30000); // Refresh every 30 seconds
+    </script>
+</body>
+</html>
