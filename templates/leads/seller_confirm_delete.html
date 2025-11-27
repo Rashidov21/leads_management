@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Sotuvchini O'chirish - Lidlar Boshqaruvi{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="bg-white shadow rounded-lg p-6 max-w-2xl mx-auto">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Sotuvchini O'chirish</h2>
+        <p class="text-gray-600 mb-6">Quyidagi sotuvchini o'chirishni tasdiqlaysizmi? Bu foydalanuvchi ham o'chiriladi.</p>
+        
+        <div class="bg-gray-50 p-4 rounded-lg mb-6">
+            <p class="font-medium text-gray-900">{{ seller.user.get_full_name|default:seller.user.username }}</p>
+            <p class="text-sm text-gray-600 mt-1">{{ seller.user.email }}</p>
+            {% if seller.telegram_id %}
+            <p class="text-sm text-gray-600">Telegram ID: {{ seller.telegram_id }}</p>
+            {% endif %}
+        </div>
+
+        <form method="post" class="flex justify-end space-x-3">
+            {% csrf_token %}
+            <a href="{% url 'leads:seller_list' %}" 
+               class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                Bekor qilish
+            </a>
+            <button type="submit" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700">
+                O'chirish
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

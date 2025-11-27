@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Lidni O'chirish - Lidlar Boshqaruvi{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="bg-white shadow rounded-lg p-6 max-w-2xl mx-auto">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Lidni O'chirish</h2>
+        <p class="text-gray-600 mb-6">Quyidagi lidni o'chirishni tasdiqlaysizmi?</p>
+        
+        <div class="bg-gray-50 p-4 rounded-lg mb-6">
+            <p class="font-medium text-gray-900">{{ lead.name }}</p>
+            <p class="text-sm text-gray-600 mt-1">{{ lead.email }}</p>
+            <p class="text-sm text-gray-600">{{ lead.phone }}</p>
+            {% if lead.seller %}
+            <p class="text-sm text-gray-600 mt-2">Sotuvchi: {{ lead.seller.user.get_full_name|default:lead.seller.user.username }}</p>
+            {% endif %}
+        </div>
+
+        <form method="post" class="flex justify-end space-x-3">
+            {% csrf_token %}
+            <a href="{% url 'leads:lead_detail' lead.id %}" 
+               class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                Bekor qilish
+            </a>
+            <button type="submit" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700">
+                O'chirish
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

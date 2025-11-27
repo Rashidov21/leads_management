@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}{% if lead %}Lidni Tahrirlash{% else %}Yangi Lid{% endif %} - Lidlar Boshqaruvi{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900">{% if lead %}Lidni Tahrirlash{% else %}Yangi Lid{% endif %}</h2>
+        <p class="mt-2 text-sm text-gray-600">{% if lead %}Lid ma'lumotlarini yangilash{% else %}Yangi lid qo'shish{% endif %}</p>
+    </div>
+
+    <div class="bg-white shadow rounded-lg p-6">
+        <form method="post">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">Ism *</label>
+                    <input type="text" name="name" id="name" required 
+                           value="{% if lead %}{{ lead.name }}{% endif %}"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" name="email" id="email" 
+                           value="{% if lead %}{{ lead.email }}{% endif %}"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="phone" class="block text-sm font-medium text-gray-700">Telefon</label>
+                    <input type="text" name="phone" id="phone" 
+                           value="{% if lead %}{{ lead.phone }}{% endif %}"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="company" class="block text-sm font-medium text-gray-700">Kompaniya</label>
+                    <input type="text" name="company" id="company" 
+                           value="{% if lead %}{{ lead.company }}{% endif %}"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="seller" class="block text-sm font-medium text-gray-700">Sotuvchi</label>
+                    <select name="seller" id="seller" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <option value="">Sotuvchi tanlanmagan</option>
+                        {% for seller in sellers %}
+                        <option value="{{ seller.id }}" {% if lead and lead.seller.id == seller.id %}selected{% endif %}>
+                            {{ seller.user.get_full_name|default:seller.user.username }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="status" class="block text-sm font-medium text-gray-700">Holat</label>
+                    <select name="status" id="status" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if lead and lead.status == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="source" class="block text-sm font-medium text-gray-700">Manba</label>
+                    <input type="text" name="source" id="source" 
+                           value="{% if lead %}{{ lead.source }}{% else %}manual{% endif %}"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+            </div>
+            <div class="mt-6">
+                <label for="notes" class="block text-sm font-medium text-gray-700">Eslatmalar</label>
+                <textarea name="notes" id="notes" rows="4" 
+                          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">{% if lead %}{{ lead.notes }}{% endif %}</textarea>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <a href="{% if lead %}{% url 'leads:lead_detail' lead.id %}{% else %}{% url 'leads:lead_list' %}{% endif %}" 
+                   class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                    Bekor qilish
+                </a>
+                <button type="submit" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+                    Saqlash
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

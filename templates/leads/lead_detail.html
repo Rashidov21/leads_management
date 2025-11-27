@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}{{ lead.name }} - Lidlar Boshqaruvi{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="mb-8">
+        <a href="{% url 'lead_list' %}" class="text-indigo-600 hover:text-indigo-900 text-sm mb-4 inline-block">← Lidlarga qaytish</a>
+        <h2 class="text-3xl font-bold text-gray-900">{{ lead.name }}</h2>
+    </div>
+
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <!-- Lead Information -->
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Lid Ma'lumotlari</h3>
+            </div>
+            <div class="px-4 py-5 sm:p-6">
+                <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Ism</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ lead.name }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Holat</dt>
+                        <dd class="mt-1">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                {% if lead.status == 'new' %}bg-blue-100 text-blue-800
+                                {% elif lead.status == 'contacted' %}bg-yellow-100 text-yellow-800
+                                {% elif lead.status == 'converted' %}bg-green-100 text-green-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ lead.get_status_display }}
+                            </span>
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Email</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ lead.email|default:"—" }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Telefon</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ lead.phone|default:"—" }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Kompaniya</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ lead.company|default:"—" }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Sotuvchi</dt>
+                        <dd class="mt-1 text-sm text-gray-900">
+                            {% if lead.seller %}
+                                {{ lead.seller.user.get_full_name|default:lead.seller.user.username }}
+                            {% else %}
+                                <span class="text-gray-400">Tayinlanmagan</span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Manba</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ lead.source }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Yaratilgan</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ lead.created_at|date:"F d, Y H:i" }}</dd>
+                    </div>
+                </dl>
+                {% if lead.notes %}
+                <div class="mt-6">
+                    <dt class="text-sm font-medium text-gray-500">Eslatmalar</dt>
+                    <dd class="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{{ lead.notes }}</dd>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Harakatlar</h3>
+            </div>
+            <div class="px-4 py-5 sm:p-6">
+                <div class="space-y-4">
+                    <a href="/admin/leads/lead/{{ lead.id }}/change/" 
+                       class="block w-full bg-indigo-600 text-white text-center px-4 py-2 rounded-md hover:bg-indigo-700">
+                        Admin panelida tahrirlash
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

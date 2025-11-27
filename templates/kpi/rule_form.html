@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}{% if rule %}KPI Qoidasini Tahrirlash{% else %}Yangi KPI Qoidasi{% endif %} - Lidlar Boshqaruvi{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="mb-8">
+        <a href="{% url 'kpi:rule_list' %}" class="text-indigo-600 hover:text-indigo-900 text-sm mb-4 inline-block">← Qoidalar ro'yxatiga qaytish</a>
+        <h2 class="text-3xl font-bold text-gray-900">{% if rule %}KPI Qoidasini Tahrirlash{% else %}Yangi KPI Qoidasi{% endif %}</h2>
+    </div>
+
+    <div class="bg-white shadow rounded-lg p-6">
+        <form method="post">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">Qoida nomi *</label>
+                    <input type="text" name="name" id="name" required 
+                           value="{% if rule %}{{ rule.name }}{% endif %}"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="rule_type" class="block text-sm font-medium text-gray-700">Qoida turi *</label>
+                    <select name="rule_type" id="rule_type" required
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        {% for value, label in rule_type_choices %}
+                        <option value="{{ value }}" {% if rule and rule.rule_type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="comparison" class="block text-sm font-medium text-gray-700">Taqqoslash *</label>
+                    <select name="comparison" id="comparison" required
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        {% for value, label in comparison_choices %}
+                        <option value="{{ value }}" {% if rule and rule.comparison == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="threshold_value" class="block text-sm font-medium text-gray-700">Chegaraviy qiymat</label>
+                    <input type="number" step="0.01" name="threshold_value" id="threshold_value" 
+                           value="{% if rule %}{{ rule.threshold_value|default:'' }}{% endif %}"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="threshold_min" class="block text-sm font-medium text-gray-700">Minimal qiymat (oraliqda uchun)</label>
+                    <input type="number" step="0.01" name="threshold_min" id="threshold_min" 
+                           value="{% if rule %}{{ rule.threshold_min|default:'' }}{% endif %}"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="threshold_max" class="block text-sm font-medium text-gray-700">Maksimal qiymat (oraliqda uchun)</label>
+                    <input type="number" step="0.01" name="threshold_max" id="threshold_max" 
+                           value="{% if rule %}{{ rule.threshold_max|default:'' }}{% endif %}"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="bonus_amount" class="block text-sm font-medium text-gray-700">Bonus miqdori *</label>
+                    <input type="number" step="0.01" name="bonus_amount" id="bonus_amount" 
+                           value="{% if rule %}{{ rule.bonus_amount }}{% else %}0{% endif %}" required
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="penalty_amount" class="block text-sm font-medium text-gray-700">Jarima miqdori *</label>
+                    <input type="number" step="0.01" name="penalty_amount" id="penalty_amount" 
+                           value="{% if rule %}{{ rule.penalty_amount }}{% else %}0{% endif %}" required
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="evaluation_period_days" class="block text-sm font-medium text-gray-700">Baholash davri (kunlar) *</label>
+                    <input type="number" name="evaluation_period_days" id="evaluation_period_days" 
+                           value="{% if rule %}{{ rule.evaluation_period_days }}{% else %}30{% endif %}" required
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" name="is_active" id="is_active" 
+                           {% if rule and rule.is_active or not rule %}checked{% endif %}
+                           class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                    <label for="is_active" class="ml-2 block text-sm text-gray-900">Faol</label>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <a href="{% if rule %}{% url 'kpi:rule_detail' rule.id %}{% else %}{% url 'kpi:rule_list' %}{% endif %}" 
+                   class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                    Bekor qilish
+                </a>
+                <button type="submit" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+                    Saqlash
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
