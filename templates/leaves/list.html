@@ -43,6 +43,11 @@
                             <div class="text-sm font-medium text-gray-900">
                                 {{ request.start_date|date:"d.m.Y" }} - {{ request.end_date|date:"d.m.Y" }}
                             </div>
+                            {% if request.start_time and request.end_time %}
+                            <div class="text-xs text-gray-500 mt-1">
+                                <i class="fas fa-clock mr-1"></i>{{ request.start_time|time:"H:i" }} - {{ request.end_time|time:"H:i" }}
+                            </div>
+                            {% endif %}
                         </td>
                         <td class="px-6 py-4">
                             <div class="text-sm text-gray-500">{{ request.reason|truncatewords:10 }}</div>

@@ -20,6 +20,18 @@ class User(AbstractUser):
     absent_reason = models.TextField(blank=True, help_text="Ishda emaslik sababi")
     absent_from = models.DateTimeField(null=True, blank=True, help_text="Ishda emaslik boshlanish vaqti")
     absent_until = models.DateTimeField(null=True, blank=True, help_text="Ishda emaslik tugash vaqti")
+    
+    # Ish vaqtlari
+    work_start_time = models.TimeField(null=True, blank=True, help_text="Ish boshlanish vaqti (masalan: 09:00)")
+    work_end_time = models.TimeField(null=True, blank=True, help_text="Ish tugash vaqti (masalan: 18:00)")
+    work_monday = models.BooleanField(default=True, help_text="Dushanba ish kuni")
+    work_tuesday = models.BooleanField(default=True, help_text="Seshanba ish kuni")
+    work_wednesday = models.BooleanField(default=True, help_text="Chorshanba ish kuni")
+    work_thursday = models.BooleanField(default=True, help_text="Payshanba ish kuni")
+    work_friday = models.BooleanField(default=True, help_text="Juma ish kuni")
+    work_saturday = models.BooleanField(default=False, help_text="Shanba ish kuni")
+    work_sunday = models.BooleanField(default=False, help_text="Yakshanba ish kuni")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
@@ -37,38 +49,86 @@ class User(AbstractUser):
     def is_sales(self):
         return self.role == 'sales'
     
+    def is_working_at_time(self, check_time=None):
+        """Belgilangan vaqtda ishlayotganligini tekshirish"""
+        if not self.is_active_sales:
+            return False
+        
+        if check_time is None:
+            check_time = timezone.now()
+        
+        # Kunni tekshirish
+        weekday = check_time.weekday()  # 0 = Monday, 6 = Sunday
+        work_days = {
+            0: self.work_monday,
+            1: self.work_tuesday,
+            2: self.work_wednesday,
+            3: self.work_thursday,
+            4: self.work_friday,
+            5: self.work_saturday,
+            6: self.work_sunday,
+        }
+        
+        if not work_days.get(weekday, False):
+            return False
+        
+        # Vaqtni tekshirish
+        if self.work_start_time and self.work_end_time:
+            current_time = check_time.time()
+            if not (self.work_start_time <= current_time <= self.work_end_time):
+                return False
+        
+        return True
+    
     @property
     def is_available_for_leads(self):
         """Lidlar uchun mavjudligini tekshirish"""
         if not self.is_active_sales:
             return False
-        if self.is_on_leave:
-            return False
+        
+        now = timezone.now()
+        
+        # Ruxsat so'rovlarini tekshirish
+        # Circular importdan qochish uchun bu yerda tekshiramiz
+        try:
+            from django.apps import apps
+            LeaveRequest = apps.get_model('crm_app', 'LeaveRequest')
+            active_leave = LeaveRequest.objects.filter(
+                sales=self,
+                status='approved',
+                start_date__lte=now.date(),
+                end_date__gte=now.date()
+            ).first()
+            
+            if active_leave:
+                # Agar soatlar belgilangan bo'lsa, ularni tekshirish
+                if active_leave.start_time and active_leave.end_time:
+                    current_time = now.time()
+                    if active_leave.start_time <= current_time <= active_leave.end_time:
+                        return False
+                else:
+                    # Butun kun ruxsat
+                    return False
+        except:
+            # Agar model topilmasa, is_on_leave ni tekshiramiz
+            if self.is_on_leave:
+                return False
+        
+        # Manager tomonidan belgilangan ishda emaslik
         if self.is_absent:
-            # Vaqt oralig'ini tekshirish
-            now = timezone.now()
             if self.absent_from and self.absent_until:
                 if self.absent_from <= now <= self.absent_until:
                     return False
             elif self.is_absent:
                 return False
-        return True
+        
+        # Ish vaqtini tekshirish
+        return self.is_working_at_time(now)
     
     @property
     def is_working_now(self):
         """Hozir ishlayotganligini tekshirish"""
-        if not self.is_active_sales:
-            return False
-        if self.is_on_leave:
-            return False
-        if self.is_absent:
-            now = timezone.now()
-            if self.absent_from and self.absent_until:
-                if self.absent_from <= now <= self.absent_until:
-                    return False
-            elif self.is_absent:
-                return False
-        return True
+        return self.is_available_for_leads
 
 
 class Course(models.Model):
@@ -236,6 +296,8 @@ class LeaveRequest(models.Model):
     sales = models.ForeignKey(User, on_delete=models.CASCADE, related_name='leave_requests')
     start_date = models.DateField()
     end_date = models.DateField()
+    start_time = models.TimeField(null=True, blank=True, help_text="Ruxsat boshlanish vaqti (bo'sh bo'lsa butun kun)")
+    end_time = models.TimeField(null=True, blank=True, help_text="Ruxsat tugash vaqti (bo'sh bo'lsa butun kun)")
     reason = models.TextField(help_text="Ruxsat sababi")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_leaves')
@@ -256,9 +318,10 @@ class LeaveRequest(models.Model):
         self.approved_by = approved_by_user
         self.approved_at = timezone.now()
         self.save()
-        # Sotuvchini ishdan ruxsat holatiga o'tkazish
-        self.sales.is_on_leave = True
-        self.sales.save()
+        # Agar butun kun ruxsat bo'lsa, sotuvchini ishdan ruxsat holatiga o'tkazish
+        if not self.start_time and not self.end_time:
+            self.sales.is_on_leave = True
+            self.sales.save()
     
     def reject(self, rejected_by_user, reason=''):
         """Ruxsatni rad etish"""

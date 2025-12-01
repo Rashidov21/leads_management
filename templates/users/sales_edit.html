@@ -128,6 +128,75 @@
                     </div>
                 </div>
                 
+                <!-- Ish Vaqtlari -->
+                <div class="border-t border-gray-200 pt-6 mt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <i class="fas fa-clock mr-2 text-indigo-600"></i>Ish Vaqtlari
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="{{ form.work_start_time.id_for_label }}" class="form-label">
+                                <i class="fas fa-clock mr-1 text-gray-400"></i>Ish Boshlanish Vaqti
+                            </label>
+                            {{ form.work_start_time }}
+                            {% if form.work_start_time.errors %}
+                                <p class="mt-1 text-sm text-red-600">{{ form.work_start_time.errors.0 }}</p>
+                            {% endif %}
+                            <p class="mt-1 text-xs text-gray-500">Masalan: 09:00</p>
+                        </div>
+                        <div>
+                            <label for="{{ form.work_end_time.id_for_label }}" class="form-label">
+                                <i class="fas fa-clock mr-1 text-gray-400"></i>Ish Tugash Vaqti
+                            </label>
+                            {{ form.work_end_time }}
+                            {% if form.work_end_time.errors %}
+                                <p class="mt-1 text-sm text-red-600">{{ form.work_end_time.errors.0 }}</p>
+                            {% endif %}
+                            <p class="mt-1 text-xs text-gray-500">Masalan: 18:00</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <label class="form-label mb-3 block">
+                            <i class="fas fa-calendar-week mr-1 text-gray-400"></i>Ish Kunlari
+                        </label>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <label class="flex items-center">
+                                {{ form.work_monday }}
+                                <span class="ml-2 text-sm text-gray-700">Dushanba</span>
+                            </label>
+                            <label class="flex items-center">
+                                {{ form.work_tuesday }}
+                                <span class="ml-2 text-sm text-gray-700">Seshanba</span>
+                            </label>
+                            <label class="flex items-center">
+                                {{ form.work_wednesday }}
+                                <span class="ml-2 text-sm text-gray-700">Chorshanba</span>
+                            </label>
+                            <label class="flex items-center">
+                                {{ form.work_thursday }}
+                                <span class="ml-2 text-sm text-gray-700">Payshanba</span>
+                            </label>
+                            <label class="flex items-center">
+                                {{ form.work_friday }}
+                                <span class="ml-2 text-sm text-gray-700">Juma</span>
+                            </label>
+                            <label class="flex items-center">
+                                {{ form.work_saturday }}
+                                <span class="ml-2 text-sm text-gray-700">Shanba</span>
+                            </label>
+                            <label class="flex items-center">
+                                {{ form.work_sunday }}
+                                <span class="ml-2 text-sm text-gray-700">Yakshanba</span>
+                            </label>
+                        </div>
+                        <p class="mt-2 text-xs text-gray-500">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Faqat belgilangan kun va vaqtlarda yangi lidlar taqsimlanadi
+                        </p>
+                    </div>
+                </div>
+                
                 <div class="flex space-x-4 pt-6 border-t border-gray-200">
                     <button type="submit" class="btn-primary">
                         <i class="fas fa-save mr-2"></i>Saqlash

@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+
+{% block title %}Mening KPI'larim{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="mb-6" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-2 text-sm text-gray-500">
+        <li><a href="{% url 'dashboard' %}" class="hover:text-gray-700"><i class="fas fa-home"></i></a></li>
+        <li><span class="mx-2">/</span></li>
+        <li class="text-gray-900 font-medium">Mening KPI'larim</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="px-4 py-5 sm:p-6">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Mening KPI'larim</h1>
+        <p class="mt-1 text-sm text-gray-500">Sizning ish natijalaringiz va ko'rsatkichlaringiz</p>
+    </div>
+    
+    <!-- Bugungi KPI -->
+    <div class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-100">
+        <div class="flex items-center mb-6">
+            <div class="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                <i class="fas fa-chart-line text-indigo-600"></i>
+            </div>
+            <h2 class="text-xl font-bold text-gray-900">Bugungi KPI</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-5 border-l-4 border-blue-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Aloqa</p>
+                        <p class="text-3xl font-bold text-blue-900">{{ today_kpi.daily_contacts }}</p>
+                    </div>
+                    <i class="fas fa-phone text-blue-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-5 border-l-4 border-purple-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Follow-up</p>
+                        <p class="text-3xl font-bold text-purple-900">{{ today_kpi.daily_followups }}</p>
+                        <p class="text-xs text-gray-600 mt-1">{{ today_kpi.followup_completion_rate|floatformat:1 }}% bajarildi</p>
+                    </div>
+                    <i class="fas fa-tasks text-purple-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-5 border-l-4 border-green-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Sinov</p>
+                        <p class="text-3xl font-bold text-green-900">{{ today_kpi.trials_registered }}</p>
+                    </div>
+                    <i class="fas fa-graduation-cap text-green-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-5 border-l-4 border-yellow-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Konversiya</p>
+                        <p class="text-3xl font-bold text-yellow-900">{{ today_kpi.conversion_rate|floatformat:1 }}%</p>
+                        <p class="text-xs text-gray-600 mt-1">{{ today_kpi.trials_to_sales }} ta sotuv</p>
+                    </div>
+                    <i class="fas fa-percentage text-yellow-400 text-3xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Response Time</p>
+                <p class="text-2xl font-bold text-gray-900">{{ today_kpi.response_time_minutes|floatformat:1 }} daqiqa</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Overdue</p>
+                <p class="text-2xl font-bold {% if today_kpi.overdue_count > 0 %}text-red-600{% else %}text-green-600{% endif %}">
+                    {{ today_kpi.overdue_count }}
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Oxirgi 7 kunlik KPI -->
+    <div class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-100">
+        <div class="flex items-center mb-6">
+            <div class="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                <i class="fas fa-calendar-week text-indigo-600"></i>
+            </div>
+            <h2 class="text-xl font-bold text-gray-900">Oxirgi 7 Kunlik KPI</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sana</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Aloqa</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Follow-up</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sinov</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sotuv</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Konversiya</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for day in last_7_days %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {{ day.date|date:"d.m.Y" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ day.kpi.daily_contacts }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {{ day.kpi.daily_followups }}
+                            <span class="text-xs text-gray-500">({{ day.kpi.followup_completion_rate|floatformat:0 }}%)</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ day.kpi.trials_registered }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ day.kpi.trials_to_sales }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if day.kpi.conversion_rate >= 50 %}bg-green-100 text-green-800{% elif day.kpi.conversion_rate >= 30 %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ day.kpi.conversion_rate|floatformat:1 }}%
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Oylik Statistikalar -->
+    <div class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-100">
+        <div class="flex items-center mb-6">
+            <div class="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                <i class="fas fa-calendar-alt text-indigo-600"></i>
+            </div>
+            <h2 class="text-xl font-bold text-gray-900">Oylik Statistikalar</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-5 border-l-4 border-indigo-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Jami Aloqa</p>
+                        <p class="text-3xl font-bold text-indigo-900">{{ monthly_stats.total_contacts }}</p>
+                    </div>
+                    <i class="fas fa-phone text-indigo-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-5 border-l-4 border-purple-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Jami Follow-up</p>
+                        <p class="text-3xl font-bold text-purple-900">{{ monthly_stats.total_followups }}</p>
+                    </div>
+                    <i class="fas fa-tasks text-purple-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-5 border-l-4 border-green-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Jami Sinov</p>
+                        <p class="text-3xl font-bold text-green-900">{{ monthly_stats.total_trials }}</p>
+                    </div>
+                    <i class="fas fa-graduation-cap text-green-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-5 border-l-4 border-yellow-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Jami Sotuv</p>
+                        <p class="text-3xl font-bold text-yellow-900">{{ monthly_stats.total_sales }}</p>
+                    </div>
+                    <i class="fas fa-check-circle text-yellow-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-5 border-l-4 border-blue-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">O'rtacha Konversiya</p>
+                        <p class="text-3xl font-bold text-blue-900">{{ monthly_stats.avg_conversion|floatformat:1 }}%</p>
+                    </div>
+                    <i class="fas fa-percentage text-blue-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-5 border-l-4 border-gray-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">O'rtacha Response</p>
+                        <p class="text-3xl font-bold text-gray-900">{{ monthly_stats.avg_response_time|floatformat:1 }} min</p>
+                    </div>
+                    <i class="fas fa-clock text-gray-400 text-3xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Lidlar Statistikasi -->
+    <div class="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
+        <div class="flex items-center mb-6">
+            <div class="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                <i class="fas fa-users text-indigo-600"></i>
+            </div>
+            <h2 class="text-xl font-bold text-gray-900">Mening Lidlarim</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-5 border-l-4 border-blue-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Jami</p>
+                        <p class="text-3xl font-bold text-blue-900">{{ leads_stats.total }}</p>
+                    </div>
+                    <i class="fas fa-users text-blue-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-5 border-l-4 border-yellow-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Yangi</p>
+                        <p class="text-3xl font-bold text-yellow-900">{{ leads_stats.new }}</p>
+                    </div>
+                    <i class="fas fa-user-plus text-yellow-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-5 border-l-4 border-green-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Kursga Yozildi</p>
+                        <p class="text-3xl font-bold text-green-900">{{ leads_stats.enrolled }}</p>
+                    </div>
+                    <i class="fas fa-check-circle text-green-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-5 border-l-4 border-red-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Yo'qotilgan</p>
+                        <p class="text-3xl font-bold text-red-900">{{ leads_stats.lost }}</p>
+                    </div>
+                    <i class="fas fa-times-circle text-red-400 text-3xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

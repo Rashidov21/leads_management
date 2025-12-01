@@ -51,6 +51,7 @@ urlpatterns = [
     
     # Analytics
     path('analytics/', views.analytics, name='analytics'),
+    path('analytics/my-kpi/', views.sales_kpi, name='sales_kpi'),
     
     # Leave Requests (Sales)
     path('leaves/create/', views.leave_request_create, name='leave_request_create'),

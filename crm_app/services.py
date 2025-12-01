@@ -103,7 +103,14 @@ class GroupService:
         if time:
             queryset = queryset.filter(time=time)
         
-        return queryset.filter(current_students__lt=models.F('capacity'))
+        # Faqat to'liq bo'lmagan guruhlarni qaytarish
+        available = queryset.filter(current_students__lt=models.F('capacity'))
+        
+        # Agar mavjud guruhlar bo'lmasa, barcha faol guruhlarni qaytarish (to'liq bo'lsa ham)
+        if not available.exists() and queryset.exists():
+            return queryset.order_by('name')
+        
+        return available.order_by('name')
     
     @staticmethod
     def get_room_occupancy(room, date_obj, time_slot):

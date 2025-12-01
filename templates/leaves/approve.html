@@ -34,6 +34,13 @@
                 <p class="text-sm font-medium text-gray-900">
                     {{ leave_request.start_date|date:"d.m.Y" }} - {{ leave_request.end_date|date:"d.m.Y" }}
                 </p>
+                {% if leave_request.start_time and leave_request.end_time %}
+                <p class="text-xs text-gray-500 mt-1">
+                    <i class="fas fa-clock mr-1"></i>{{ leave_request.start_time|time:"H:i" }} - {{ leave_request.end_time|time:"H:i" }}
+                </p>
+                {% else %}
+                <p class="text-xs text-gray-500 mt-1">Butun kun</p>
+                {% endif %}
             </div>
             <div class="md:col-span-2">
                 <p class="text-sm text-gray-500">Sabab</p>

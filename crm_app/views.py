@@ -316,11 +316,23 @@ def trial_register(request, lead_pk):
             return redirect('lead_detail', pk=lead_pk)
     else:
         form = TrialLessonForm()
-        # Faqat mavjud guruhlarni ko'rsatish
+        # Barcha mavjud guruhlarni ko'rsatish
+        # Agar interested_course bo'lsa, avval o'sha kurs guruhlarini ko'rsatish
         if lead.interested_course:
-            form.fields['group'].queryset = GroupService.get_available_groups(
-                course=lead.interested_course
-            )
+            available_groups = GroupService.get_available_groups(course=lead.interested_course)
+            # Agar o'sha kursda guruhlar bo'lmasa, barcha mavjud guruhlarni ko'rsatish
+            if available_groups.exists():
+                form.fields['group'].queryset = available_groups
+            else:
+                # Barcha mavjud guruhlarni ko'rsatish
+                form.fields['group'].queryset = GroupService.get_available_groups()
+        else:
+            # Barcha mavjud guruhlarni ko'rsatish
+            form.fields['group'].queryset = GroupService.get_available_groups()
+        
+        # Agar hech qanday guruh bo'lmasa, barcha faol guruhlarni ko'rsatish (to'liq bo'lsa ham)
+        if not form.fields['group'].queryset.exists():
+            form.fields['group'].queryset = Group.objects.filter(is_active=True).order_by('name')
     
     return render(request, 'trials/register.html', {
         'lead': lead,
@@ -689,6 +701,77 @@ def analytics(request):
     }
     
     return render(request, 'analytics/index.html', context)
+
+
+@login_required
+@role_required('sales')
+def sales_kpi(request):
+    """Sotuvchi uchun o'z KPI'larini ko'rish"""
+    sales = request.user
+    today = timezone.now().date()
+    
+    # Bugungi KPI
+    today_kpi = KPIService.calculate_daily_kpi(sales, today)
+    
+    # Oxirgi 7 kunlik KPI
+    from datetime import timedelta
+    last_7_days = []
+    for i in range(7):
+        date = today - timedelta(days=i)
+        kpi = KPI.objects.filter(sales=sales, date=date).first()
+        if kpi:
+            last_7_days.append({
+                'date': date,
+                'kpi': kpi
+            })
+        else:
+            # Agar KPI hisoblanmagan bo'lsa, hisoblaymiz
+            kpi = KPIService.calculate_daily_kpi(sales, date)
+            last_7_days.append({
+                'date': date,
+                'kpi': kpi
+            })
+    
+    # Oylik statistikalar
+    from datetime import datetime
+    current_month_start = datetime(today.year, today.month, 1).date()
+    monthly_kpis = KPI.objects.filter(
+        sales=sales,
+        date__gte=current_month_start,
+        date__lte=today
+    ).order_by('-date')
+    
+    # Oylik yig'indilar
+    monthly_stats = {
+        'total_contacts': sum(kpi.daily_contacts for kpi in monthly_kpis),
+        'total_followups': sum(kpi.daily_followups for kpi in monthly_kpis),
+        'total_trials': sum(kpi.trials_registered for kpi in monthly_kpis),
+        'total_sales': sum(kpi.trials_to_sales for kpi in monthly_kpis),
+        'avg_conversion': sum(kpi.conversion_rate for kpi in monthly_kpis) / len(monthly_kpis) if monthly_kpis else 0,
+        'avg_response_time': sum(kpi.response_time_minutes for kpi in monthly_kpis) / len(monthly_kpis) if monthly_kpis else 0,
+    }
+    
+    # Mening lidlarim statistikasi
+    my_leads = Lead.objects.filter(assigned_sales=sales)
+    leads_stats = {
+        'total': my_leads.count(),
+        'new': my_leads.filter(status='new').count(),
+        'contacted': my_leads.filter(status='contacted').count(),
+        'interested': my_leads.filter(status='interested').count(),
+        'trial_registered': my_leads.filter(status='trial_registered').count(),
+        'enrolled': my_leads.filter(status='enrolled').count(),
+        'lost': my_leads.filter(status='lost').count(),
+    }
+    
+    context = {
+        'today_kpi': today_kpi,
+        'last_7_days': last_7_days,
+        'monthly_stats': monthly_stats,
+        'leads_stats': leads_stats,
+        'monthly_kpis': monthly_kpis[:30],  # Oxirgi 30 kunlik
+    }
+    
+    return render(request, 'analytics/sales_kpi.html', context)
 
 
 # ============ LEAVE REQUESTS ============

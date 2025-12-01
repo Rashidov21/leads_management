@@ -145,7 +145,9 @@ class UserCreateForm(UserCreationForm):
 class UserEditForm(forms.ModelForm):
     class Meta:
         model = User
-        fields = ['username', 'email', 'first_name', 'last_name', 'role', 'phone', 'telegram_chat_id', 'is_active_sales', 'is_active']
+        fields = ['username', 'email', 'first_name', 'last_name', 'role', 'phone', 'telegram_chat_id', 'is_active_sales', 'is_active',
+                  'work_start_time', 'work_end_time', 'work_monday', 'work_tuesday', 'work_wednesday', 
+                  'work_thursday', 'work_friday', 'work_saturday', 'work_sunday']
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-input'}),
             'email': forms.EmailInput(attrs={'class': 'form-input', 'type': 'email'}),
@@ -156,6 +158,15 @@ class UserEditForm(forms.ModelForm):
             'telegram_chat_id': forms.TextInput(attrs={'class': 'form-input'}),
             'is_active_sales': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
+            'work_start_time': forms.TimeInput(attrs={'class': 'form-input', 'type': 'time'}),
+            'work_end_time': forms.TimeInput(attrs={'class': 'form-input', 'type': 'time'}),
+            'work_monday': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
+            'work_tuesday': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
+            'work_wednesday': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
+            'work_thursday': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
+            'work_friday': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
+            'work_saturday': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
+            'work_sunday': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
         }
 
 
@@ -210,7 +221,7 @@ class GroupForm(forms.ModelForm):
 class LeaveRequestForm(forms.ModelForm):
     class Meta:
         model = LeaveRequest
-        fields = ['start_date', 'end_date', 'reason']
+        fields = ['start_date', 'end_date', 'start_time', 'end_time', 'reason']
         widgets = {
             'start_date': forms.DateInput(attrs={
                 'class': 'form-input',
@@ -221,6 +232,16 @@ class LeaveRequestForm(forms.ModelForm):
                 'class': 'form-input',
                 'type': 'date',
                 'placeholder': 'Tugash sanasi'
+            }),
+            'start_time': forms.TimeInput(attrs={
+                'class': 'form-input',
+                'type': 'time',
+                'placeholder': 'Boshlanish vaqti (ixtiyoriy)'
+            }),
+            'end_time': forms.TimeInput(attrs={
+                'class': 'form-input',
+                'type': 'time',
+                'placeholder': 'Tugash vaqti (ixtiyoriy)'
             }),
             'reason': forms.Textarea(attrs={
                 'class': 'form-textarea',
