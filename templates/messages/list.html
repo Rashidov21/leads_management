@@ -17,7 +17,7 @@
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
         <div>
             <h1 class="text-3xl font-bold text-gray-900">Yuborilgan Xabarlar</h1>
-            <p class="mt-1 text-sm text-gray-500">Sotuvchilarga yuborilgan barcha xabarlar</p>
+            <p class="mt-1 text-sm text-gray-500">Siz yuborgan barcha xabarlar ro'yxati</p>
         </div>
         <a href="{% url 'sales_message_create' %}" class="btn-primary">
             <i class="fas fa-plus mr-2"></i>Yangi Xabar
@@ -25,50 +25,48 @@
     </div>
     
     {% if messages %}
-    <div class="bg-white shadow rounded-lg overflow-hidden">
+    <div class="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mavzu</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qabul Qiluvchilar</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prioritet</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Telegram</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Yuborilgan</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Mavzu</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Qabul Qiluvchilar</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Prioritet</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Telegram</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Yuborilgan</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    {% for msg in messages %}
+                    {% for message in messages %}
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-6 py-4">
-                            <div class="text-sm font-medium text-gray-900">{{ msg.subject }}</div>
-                            <div class="text-xs text-gray-500 mt-1">{{ msg.message|truncatewords:10 }}</div>
+                            <div class="text-sm font-medium text-gray-900">{{ message.subject }}</div>
+                            <div class="text-xs text-gray-500 mt-1">{{ message.message|truncatewords:10 }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-600">{{ msg.recipients.count }} ta sotuvchi</div>
+                            <div class="text-sm text-gray-600">{{ message.recipients.count }} ta</div>
+                            <div class="text-xs text-gray-500">
+                                {% for recipient in message.recipients.all|slice:":3" %}
+                                    {{ recipient.username }}{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                                {% if message.recipients.count > 3 %}...{% endif %}
+                            </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            {% if msg.priority == 'urgent' %}
-                                <span class="status-badge bg-red-100 text-red-800">Shoshilinch</span>
-                            {% elif msg.priority == 'high' %}
-                                <span class="status-badge bg-orange-100 text-orange-800">Yuqori</span>
-                            {% elif msg.priority == 'normal' %}
-                                <span class="status-badge bg-blue-100 text-blue-800">Oddiy</span>
+                            <span class="status-badge {{ message.get_priority_display_class }}">
+                                {{ message.get_priority_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if message.telegram_sent %}
+                            <span class="text-green-600"><i class="fab fa-telegram mr-1"></i>Yuborildi</span>
                             {% else %}
-                                <span class="status-badge bg-gray-100 text-gray-800">Past</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            {% if msg.telegram_sent %}
-                                <span class="status-badge bg-green-100 text-green-800">
-                                    <i class="fab fa-telegram mr-1"></i>Yuborildi
-                                </span>
-                            {% else %}
-                                <span class="status-badge bg-gray-100 text-gray-800">Yo'q</span>
+                            <span class="text-gray-400"><i class="fas fa-times mr-1"></i>Yuborilmadi</span>
                             {% endif %}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ msg.created_at|date:"d.m.Y H:i" }}
+                            {{ message.created_at|date:"d.m.Y H:i" }}
                         </td>
                     </tr>
                     {% endfor %}

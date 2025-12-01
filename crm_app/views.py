@@ -7,7 +7,7 @@ from django.utils import timezone
 from datetime import date, timedelta
 from .models import (
     Lead, Course, Group, Room, FollowUp, TrialLesson, 
-    KPI, User, Reactivation, LeaveRequest, SalesMessage
+    KPI, User, Reactivation, LeaveRequest, SalesMessage, SalesMessageRead
 )
 from .forms import (
     LeadForm, LeadStatusForm, TrialLessonForm, TrialResultForm,
@@ -800,13 +800,19 @@ def leave_request_list(request):
     leave_requests = LeaveRequest.objects.filter(sales=request.user).order_by('-created_at')
     
     # Kelgan xabarlar
-    received_messages = SalesMessage.objects.filter(recipients=request.user).order_by('-created_at')[:3]
-    unread_messages_count = SalesMessage.objects.filter(recipients=request.user, is_read=False).count()
+    received_messages = SalesMessage.objects.filter(recipients=request.user).order_by('-created_at')[:5]
+    read_message_ids = list(SalesMessageRead.objects.filter(
+        user=request.user
+    ).values_list('message_id', flat=True))
+    unread_count = SalesMessage.objects.filter(
+        recipients=request.user
+    ).exclude(id__in=read_message_ids).count()
     
     return render(request, 'leaves/list.html', {
         'leave_requests': leave_requests,
         'received_messages': received_messages,
-        'unread_messages_count': unread_messages_count
+        'unread_count': unread_count,
+        'read_message_ids': read_message_ids,
     })
 
 
@@ -880,23 +886,22 @@ def sales_message_create(request):
             
             # Telegram orqali xabar yuborish
             from .telegram_bot import send_telegram_notification
-            from .tasks import send_sales_message_task
             
             recipients = form.cleaned_data['recipients']
             telegram_sent_count = 0
             
+            priority_emoji = {
+                'urgent': '🚨',
+                'high': '⚠️',
+                'normal': '📢',
+                'low': 'ℹ️',
+            }.get(message.priority, '📢')
+            
             for recipient in recipients:
                 # Telegram orqali yuborish
                 if recipient.telegram_chat_id:
-                    priority_emoji = {
-                        'urgent': '🚨',
-                        'high': '⚠️',
-                        'normal': '📢',
-                        'low': 'ℹ️',
-                    }.get(message.priority, '📢')
-                    
                     telegram_message = (
-                        f"{priority_emoji} *{message.subject}*\n\n"
+                        f"{priority_emoji} {message.subject}\n\n"
                         f"{message.message}\n\n"
                         f"Yuboruvchi: {message.sender.username}"
                     )
@@ -933,19 +938,24 @@ def sales_message_inbox(request):
     """Sotuvchi uchun kelgan xabarlar"""
     received_messages = SalesMessage.objects.filter(recipients=request.user).order_by('-created_at')
     
-    # O'qilmagan xabarlarni belgilash
-    unread_count = received_messages.filter(is_read=False).count()
+    # O'qilgan xabarlarni tekshirish
+    read_message_ids = SalesMessageRead.objects.filter(
+        user=request.user
+    ).values_list('message_id', flat=True)
+    
+    unread_count = received_messages.exclude(id__in=read_message_ids).count()
     
     return render(request, 'messages/inbox.html', {
         'messages': received_messages,
-        'unread_count': unread_count
+        'unread_count': unread_count,
+        'read_message_ids': read_message_ids,
     })
 
 
 @login_required
 @role_required('sales')
 def sales_message_detail(request, pk):
-    """Xabar tafsilotlari"""
+    """Xabar tafsilotlari va o'qilganligini belgilash"""
     message = get_object_or_404(SalesMessage, pk=pk)
     
     # Faqat xabar qabul qiluvchisi ko'ra oladi
@@ -954,7 +964,9 @@ def sales_message_detail(request, pk):
         return redirect('sales_message_inbox')
     
     # Xabarni o'qilgan deb belgilash
-    if not message.is_read:
-        message.mark_as_read(request.user)
+    SalesMessageRead.objects.get_or_create(
+        message=message,
+        user=request.user
+    )
     
     return render(request, 'messages/detail.html', {'message': message})

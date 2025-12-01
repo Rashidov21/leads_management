@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Sotuvchilarga Xabar Yuborish{% endblock %}
+{% block title %}Xabar Yuborish{% endblock %}
 
 {% block breadcrumbs %}
 <nav class="mb-6" aria-label="Breadcrumb">
@@ -38,18 +38,16 @@
                 {% csrf_token %}
                 
                 <div>
-                    <label class="form-label mb-3 block">
-                        <i class="fas fa-users mr-1 text-gray-400"></i>Qabul Qiluvchilar <span class="text-red-500">*</span>
+                    <label for="{{ form.recipients.id_for_label }}" class="form-label">
+                        <i class="fas fa-users mr-2"></i>Qabul Qiluvchilar <span class="text-red-500">*</span>
                     </label>
-                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-60 overflow-y-auto">
-                        <div class="space-y-2">
-                            {% for checkbox in form.recipients %}
-                            <label class="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
-                                {{ checkbox.tag }}
-                                <span class="ml-2 text-sm text-gray-700">{{ checkbox.choice_label }}</span>
-                            </label>
-                            {% endfor %}
-                        </div>
+                    <div class="mt-2 border border-gray-300 rounded-lg p-4 max-h-60 overflow-y-auto">
+                        {% for checkbox in form.recipients %}
+                        <label class="flex items-center py-2 hover:bg-gray-50 rounded px-2 cursor-pointer">
+                            {{ checkbox.tag }}
+                            <span class="ml-2 text-sm text-gray-700">{{ checkbox.choice_label }}</span>
+                        </label>
+                        {% endfor %}
                     </div>
                     {% if form.recipients.errors %}
                         <p class="mt-1 text-sm text-red-600">{{ form.recipients.errors.0 }}</p>
@@ -57,18 +55,8 @@
                 </div>
                 
                 <div>
-                    <label for="{{ form.subject.id_for_label }}" class="form-label">
-                        <i class="fas fa-heading mr-1 text-gray-400"></i>Mavzu <span class="text-red-500">*</span>
-                    </label>
-                    {{ form.subject }}
-                    {% if form.subject.errors %}
-                        <p class="mt-1 text-sm text-red-600">{{ form.subject.errors.0 }}</p>
-                    {% endif %}
-                </div>
-                
-                <div>
                     <label for="{{ form.priority.id_for_label }}" class="form-label">
-                        <i class="fas fa-exclamation-circle mr-1 text-gray-400"></i>Prioritet
+                        <i class="fas fa-exclamation-circle mr-2"></i>Prioritet
                     </label>
                     {{ form.priority }}
                     {% if form.priority.errors %}
@@ -77,8 +65,18 @@
                 </div>
                 
                 <div>
+                    <label for="{{ form.subject.id_for_label }}" class="form-label">
+                        <i class="fas fa-heading mr-2"></i>Mavzu <span class="text-red-500">*</span>
+                    </label>
+                    {{ form.subject }}
+                    {% if form.subject.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ form.subject.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <div>
                     <label for="{{ form.message.id_for_label }}" class="form-label">
-                        <i class="fas fa-comment-alt mr-1 text-gray-400"></i>Xabar Matni <span class="text-red-500">*</span>
+                        <i class="fas fa-comment-alt mr-2"></i>Xabar Matni <span class="text-red-500">*</span>
                     </label>
                     {{ form.message }}
                     {% if form.message.errors %}
@@ -89,7 +87,7 @@
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <p class="text-sm text-blue-800">
                         <i class="fas fa-info-circle mr-2"></i>
-                        Xabar barcha tanlangan sotuvchilarga yuboriladi va Telegram orqali ham jo'natiladi (agar ularning telegram_chat_id bo'lsa).
+                        <strong>Eslatma:</strong> Xabar tanlangan sotuvchilarga yuboriladi va Telegram orqali ham jo'natiladi (agar ularning telegram_chat_id bo'lsa).
                     </p>
                 </div>
                 

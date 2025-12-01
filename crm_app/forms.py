@@ -292,18 +292,13 @@ class SalesAbsenceForm(forms.ModelForm):
 
 # Sales Message Forms
 class SalesMessageForm(forms.ModelForm):
-    """Sotuvchilarga xabar yuborish formasi"""
-    recipients = forms.ModelMultipleChoiceField(
-        queryset=User.objects.filter(role='sales', is_active_sales=True),
-        widget=forms.CheckboxSelectMultiple(attrs={'class': 'space-y-2'}),
-        required=True,
-        help_text="Xabarni qaysi sotuvchilarga yuborishni tanlang"
-    )
-    
     class Meta:
         model = SalesMessage
         fields = ['recipients', 'subject', 'message', 'priority']
         widgets = {
+            'recipients': forms.CheckboxSelectMultiple(attrs={
+                'class': 'space-y-2'
+            }),
             'subject': forms.TextInput(attrs={
                 'class': 'form-input',
                 'placeholder': 'Xabar mavzusi...'
@@ -315,3 +310,12 @@ class SalesMessageForm(forms.ModelForm):
             }),
             'priority': forms.Select(attrs={'class': 'form-select'}),
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Faqat faol sotuvchilarni ko'rsatish
+        self.fields['recipients'].queryset = User.objects.filter(
+            role='sales',
+            is_active_sales=True
+        ).order_by('username')
+        self.fields['recipients'].label = "Qabul qiluvchilar"

@@ -372,25 +372,22 @@ class Reactivation(models.Model):
 
 
 class SalesMessage(models.Model):
-    """Sotuvchilarga yuborilgan xabarlar"""
+    """Sotuvchilarga yuboriladigan xabarlar"""
     PRIORITY_CHOICES = [
-        ('low', 'Past'),
-        ('normal', 'Oddiy'),
-        ('high', 'Yuqori'),
         ('urgent', 'Shoshilinch'),
+        ('high', 'Yuqori'),
+        ('normal', 'Oddiy'),
+        ('low', 'Past'),
     ]
     
-    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages', 
-                              limit_choices_to={'role__in': ['admin', 'sales_manager']})
-    recipients = models.ManyToManyField(User, related_name='received_messages', 
-                                       limit_choices_to={'role': 'sales'})
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages', limit_choices_to={'role__in': ['admin', 'sales_manager']})
+    recipients = models.ManyToManyField(User, related_name='received_messages', limit_choices_to={'role': 'sales'})
     subject = models.CharField(max_length=200, help_text="Xabar mavzusi")
     message = models.TextField(help_text="Xabar matni")
     priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='normal')
-    is_read = models.BooleanField(default=False)
-    telegram_sent = models.BooleanField(default=False, help_text="Telegram orqali yuborilgan")
+    telegram_sent = models.BooleanField(default=False, help_text="Telegram orqali yuborilganligi")
     created_at = models.DateTimeField(auto_now_add=True)
-    read_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         ordering = ['-created_at']
@@ -398,10 +395,26 @@ class SalesMessage(models.Model):
     def __str__(self):
         return f"Xabar: {self.subject} - {self.created_at.strftime('%d.%m.%Y %H:%M')}"
     
-    def mark_as_read(self, user):
-        """Xabarni o'qilgan deb belgilash"""
-        if not self.is_read:
-            self.is_read = True
-            self.read_at = timezone.now()
-            self.save()
+    def get_priority_display_class(self):
+        """Priority uchun CSS class"""
+        classes = {
+            'urgent': 'bg-red-100 text-red-800',
+            'high': 'bg-orange-100 text-orange-800',
+            'normal': 'bg-blue-100 text-blue-800',
+            'low': 'bg-gray-100 text-gray-800',
+        }
+        return classes.get(self.priority, 'bg-gray-100 text-gray-800')
+
+
+class SalesMessageRead(models.Model):
+    """Xabarlarni o'qilganligini kuzatish"""
+    message = models.ForeignKey(SalesMessage, on_delete=models.CASCADE, related_name='reads')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='read_messages')
+    read_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['message', 'user']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.message.subject}"
 
