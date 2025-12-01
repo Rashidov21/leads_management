@@ -5,7 +5,7 @@ from telegram.error import TelegramError
 
 
 def send_telegram_notification(chat_id, message):
-    """Telegram xabar yuborish"""
+    """Telegram xabar yuborish (sync)"""
     if not settings.TELEGRAM_BOT_TOKEN:
         return False
     
@@ -16,6 +16,9 @@ def send_telegram_notification(chat_id, message):
     except TelegramError as e:
         print(f"Telegram xabar yuborishda xatolik: {e}")
         return False
+    except Exception as e:
+        print(f"Telegram xabar yuborishda umumiy xatolik: {e}")
+        return False
 
 
 def send_to_admin(message):
@@ -23,4 +26,3 @@ def send_to_admin(message):
     if settings.TELEGRAM_ADMIN_CHAT_ID:
         return send_telegram_notification(settings.TELEGRAM_ADMIN_CHAT_ID, message)
     return False
-

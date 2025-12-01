@@ -15,6 +15,11 @@ class User(AbstractUser):
     phone = models.CharField(max_length=20, blank=True)
     telegram_chat_id = models.CharField(max_length=100, blank=True, null=True)
     is_active_sales = models.BooleanField(default=True)
+    is_on_leave = models.BooleanField(default=False, help_text="Ishdan ruxsat olgan")
+    is_absent = models.BooleanField(default=False, help_text="Manager tomonidan ishda emasligi belgilangan")
+    absent_reason = models.TextField(blank=True, help_text="Ishda emaslik sababi")
+    absent_from = models.DateTimeField(null=True, blank=True, help_text="Ishda emaslik boshlanish vaqti")
+    absent_until = models.DateTimeField(null=True, blank=True, help_text="Ishda emaslik tugash vaqti")
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
@@ -31,6 +36,39 @@ class User(AbstractUser):
     @property
     def is_sales(self):
         return self.role == 'sales'
+    
+    @property
+    def is_available_for_leads(self):
+        """Lidlar uchun mavjudligini tekshirish"""
+        if not self.is_active_sales:
+            return False
+        if self.is_on_leave:
+            return False
+        if self.is_absent:
+            # Vaqt oralig'ini tekshirish
+            now = timezone.now()
+            if self.absent_from and self.absent_until:
+                if self.absent_from <= now <= self.absent_until:
+                    return False
+            elif self.is_absent:
+                return False
+        return True
+    
+    @property
+    def is_working_now(self):
+        """Hozir ishlayotganligini tekshirish"""
+        if not self.is_active_sales:
+            return False
+        if self.is_on_leave:
+            return False
+        if self.is_absent:
+            now = timezone.now()
+            if self.absent_from and self.absent_until:
+                if self.absent_from <= now <= self.absent_until:
+                    return False
+            elif self.is_absent:
+                return False
+        return True
 
 
 class Course(models.Model):
@@ -148,6 +186,7 @@ class FollowUp(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
     is_overdue = models.BooleanField(default=False)
+    reminder_sent = models.BooleanField(default=False)  # Follow-up eslatmasi yuborilganligi
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -178,11 +217,56 @@ class TrialLesson(models.Model):
     room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True)
     result = models.CharField(max_length=20, choices=RESULT_CHOICES, blank=True)
     notes = models.TextField(blank=True)
-    reminder_sent = models.BooleanField(default=False)
+    reminder_sent = models.BooleanField(default=False)  # Sinov oldi eslatmasi
+    sales_reminder_sent = models.BooleanField(default=False)  # Sinovdan keyin sotuv eslatmasi
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
         return f"Sinov: {self.lead.name} - {self.date}"
+
+
+class LeaveRequest(models.Model):
+    """Ishdan ruxsat so'rovlari"""
+    STATUS_CHOICES = [
+        ('pending', 'Kutilmoqda'),
+        ('approved', 'Tasdiqlandi'),
+        ('rejected', 'Rad etildi'),
+    ]
+    
+    sales = models.ForeignKey(User, on_delete=models.CASCADE, related_name='leave_requests')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    reason = models.TextField(help_text="Ruxsat sababi")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_leaves')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True, help_text="Rad etish sababi")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Ruxsat: {self.sales.username} - {self.start_date} to {self.end_date}"
+    
+    def approve(self, approved_by_user):
+        """Ruxsatni tasdiqlash"""
+        self.status = 'approved'
+        self.approved_by = approved_by_user
+        self.approved_at = timezone.now()
+        self.save()
+        # Sotuvchini ishdan ruxsat holatiga o'tkazish
+        self.sales.is_on_leave = True
+        self.sales.save()
+    
+    def reject(self, rejected_by_user, reason=''):
+        """Ruxsatni rad etish"""
+        self.status = 'rejected'
+        self.approved_by = rejected_by_user
+        self.approved_at = timezone.now()
+        self.rejection_reason = reason
+        self.save()
 
 
 class KPI(models.Model):

@@ -101,6 +101,11 @@
         .form-textarea.success {
             @apply border-green-500 focus:ring-green-500 focus:border-green-500;
         }
+        
+        /* Checkbox Styles */
+        .form-checkbox {
+            @apply h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -146,7 +151,15 @@
                         <a href="{% url 'followups_today' %}" class="{% if 'followup' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-indigo-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} inline-flex items-center px-4 py-2 border-b-2 border-transparent text-sm font-medium transition-colors duration-200">
                             <i class="fas fa-tasks mr-2"></i>Follow-ups
                         </a>
+                        {% if user.is_sales %}
+                        <a href="{% url 'leave_request_list' %}" class="{% if 'leave' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-indigo-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} inline-flex items-center px-4 py-2 border-b-2 border-transparent text-sm font-medium transition-colors duration-200">
+                            <i class="fas fa-calendar-times mr-2"></i>Ruxsat So'rovlari
+                        </a>
+                        {% endif %}
                         {% if user.is_admin or user.is_sales_manager %}
+                        <a href="{% url 'leave_request_pending_list' %}" class="{% if 'leave' in request.resolver_match.url_name and 'pending' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-indigo-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} inline-flex items-center px-4 py-2 border-b-2 border-transparent text-sm font-medium transition-colors duration-200">
+                            <i class="fas fa-clock mr-2"></i>Kutilayotgan So'rovlar
+                        </a>
                         <a href="{% url 'analytics' %}" class="{% if 'analytics' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-indigo-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} inline-flex items-center px-4 py-2 border-b-2 border-transparent text-sm font-medium transition-colors duration-200">
                             <i class="fas fa-chart-bar mr-2"></i>Analitika
                         </a>

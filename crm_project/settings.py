@@ -146,9 +146,17 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'crm_app.tasks.check_overdue_followups_task',
         'schedule': crontab(minute='*/15'),  # Har 15 daqiqada
     },
+    'send-followup-reminders': {
+        'task': 'crm_app.tasks.send_followup_reminders_task',
+        'schedule': crontab(minute='*/30'),  # Har 30 daqiqada (1 soat oldin eslatma)
+    },
     'send-trial-reminders': {
         'task': 'crm_app.tasks.send_trial_reminder_task',
         'schedule': crontab(minute='*/30'),  # Har 30 daqiqada
+    },
+    'send-post-trial-sales-reminders': {
+        'task': 'crm_app.tasks.send_post_trial_sales_reminder_task',
+        'schedule': crontab(minute='*/60'),  # Har soatda
     },
     'calculate-daily-kpi': {
         'task': 'crm_app.tasks.calculate_daily_kpi_task',

@@ -9,10 +9,12 @@ class LeadDistributionService:
     
     @staticmethod
     def distribute_leads(leads):
-        """Lidlarni faol sotuvchilar orasida teng taqsimlash"""
-        active_sales = User.objects.filter(role='sales', is_active_sales=True)
+        """Lidlarni faol va ishda bo'lgan sotuvchilar orasida teng taqsimlash"""
+        # Faqat mavjud va ishda bo'lgan sotuvchilarni olish
+        active_sales = [sales for sales in User.objects.filter(role='sales', is_active_sales=True) 
+                       if sales.is_available_for_leads]
         
-        if not active_sales.exists():
+        if not active_sales:
             return None
         
         # Har bir sotuvchining lidlari sonini hisoblash
@@ -25,13 +27,25 @@ class LeadDistributionService:
         
         # Lidlarni taqsimlash
         for lead in leads:
+            if not sales_lead_counts:
+                # Agar barcha sotuvchilar ishda bo'lmasa, eng kam lidga ega bo'lganiga berish
+                active_sales = [sales for sales in User.objects.filter(role='sales', is_active_sales=True)]
+                if active_sales:
+                    min_sales = min(active_sales, key=lambda s: Lead.objects.filter(
+                        assigned_sales=s,
+                        status__in=['new', 'contacted', 'interested', 'trial_registered']
+                    ).count())
+                    lead.assigned_sales = min_sales
+                    lead.save()
+                continue
+            
             # Eng kam lidga ega sotuvchini topish
             min_sales_id = min(sales_lead_counts.items(), key=lambda x: x[1])[0]
             lead.assigned_sales_id = min_sales_id
             lead.save()
             sales_lead_counts[min_sales_id] += 1
         
-        return active_sales.count()
+        return len(active_sales)
 
 
 class FollowUpService:
@@ -116,17 +130,70 @@ class KPIService:
     
     @staticmethod
     def calculate_daily_kpi(sales, date):
-        """Kunlik KPI hisoblash"""
+        """Kunlik KPI hisoblash (ishda bo'lmagan vaqtlarni hisobga o'tkazmaslik)"""
         from django.db.models import Count, Avg, Q
+        from datetime import datetime, time as dt_time
         
-        # Kunlik aloqa
+        # Sotuvchi o'sha kuni ishda bo'lganligini tekshirish
+        date_start = timezone.make_aware(datetime.combine(date, dt_time.min))
+        date_end = timezone.make_aware(datetime.combine(date, dt_time.max))
+        
+        # Agar sotuvchi o'sha kuni ishda bo'lmagan bo'lsa, KPI'ni 0 qilib qaytaramiz
+        if sales.is_on_leave:
+            # Ruxsat so'rovlarini tekshirish
+            from .models import LeaveRequest
+            leave_request = LeaveRequest.objects.filter(
+                sales=sales,
+                start_date__lte=date,
+                end_date__gte=date,
+                status='approved'
+            ).first()
+            if leave_request:
+                # KPI'ni 0 qilib qaytaramiz
+                kpi, created = KPI.objects.update_or_create(
+                    sales=sales,
+                    date=date,
+                    defaults={
+                        'daily_contacts': 0,
+                        'daily_followups': 0,
+                        'followup_completion_rate': 0,
+                        'trials_registered': 0,
+                        'trials_to_sales': 0,
+                        'conversion_rate': 0,
+                        'response_time_minutes': 0,
+                        'overdue_count': 0,
+                    }
+                )
+                return kpi
+        
+        # Agar sotuvchi o'sha kuni ishda emas bo'lsa
+        if sales.is_absent and sales.absent_from and sales.absent_until:
+            if sales.absent_from <= date_end and sales.absent_until >= date_start:
+                # KPI'ni 0 qilib qaytaramiz
+                kpi, created = KPI.objects.update_or_create(
+                    sales=sales,
+                    date=date,
+                    defaults={
+                        'daily_contacts': 0,
+                        'daily_followups': 0,
+                        'followup_completion_rate': 0,
+                        'trials_registered': 0,
+                        'trials_to_sales': 0,
+                        'conversion_rate': 0,
+                        'response_time_minutes': 0,
+                        'overdue_count': 0,
+                    }
+                )
+                return kpi
+        
+        # Kunlik aloqa (faqat ishda bo'lgan vaqtlarda)
         daily_contacts = Lead.objects.filter(
             assigned_sales=sales,
             updated_at__date=date,
             status__in=['contacted', 'interested']
         ).count()
         
-        # Kunlik follow-up
+        # Kunlik follow-up (faqat ishda bo'lgan vaqtlarda)
         daily_followups = FollowUp.objects.filter(
             sales=sales,
             due_date__date=date
@@ -205,7 +272,7 @@ class ReactivationService:
     @staticmethod
     def check_and_reactivate():
         """Yo'qotilgan lidlarni reaktivatsiya qilish"""
-        from django.db.models import F
+        from .tasks import send_reactivation_notification
         
         lost_leads = Lead.objects.filter(status='lost', lost_at__isnull=False)
         
@@ -214,25 +281,31 @@ class ReactivationService:
             
             # 7 kun
             if days_since_lost == 7:
-                Reactivation.objects.get_or_create(
+                reactivation, created = Reactivation.objects.get_or_create(
                     lead=lead,
                     reactivation_type='7_days',
                     defaults={'days_since_lost': 7}
                 )
+                if created:
+                    send_reactivation_notification.delay(reactivation.id)
             
             # 14 kun
             elif days_since_lost == 14:
-                Reactivation.objects.get_or_create(
+                reactivation, created = Reactivation.objects.get_or_create(
                     lead=lead,
                     reactivation_type='14_days',
                     defaults={'days_since_lost': 14}
                 )
+                if created:
+                    send_reactivation_notification.delay(reactivation.id)
             
             # 30 kun
             elif days_since_lost == 30:
-                Reactivation.objects.get_or_create(
+                reactivation, created = Reactivation.objects.get_or_create(
                     lead=lead,
                     reactivation_type='30_days',
                     defaults={'days_since_lost': 30}
                 )
+                if created:
+                    send_reactivation_notification.delay(reactivation.id)
 

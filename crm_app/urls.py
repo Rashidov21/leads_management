@@ -51,4 +51,15 @@ urlpatterns = [
     
     # Analytics
     path('analytics/', views.analytics, name='analytics'),
+    
+    # Leave Requests (Sales)
+    path('leaves/create/', views.leave_request_create, name='leave_request_create'),
+    path('leaves/', views.leave_request_list, name='leave_request_list'),
+    
+    # Leave Requests (Manager/Admin)
+    path('leaves/pending/', views.leave_request_pending_list, name='leave_request_pending_list'),
+    path('leaves/<int:pk>/approve/', views.leave_request_approve, name='leave_request_approve'),
+    
+    # Sales Absence (Manager/Admin)
+    path('users/sales/<int:pk>/absence/', views.sales_absence_set, name='sales_absence_set'),
 ]

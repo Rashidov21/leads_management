@@ -24,8 +24,17 @@ pip install -r requirements.txt
 ```
 
 3. Redis o'rnating va ishga tushiring (Celery uchun):
-   - Windows: https://github.com/microsoftarchive/redis/releases
-   - Linux: `sudo apt-get install redis-server`
+   - **Windows**: `INSTALL_WINDOWS.md` faylida batafsil qo'llanma
+     - Tavsiya: Memurai (https://www.memurai.com/get-memurai)
+     - Yoki WSL orqali: `wsl --install` keyin `sudo apt-get install redis-server`
+   - **Linux**: `sudo apt-get install redis-server && sudo service redis-server start`
+   - **Mac**: `brew install redis && brew services start redis`
+   
+   **Tekshirish:**
+   ```bash
+   redis-cli ping
+   ```
+   Javob: `PONG` bo'lishi kerak
 
 4. .env fayl yarating (.env.example dan nusxa oling):
 ```

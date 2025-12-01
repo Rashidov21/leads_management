@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block title %}Sotuvchini Ishda Emasligini Belgilash{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="mb-6" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-2 text-sm text-gray-500">
+        <li><a href="{% url 'dashboard' %}" class="hover:text-gray-700"><i class="fas fa-home"></i></a></li>
+        <li><span class="mx-2">/</span></li>
+        <li><a href="{% url 'sales_list' %}" class="hover:text-gray-700">Sotuvchilar</a></li>
+        <li><span class="mx-2">/</span></li>
+        <li class="text-gray-900 font-medium">Ishda Emasligi</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="px-4 py-5 sm:p-6">
+    <div class="mb-6">
+        <a href="{% url 'sales_list' %}" class="inline-flex items-center text-indigo-600 hover:text-indigo-800 transition-colors">
+            <i class="fas fa-arrow-left mr-2"></i>Orqaga
+        </a>
+    </div>
+    
+    <div class="bg-white shadow rounded-lg p-6 mb-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Sotuvchi Ma'lumotlari</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <p class="text-sm text-gray-500">Ism</p>
+                <p class="text-sm font-medium text-gray-900">{{ sales.username }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-500">Email</p>
+                <p class="text-sm font-medium text-gray-900">{{ sales.email }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Ishda Emasligini Belgilash</h2>
+        
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+            
+            <div class="flex items-center">
+                {{ form.is_absent }}
+                <label for="{{ form.is_absent.id_for_label }}" class="ml-2 text-sm font-medium text-gray-700">
+                    Sotuvchi ishda emas
+                </label>
+            </div>
+            
+            <div id="absence-details" style="display: none;">
+                <div>
+                    <label for="{{ form.absent_reason.id_for_label }}" class="form-label">
+                        <i class="fas fa-comment-alt mr-2"></i>Sabab
+                    </label>
+                    {{ form.absent_reason }}
+                    {% if form.absent_reason.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ form.absent_reason.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="{{ form.absent_from.id_for_label }}" class="form-label">
+                            <i class="fas fa-calendar-alt mr-2"></i>Boshlanish Vaqti
+                        </label>
+                        {{ form.absent_from }}
+                        {% if form.absent_from.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.absent_from.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <div>
+                        <label for="{{ form.absent_until.id_for_label }}" class="form-label">
+                            <i class="fas fa-calendar-check mr-2"></i>Tugash Vaqti
+                        </label>
+                        {{ form.absent_until }}
+                        {% if form.absent_until.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.absent_until.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-end space-x-4 pt-4">
+                <a href="{% url 'sales_list' %}" class="btn-secondary">Bekor qilish</a>
+                <button type="submit" class="btn-primary">
+                    <i class="fas fa-save mr-2"></i>Saqlash
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const isAbsentCheckbox = document.getElementById('{{ form.is_absent.id_for_label }}');
+    const absenceDetails = document.getElementById('absence-details');
+    
+    isAbsentCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            absenceDetails.style.display = 'block';
+        } else {
+            absenceDetails.style.display = 'none';
+        }
+    });
+    
+    // Initial state
+    if (isAbsentCheckbox.checked) {
+        absenceDetails.style.display = 'block';
+    }
+});
+</script>
+{% endblock %}
+

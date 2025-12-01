@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from .models import Lead, Course, Group, TrialLesson, User, FollowUp, Room
+from .models import Lead, Course, Group, TrialLesson, User, FollowUp, Room, LeaveRequest
 
 
 class LeadForm(forms.ModelForm):
@@ -154,8 +154,8 @@ class UserEditForm(forms.ModelForm):
             'role': forms.Select(attrs={'class': 'form-select'}),
             'phone': forms.TextInput(attrs={'class': 'form-input', 'type': 'tel'}),
             'telegram_chat_id': forms.TextInput(attrs={'class': 'form-input'}),
-            'is_active_sales': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'is_active_sales': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
         }
 
 
@@ -203,4 +203,67 @@ class GroupForm(forms.ModelForm):
             'room': forms.Select(attrs={'class': 'form-select'}),
             'capacity': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'Sig\'im'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+        }
+
+
+# Leave Request Forms
+class LeaveRequestForm(forms.ModelForm):
+    class Meta:
+        model = LeaveRequest
+        fields = ['start_date', 'end_date', 'reason']
+        widgets = {
+            'start_date': forms.DateInput(attrs={
+                'class': 'form-input',
+                'type': 'date',
+                'placeholder': 'Boshlanish sanasi'
+            }),
+            'end_date': forms.DateInput(attrs={
+                'class': 'form-input',
+                'type': 'date',
+                'placeholder': 'Tugash sanasi'
+            }),
+            'reason': forms.Textarea(attrs={
+                'class': 'form-textarea',
+                'rows': 4,
+                'placeholder': 'Ruxsat sababi...'
+            }),
+        }
+
+
+class LeaveRequestApprovalForm(forms.ModelForm):
+    class Meta:
+        model = LeaveRequest
+        fields = ['status', 'rejection_reason']
+        widgets = {
+            'status': forms.Select(attrs={'class': 'form-select'}),
+            'rejection_reason': forms.Textarea(attrs={
+                'class': 'form-textarea',
+                'rows': 3,
+                'placeholder': 'Rad etish sababi (agar rad etilsa)...'
+            }),
+        }
+
+
+class SalesAbsenceForm(forms.ModelForm):
+    """Manager tomonidan sotuvchini ishda emasligini belgilash"""
+    class Meta:
+        model = User
+        fields = ['is_absent', 'absent_reason', 'absent_from', 'absent_until']
+        widgets = {
+            'is_absent': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
+            'absent_reason': forms.Textarea(attrs={
+                'class': 'form-textarea',
+                'rows': 3,
+                'placeholder': 'Ishda emaslik sababi...'
+            }),
+            'absent_from': forms.DateTimeInput(attrs={
+                'class': 'form-input',
+                'type': 'datetime-local',
+                'placeholder': 'Boshlanish vaqti'
+            }),
+            'absent_until': forms.DateTimeInput(attrs={
+                'class': 'form-input',
+                'type': 'datetime-local',
+                'placeholder': 'Tugash vaqti'
+            }),
         }

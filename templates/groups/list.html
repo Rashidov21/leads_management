@@ -14,9 +14,14 @@
 
 {% block content %}
 <div class="px-4 py-5 sm:p-6">
-    <div class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-900">Guruhlar</h1>
-        <p class="mt-1 text-sm text-gray-500">Barcha mavjud guruhlar va ularning bandligi</p>
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Guruhlar</h1>
+            <p class="mt-1 text-sm text-gray-500">Barcha mavjud guruhlar va ularning bandligi</p>
+        </div>
+        <a href="{% url 'group_create' %}" class="btn-primary">
+            <i class="fas fa-plus mr-2"></i>Yangi Guruh
+        </a>
     </div>
     
     <div class="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
@@ -86,6 +91,14 @@
                             <i class="fas fa-check-circle mr-1"></i>Bo'sh
                         </span>
                         {% endif %}
+                        <div class="mt-3 flex justify-end space-x-2">
+                            <a href="{% url 'group_edit' group.pk %}" class="btn-secondary text-sm">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <a href="{% url 'group_delete' group.pk %}" class="btn-danger text-sm" onclick="return confirm('Bu guruhni o\'chirishni xohlaysizmi?')">
+                                <i class="fas fa-trash"></i>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </li>

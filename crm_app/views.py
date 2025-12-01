@@ -7,12 +7,13 @@ from django.utils import timezone
 from datetime import date, timedelta
 from .models import (
     Lead, Course, Group, Room, FollowUp, TrialLesson, 
-    KPI, User, Reactivation
+    KPI, User, Reactivation, LeaveRequest
 )
 from .forms import (
     LeadForm, LeadStatusForm, TrialLessonForm, TrialResultForm,
     FollowUpForm, ExcelImportForm, UserCreateForm, UserEditForm,
-    CourseForm, RoomForm, GroupForm
+    CourseForm, RoomForm, GroupForm, LeaveRequestForm,
+    LeaveRequestApprovalForm, SalesAbsenceForm
 )
 from .decorators import role_required, admin_required, manager_or_admin_required
 from .services import (
@@ -458,7 +459,7 @@ def room_edit(request, pk):
     else:
         form = RoomForm(instance=room)
     
-    return render(request, 'rooms/edit.html', {'form': room, 'room': room})
+    return render(request, 'rooms/edit.html', {'form': form, 'room': room})
 
 
 @login_required
@@ -688,3 +689,85 @@ def analytics(request):
     }
     
     return render(request, 'analytics/index.html', context)
+
+
+# ============ LEAVE REQUESTS ============
+
+@login_required
+@role_required('sales')
+def leave_request_create(request):
+    """Sotuvchi tomonidan ruxsat so'rash"""
+    if request.method == 'POST':
+        form = LeaveRequestForm(request.POST)
+        if form.is_valid():
+            leave_request = form.save(commit=False)
+            leave_request.sales = request.user
+            leave_request.save()
+            messages.success(request, 'Ruxsat so\'rovi yuborildi. Manager tasdiqlashini kutib turing.')
+            return redirect('leave_request_list')
+    else:
+        form = LeaveRequestForm()
+    
+    return render(request, 'leaves/create.html', {'form': form})
+
+
+@login_required
+@role_required('sales')
+def leave_request_list(request):
+    """Sotuvchi tomonidan o'z ruxsat so'rovlari ro'yxati"""
+    leave_requests = LeaveRequest.objects.filter(sales=request.user).order_by('-created_at')
+    return render(request, 'leaves/list.html', {'leave_requests': leave_requests})
+
+
+@login_required
+@manager_or_admin_required
+def leave_request_pending_list(request):
+    """Manager/Admin uchun kutilayotgan ruxsat so'rovlari"""
+    pending_requests = LeaveRequest.objects.filter(status='pending').order_by('-created_at')
+    return render(request, 'leaves/pending_list.html', {'pending_requests': pending_requests})
+
+
+@login_required
+@manager_or_admin_required
+def leave_request_approve(request, pk):
+    """Ruxsat so'rovini tasdiqlash yoki rad etish"""
+    leave_request = get_object_or_404(LeaveRequest, pk=pk)
+    
+    if request.method == 'POST':
+        form = LeaveRequestApprovalForm(request.POST, instance=leave_request)
+        if form.is_valid():
+            status = form.cleaned_data['status']
+            if status == 'approved':
+                leave_request.approve(request.user)
+                messages.success(request, f'{leave_request.sales.username} uchun ruxsat tasdiqlandi')
+            elif status == 'rejected':
+                leave_request.reject(request.user, form.cleaned_data.get('rejection_reason', ''))
+                messages.success(request, f'{leave_request.sales.username} uchun ruxsat rad etildi')
+            return redirect('leave_request_pending_list')
+    else:
+        form = LeaveRequestApprovalForm(instance=leave_request)
+    
+    return render(request, 'leaves/approve.html', {'form': form, 'leave_request': leave_request})
+
+
+# ============ SALES ABSENCE ============
+
+@login_required
+@manager_or_admin_required
+def sales_absence_set(request, pk):
+    """Manager tomonidan sotuvchini ishda emasligini belgilash"""
+    sales = get_object_or_404(User, pk=pk, role='sales')
+    
+    if request.method == 'POST':
+        form = SalesAbsenceForm(request.POST, instance=sales)
+        if form.is_valid():
+            form.save()
+            if sales.is_absent:
+                messages.success(request, f'{sales.username} ishda emasligi belgilandi')
+            else:
+                messages.success(request, f'{sales.username} ishda emasligi bekor qilindi')
+            return redirect('sales_list')
+    else:
+        form = SalesAbsenceForm(instance=sales)
+    
+    return render(request, 'users/sales_absence.html', {'form': form, 'sales': sales})
