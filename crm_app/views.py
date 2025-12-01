@@ -11,14 +11,23 @@ from .models import (
 )
 from .forms import (
     LeadForm, LeadStatusForm, TrialLessonForm, TrialResultForm,
-    FollowUpForm, ExcelImportForm
+    FollowUpForm, ExcelImportForm, UserCreateForm, UserEditForm,
+    CourseForm, RoomForm, GroupForm
 )
 from .decorators import role_required, admin_required, manager_or_admin_required
 from .services import (
     LeadDistributionService, FollowUpService, GroupService,
     KPIService, ReactivationService
 )
-import pandas as pd
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        load_workbook = None
 
 
 def login_view(request):
@@ -66,6 +75,8 @@ def dashboard(request):
     
     return render(request, 'dashboard.html', context)
 
+
+# ============ LEAD MANAGEMENT ============
 
 @login_required
 @role_required('admin', 'sales_manager', 'sales')
@@ -166,6 +177,93 @@ def lead_assign(request, pk):
 
 
 @login_required
+@role_required('admin', 'sales_manager')
+def excel_import(request):
+    if request.method == 'POST':
+        form = ExcelImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                leads = []
+                
+                if PANDAS_AVAILABLE:
+                    # Pandas bilan
+                    df = pd.read_excel(request.FILES['file'])
+                    for _, row in df.iterrows():
+                        # Duplicate tekshirish
+                        phone = str(row.get('phone', '')).strip()
+                        if not phone or Lead.objects.filter(phone=phone).exists():
+                            continue
+                        
+                        lead = Lead(
+                            name=str(row.get('name', '')).strip(),
+                            phone=phone,
+                            source='excel',
+                        )
+                        leads.append(lead)
+                elif load_workbook:
+                    # Openpyxl bilan (pandassiz)
+                    wb = load_workbook(request.FILES['file'])
+                    ws = wb.active
+                    
+                    # Birinchi qatorni header sifatida o'qish
+                    headers = [cell.value for cell in ws[1]]
+                    name_col = None
+                    phone_col = None
+                    
+                    for idx, header in enumerate(headers, 1):
+                        if header and 'name' in str(header).lower():
+                            name_col = idx
+                        if header and 'phone' in str(header).lower():
+                            phone_col = idx
+                    
+                    if not name_col or not phone_col:
+                        messages.error(request, 'Excel faylda "name" va "phone" ustunlari topilmadi')
+                        return render(request, 'leads/import.html', {'form': form})
+                    
+                    # Ma'lumotlarni o'qish
+                    for row in ws.iter_rows(min_row=2, values_only=False):
+                        phone = str(row[phone_col - 1].value or '').strip()
+                        name = str(row[name_col - 1].value or '').strip()
+                        
+                        if not phone or not name:
+                            continue
+                        
+                        # Duplicate tekshirish
+                        if Lead.objects.filter(phone=phone).exists():
+                            continue
+                        
+                        lead = Lead(
+                            name=name,
+                            phone=phone,
+                            source='excel',
+                        )
+                        leads.append(lead)
+                else:
+                    messages.error(request, 'Excel fayllarni o\'qish uchun pandas yoki openpyxl kerak')
+                    return render(request, 'leads/import.html', {'form': form})
+                
+                # Taqsimlash
+                if leads:
+                    LeadDistributionService.distribute_leads(leads)
+                    for lead in leads:
+                        lead.save()
+                    
+                    messages.success(request, f'{len(leads)} ta lid import qilindi')
+                else:
+                    messages.warning(request, 'Yangi lid topilmadi')
+                
+                return redirect('leads_list')
+            except Exception as e:
+                messages.error(request, f'Xatolik: {str(e)}')
+    else:
+        form = ExcelImportForm()
+    
+    return render(request, 'leads/import.html', {'form': form})
+
+
+# ============ FOLLOW-UP MANAGEMENT ============
+
+@login_required
 @role_required('admin', 'sales_manager', 'sales')
 def followups_today(request):
     followups = FollowUpService.get_today_followups(
@@ -184,6 +282,8 @@ def followups_today(request):
     
     return render(request, 'followups/today.html', {'followups': followups})
 
+
+# ============ TRIAL MANAGEMENT ============
 
 @login_required
 @role_required('admin', 'sales_manager', 'sales')
@@ -266,19 +366,294 @@ def trial_result(request, trial_pk):
     })
 
 
+# ============ COURSE MANAGEMENT (Admin only) ============
+
 @login_required
 @admin_required
 def courses_list(request):
-    courses = Course.objects.all()
+    courses = Course.objects.all().order_by('-created_at')
     return render(request, 'courses/list.html', {'courses': courses})
 
 
 @login_required
 @admin_required
+def course_create(request):
+    if request.method == 'POST':
+        form = CourseForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Kurs qo\'shildi')
+            return redirect('courses_list')
+    else:
+        form = CourseForm()
+    
+    return render(request, 'courses/create.html', {'form': form})
+
+
+@login_required
+@admin_required
+def course_edit(request, pk):
+    course = get_object_or_404(Course, pk=pk)
+    
+    if request.method == 'POST':
+        form = CourseForm(request.POST, instance=course)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Kurs yangilandi')
+            return redirect('courses_list')
+    else:
+        form = CourseForm(instance=course)
+    
+    return render(request, 'courses/edit.html', {'form': form, 'course': course})
+
+
+@login_required
+@admin_required
+def course_delete(request, pk):
+    course = get_object_or_404(Course, pk=pk)
+    
+    if request.method == 'POST':
+        course.delete()
+        messages.success(request, 'Kurs o\'chirildi')
+        return redirect('courses_list')
+    
+    return render(request, 'courses/delete.html', {'course': course})
+
+
+# ============ ROOM MANAGEMENT (Admin only) ============
+
+@login_required
+@admin_required
+def rooms_list(request):
+    rooms = Room.objects.all().order_by('name')
+    return render(request, 'rooms/list.html', {'rooms': rooms})
+
+
+@login_required
+@admin_required
+def room_create(request):
+    if request.method == 'POST':
+        form = RoomForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Xona qo\'shildi')
+            return redirect('rooms_list')
+    else:
+        form = RoomForm()
+    
+    return render(request, 'rooms/create.html', {'form': form})
+
+
+@login_required
+@admin_required
+def room_edit(request, pk):
+    room = get_object_or_404(Room, pk=pk)
+    
+    if request.method == 'POST':
+        form = RoomForm(request.POST, instance=room)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Xona yangilandi')
+            return redirect('rooms_list')
+    else:
+        form = RoomForm(instance=room)
+    
+    return render(request, 'rooms/edit.html', {'form': room, 'room': room})
+
+
+@login_required
+@admin_required
+def room_delete(request, pk):
+    room = get_object_or_404(Room, pk=pk)
+    
+    if request.method == 'POST':
+        room.delete()
+        messages.success(request, 'Xona o\'chirildi')
+        return redirect('rooms_list')
+    
+    return render(request, 'rooms/delete.html', {'room': room})
+
+
+# ============ GROUP MANAGEMENT (Admin only) ============
+
+@login_required
+@admin_required
 def groups_list(request):
-    groups = Group.objects.all().select_related('course', 'room')
+    groups = Group.objects.all().select_related('course', 'room').order_by('-created_at')
     return render(request, 'groups/list.html', {'groups': groups})
 
+
+@login_required
+@admin_required
+def group_create(request):
+    if request.method == 'POST':
+        form = GroupForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Guruh qo\'shildi')
+            return redirect('groups_list')
+    else:
+        form = GroupForm()
+    
+    return render(request, 'groups/create.html', {'form': form})
+
+
+@login_required
+@admin_required
+def group_edit(request, pk):
+    group = get_object_or_404(Group, pk=pk)
+    
+    if request.method == 'POST':
+        form = GroupForm(request.POST, instance=group)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Guruh yangilandi')
+            return redirect('groups_list')
+    else:
+        form = GroupForm(instance=group)
+    
+    return render(request, 'groups/edit.html', {'form': form, 'group': group})
+
+
+@login_required
+@admin_required
+def group_delete(request, pk):
+    group = get_object_or_404(Group, pk=pk)
+    
+    if request.method == 'POST':
+        group.delete()
+        messages.success(request, 'Guruh o\'chirildi')
+        return redirect('groups_list')
+    
+    return render(request, 'groups/delete.html', {'group': group})
+
+
+# ============ USER MANAGEMENT ============
+
+# Sales Manager va Admin uchun
+@login_required
+@manager_or_admin_required
+def sales_list(request):
+    sales_users = User.objects.filter(role='sales').order_by('-created_at')
+    return render(request, 'users/sales_list.html', {'sales_users': sales_users})
+
+
+# Admin uchun Sales Managerlar ro'yxati
+@login_required
+@admin_required
+def managers_list(request):
+    managers = User.objects.filter(role='sales_manager').order_by('-created_at')
+    return render(request, 'users/managers_list.html', {'managers': managers})
+
+
+# Sales Manager yoki Admin uchun - Sotuvchi qo'shish
+@login_required
+@manager_or_admin_required
+def sales_create(request):
+    if request.method == 'POST':
+        form = UserCreateForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.role = 'sales'  # Faqat sales rolini qo'shish mumkin
+            user.save()
+            messages.success(request, f'Sotuvchi {user.username} qo\'shildi')
+            return redirect('sales_list')
+    else:
+        form = UserCreateForm(initial={'role': 'sales'})
+        form.fields['role'].widget.attrs['disabled'] = True  # Role o'zgartirib bo'lmaydi
+    
+    return render(request, 'users/sales_create.html', {'form': form})
+
+
+# Admin uchun - Sales Manager qo'shish
+@login_required
+@admin_required
+def manager_create(request):
+    if request.method == 'POST':
+        form = UserCreateForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.role = 'sales_manager'  # Faqat sales_manager rolini qo'shish mumkin
+            user.save()
+            messages.success(request, f'Sales Manager {user.username} qo\'shildi')
+            return redirect('managers_list')
+    else:
+        form = UserCreateForm(initial={'role': 'sales_manager'})
+        form.fields['role'].widget.attrs['disabled'] = True
+    
+    return render(request, 'users/manager_create.html', {'form': form})
+
+
+# Sales Manager yoki Admin uchun - Sotuvchi tahrirlash
+@login_required
+@manager_or_admin_required
+def sales_edit(request, pk):
+    sales = get_object_or_404(User, pk=pk, role='sales')
+    
+    if request.method == 'POST':
+        form = UserEditForm(request.POST, instance=sales)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Sotuvchi yangilandi')
+            return redirect('sales_list')
+    else:
+        form = UserEditForm(instance=sales)
+        # Sales Manager faqat o'z rolini o'zgartira olmaydi
+        if request.user.is_sales_manager:
+            form.fields['role'].widget.attrs['disabled'] = True
+    
+    return render(request, 'users/sales_edit.html', {'form': form, 'sales': sales})
+
+
+# Admin uchun - Sales Manager tahrirlash
+@login_required
+@admin_required
+def manager_edit(request, pk):
+    manager = get_object_or_404(User, pk=pk, role='sales_manager')
+    
+    if request.method == 'POST':
+        form = UserEditForm(request.POST, instance=manager)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Sales Manager yangilandi')
+            return redirect('managers_list')
+    else:
+        form = UserEditForm(instance=manager)
+    
+    return render(request, 'users/manager_edit.html', {'form': form, 'manager': manager})
+
+
+# Sales Manager yoki Admin uchun - Sotuvchi o'chirish
+@login_required
+@manager_or_admin_required
+def sales_delete(request, pk):
+    sales = get_object_or_404(User, pk=pk, role='sales')
+    
+    if request.method == 'POST':
+        username = sales.username
+        sales.delete()
+        messages.success(request, f'Sotuvchi {username} o\'chirildi')
+        return redirect('sales_list')
+    
+    return render(request, 'users/sales_delete.html', {'sales': sales})
+
+
+# Admin uchun - Sales Manager o'chirish
+@login_required
+@admin_required
+def manager_delete(request, pk):
+    manager = get_object_or_404(User, pk=pk, role='sales_manager')
+    
+    if request.method == 'POST':
+        username = manager.username
+        manager.delete()
+        messages.success(request, f'Sales Manager {username} o\'chirildi')
+        return redirect('managers_list')
+    
+    return render(request, 'users/manager_delete.html', {'manager': manager})
+
+
+# ============ ANALYTICS ============
 
 @login_required
 @manager_or_admin_required
@@ -313,45 +688,3 @@ def analytics(request):
     }
     
     return render(request, 'analytics/index.html', context)
-
-
-@login_required
-@role_required('admin', 'sales_manager')
-def excel_import(request):
-    if request.method == 'POST':
-        form = ExcelImportForm(request.POST, request.FILES)
-        if form.is_valid():
-            try:
-                df = pd.read_excel(request.FILES['file'])
-                leads = []
-                
-                for _, row in df.iterrows():
-                    # Duplicate tekshirish
-                    if Lead.objects.filter(phone=str(row.get('phone', ''))).exists():
-                        continue
-                    
-                    lead = Lead(
-                        name=str(row.get('name', '')),
-                        phone=str(row.get('phone', '')),
-                        source='excel',
-                    )
-                    leads.append(lead)
-                
-                # Taqsimlash
-                if leads:
-                    LeadDistributionService.distribute_leads(leads)
-                    for lead in leads:
-                        lead.save()
-                    
-                    messages.success(request, f'{len(leads)} ta lid import qilindi')
-                else:
-                    messages.warning(request, 'Yangi lid topilmadi')
-                
-                return redirect('leads_list')
-            except Exception as e:
-                messages.error(request, f'Xatolik: {str(e)}')
-    else:
-        form = ExcelImportForm()
-    
-    return render(request, 'leads/import.html', {'form': form})
-

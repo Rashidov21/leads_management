@@ -16,7 +16,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-this-in-production')
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-ut!+lil*5%w05zy8g^ep*o1dt2rf-!5$5^26#t#c^d)=ay(*0r')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -116,8 +116,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = 'static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = BASE_DIR / 'static'
+STATICFILES_DIRS = [BASE_DIR / 'staticfiles']
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -137,6 +137,28 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+# Celery Beat Schedule
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'check-overdue-followups': {
+        'task': 'crm_app.tasks.check_overdue_followups_task',
+        'schedule': crontab(minute='*/15'),  # Har 15 daqiqada
+    },
+    'send-trial-reminders': {
+        'task': 'crm_app.tasks.send_trial_reminder_task',
+        'schedule': crontab(minute='*/30'),  # Har 30 daqiqada
+    },
+    'calculate-daily-kpi': {
+        'task': 'crm_app.tasks.calculate_daily_kpi_task',
+        'schedule': crontab(hour=23, minute=59),  # Har kuni kechasi
+    },
+    'check-reactivation': {
+        'task': 'crm_app.tasks.reactivation_task',
+        'schedule': crontab(hour=9, minute=0),  # Har kuni ertalab
+    },
+}
 
 # Telegram Bot
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')

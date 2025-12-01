@@ -3,7 +3,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 from datetime import timedelta
 from .models import Lead, FollowUp, TrialLesson, KPI
-from .tasks import create_followup_task, send_trial_reminder_task, check_overdue_followups_task
+from .tasks import send_new_lead_notification
 
 
 @receiver(post_save, sender=Lead)
@@ -11,15 +11,21 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
     """Avtomatik follow-up yaratish status o'zgarishi bilan"""
     if created:
         # Yangi lid - 5 daqiqada qo'ng'iroq
-        due_date = timezone.now() + timedelta(minutes=5)
-        FollowUp.objects.create(
-            lead=instance,
-            sales=instance.assigned_sales,
-            due_date=due_date,
-            notes="Yangi lid - darhol aloqa qilish kerak"
-        )
+        if instance.assigned_sales:
+            due_date = timezone.now() + timedelta(minutes=5)
+            FollowUp.objects.create(
+                lead=instance,
+                sales=instance.assigned_sales,
+                due_date=due_date,
+                notes="Yangi lid - darhol aloqa qilish kerak"
+            )
+            # Telegram xabar
+            send_new_lead_notification.delay(instance.id)
     else:
         # Status o'zgarishi
+        if not instance.assigned_sales:
+            return
+            
         status_followup_map = {
             'contacted': timedelta(hours=24),
             'interested': timedelta(hours=48),

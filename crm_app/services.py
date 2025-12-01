@@ -92,7 +92,7 @@ class GroupService:
         return queryset.filter(current_students__lt=models.F('capacity'))
     
     @staticmethod
-    def get_room_occupancy(room, date, time_slot):
+    def get_room_occupancy(room, date_obj, time_slot):
         """Xona bandligini olish"""
         # Bu yerda dars jadvali asosida hisoblash kerak
         # Soddalashtirilgan versiya

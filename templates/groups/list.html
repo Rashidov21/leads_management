@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block title %}Guruhlar{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="mb-6" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-2 text-sm text-gray-500">
+        <li><a href="{% url 'dashboard' %}" class="hover:text-gray-700"><i class="fas fa-home"></i></a></li>
+        <li><span class="mx-2">/</span></li>
+        <li class="text-gray-900 font-medium">Guruhlar</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="px-4 py-5 sm:p-6">
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">Guruhlar</h1>
+        <p class="mt-1 text-sm text-gray-500">Barcha mavjud guruhlar va ularning bandligi</p>
+    </div>
+    
+    <div class="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
+        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-layer-group text-indigo-600 mr-2"></i>Guruhlar Ro'yxati
+                </h3>
+                <span class="text-sm text-gray-500">{{ groups|length }} ta guruh</span>
+            </div>
+        </div>
+        <ul class="divide-y divide-gray-200">
+            {% for group in groups %}
+            <li class="p-6 hover:bg-indigo-50 transition-colors">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-3 mb-3">
+                            <div class="h-12 w-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-md">
+                                <i class="fas fa-layer-group text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">{{ group.name }}</h3>
+                                <div class="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-600">
+                                    <span class="flex items-center">
+                                        <i class="fas fa-book mr-1.5"></i>
+                                        {{ group.course.name }}
+                                    </span>
+                                    <span class="flex items-center">
+                                        <i class="fas fa-calendar-alt mr-1.5"></i>
+                                        {{ group.get_days_display }}
+                                    </span>
+                                    <span class="flex items-center">
+                                        <i class="fas fa-clock mr-1.5"></i>
+                                        {{ group.time|time:"H:i" }}
+                                    </span>
+                                    {% if group.room %}
+                                    <span class="flex items-center">
+                                        <i class="fas fa-door-open mr-1.5"></i>
+                                        {{ group.room.name }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ml-6 text-right">
+                        <div class="mb-2">
+                            <p class="text-sm font-semibold text-gray-900">
+                                {{ group.current_students }} / {{ group.capacity }}
+                            </p>
+                            <p class="text-xs text-gray-500 mt-1">O'quvchilar</p>
+                        </div>
+                        <div class="w-32 bg-gray-200 rounded-full h-3 mb-2">
+                            <div class="bg-{% if group.occupancy_percentage >= 100 %}red{% elif group.occupancy_percentage >= 50 %}yellow{% else %}green{% endif %}-500 h-3 rounded-full transition-all duration-300" 
+                                 style="width: {{ group.occupancy_percentage }}%"></div>
+                        </div>
+                        {% if group.is_full %}
+                        <span class="status-badge bg-red-100 text-red-800 text-sm px-3 py-1">
+                            <i class="fas fa-exclamation-circle mr-1"></i>To'ldi
+                        </span>
+                        {% elif group.occupancy_percentage >= 50 %}
+                        <span class="status-badge bg-yellow-100 text-yellow-800 text-sm px-3 py-1">
+                            <i class="fas fa-hourglass-half mr-1"></i>50%+
+                        </span>
+                        {% else %}
+                        <span class="status-badge bg-green-100 text-green-800 text-sm px-3 py-1">
+                            <i class="fas fa-check-circle mr-1"></i>Bo'sh
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </li>
+            {% empty %}
+            <li>
+                <div class="px-6 py-16 text-center">
+                    <div class="max-w-md mx-auto">
+                        <div class="h-20 w-20 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                            <i class="fas fa-layer-group text-gray-400 text-3xl"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Guruhlar topilmadi</h3>
+                        <p class="text-sm text-gray-500">Hozircha guruhlar yo'q</p>
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}

@@ -1,5 +1,6 @@
 from django import forms
-from .models import Lead, Course, Group, TrialLesson, User, FollowUp
+from django.contrib.auth.forms import UserCreationForm
+from .models import Lead, Course, Group, TrialLesson, User, FollowUp, Room
 
 
 class LeadForm(forms.ModelForm):
@@ -7,11 +8,22 @@ class LeadForm(forms.ModelForm):
         model = Lead
         fields = ['name', 'phone', 'interested_course', 'source', 'notes']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-input'}),
-            'phone': forms.TextInput(attrs={'class': 'form-input'}),
+            'name': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Ismni kiriting'
+            }),
+            'phone': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': '+998901234567',
+                'type': 'tel'
+            }),
             'interested_course': forms.Select(attrs={'class': 'form-select'}),
             'source': forms.Select(attrs={'class': 'form-select'}),
-            'notes': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 3}),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-textarea',
+                'rows': 4,
+                'placeholder': 'Qo\'shimcha eslatmalar...'
+            }),
         }
 
 
@@ -21,7 +33,11 @@ class LeadStatusForm(forms.ModelForm):
         fields = ['status', 'notes']
         widgets = {
             'status': forms.Select(attrs={'class': 'form-select'}),
-            'notes': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 3}),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-textarea',
+                'rows': 4,
+                'placeholder': 'Status o\'zgarishi haqida eslatma...'
+            }),
         }
 
 
@@ -31,8 +47,14 @@ class TrialLessonForm(forms.ModelForm):
         fields = ['group', 'date', 'time', 'room']
         widgets = {
             'group': forms.Select(attrs={'class': 'form-select'}),
-            'date': forms.DateInput(attrs={'class': 'form-input', 'type': 'date'}),
-            'time': forms.TimeInput(attrs={'class': 'form-input', 'type': 'time'}),
+            'date': forms.DateInput(attrs={
+                'class': 'form-input',
+                'type': 'date'
+            }),
+            'time': forms.TimeInput(attrs={
+                'class': 'form-input',
+                'type': 'time'
+            }),
             'room': forms.Select(attrs={'class': 'form-select'}),
         }
 
@@ -43,7 +65,11 @@ class TrialResultForm(forms.ModelForm):
         fields = ['result', 'notes']
         widgets = {
             'result': forms.Select(attrs={'class': 'form-select'}),
-            'notes': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 3}),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-textarea',
+                'rows': 4,
+                'placeholder': 'Sinov natijasi haqida eslatma...'
+            }),
         }
 
 
@@ -52,11 +78,129 @@ class FollowUpForm(forms.ModelForm):
         model = FollowUp
         fields = ['due_date', 'notes']
         widgets = {
-            'due_date': forms.DateTimeInput(attrs={'class': 'form-input', 'type': 'datetime-local'}),
-            'notes': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 3}),
+            'due_date': forms.DateTimeInput(attrs={
+                'class': 'form-input',
+                'type': 'datetime-local'
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-textarea',
+                'rows': 4,
+                'placeholder': 'Follow-up haqida eslatma...'
+            }),
         }
 
 
 class ExcelImportForm(forms.Form):
-    file = forms.FileField(label='Excel fayl', widget=forms.FileInput(attrs={'class': 'form-input', 'type': 'file', 'accept': '.xlsx,.xls'}))
+    file = forms.FileField(
+        label='Excel fayl',
+        widget=forms.FileInput(attrs={
+            'class': 'form-file',
+            'type': 'file',
+            'accept': '.xlsx,.xls'
+        })
+    )
 
+
+# User Management Forms
+class UserCreateForm(UserCreationForm):
+    role = forms.ChoiceField(
+        choices=User.ROLE_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        required=True
+    )
+    phone = forms.CharField(
+        max_length=20,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-input',
+            'placeholder': '+998901234567',
+            'type': 'tel'
+        })
+    )
+    telegram_chat_id = forms.CharField(
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-input',
+            'placeholder': 'Telegram chat ID'
+        })
+    )
+    is_active_sales = forms.BooleanField(
+        required=False,
+        initial=True,
+        widget=forms.CheckboxInput(attrs={'class': 'form-checkbox'})
+    )
+    
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name', 'role', 'phone', 'telegram_chat_id', 'is_active_sales', 'password1', 'password2']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-input'}),
+            'email': forms.EmailInput(attrs={'class': 'form-input', 'type': 'email'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-input'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-input'}),
+        }
+
+
+class UserEditForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name', 'role', 'phone', 'telegram_chat_id', 'is_active_sales', 'is_active']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-input'}),
+            'email': forms.EmailInput(attrs={'class': 'form-input', 'type': 'email'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-input'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-input'}),
+            'role': forms.Select(attrs={'class': 'form-select'}),
+            'phone': forms.TextInput(attrs={'class': 'form-input', 'type': 'tel'}),
+            'telegram_chat_id': forms.TextInput(attrs={'class': 'form-input'}),
+            'is_active_sales': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+        }
+
+
+# Course Management Forms
+class CourseForm(forms.ModelForm):
+    class Meta:
+        model = Course
+        fields = ['name', 'price', 'sales_script', 'duration_minutes', 'lessons_per_week', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Kurs nomi'}),
+            'price': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'Narx (so\'m)'}),
+            'sales_script': forms.Textarea(attrs={
+                'class': 'form-textarea',
+                'rows': 6,
+                'placeholder': 'Sotuv scripti va bonus eslatmalar...'
+            }),
+            'duration_minutes': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'Dars davomiyligi (daqiqa)'}),
+            'lessons_per_week': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'Haftasiga darslar soni'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+        }
+
+
+# Room Management Forms
+class RoomForm(forms.ModelForm):
+    class Meta:
+        model = Room
+        fields = ['name', 'capacity', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Xona nomi'}),
+            'capacity': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'Sig\'im'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+        }
+
+
+# Group Management Forms
+class GroupForm(forms.ModelForm):
+    class Meta:
+        model = Group
+        fields = ['course', 'name', 'days', 'time', 'room', 'capacity', 'is_active']
+        widgets = {
+            'course': forms.Select(attrs={'class': 'form-select'}),
+            'name': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Guruh nomi'}),
+            'days': forms.Select(attrs={'class': 'form-select'}),
+            'time': forms.TimeInput(attrs={'class': 'form-input', 'type': 'time'}),
+            'room': forms.Select(attrs={'class': 'form-select'}),
+            'capacity': forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'Sig\'im'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+        }

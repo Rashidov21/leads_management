@@ -40,9 +40,13 @@ def check_overdue_followups_task():
             )
         
         # Manager/Admin ga xabar
-        if followup.sales.overdue_count >= 5:
+        overdue_count = FollowUpService.get_overdue_followups(followup.sales).count()
+        if overdue_count >= 5:
             # Manager ga xabar yuborish
-            pass
+            send_telegram_notification(
+                settings.TELEGRAM_ADMIN_CHAT_ID,
+                f"⚠️ Sotuvchi {followup.sales.username} da 5+ overdue follow-up bor!"
+            )
 
 
 @shared_task
@@ -81,7 +85,10 @@ def calculate_daily_kpi_task():
     sales_users = User.objects.filter(role='sales', is_active_sales=True)
     
     for sales in sales_users:
-        KPIService.calculate_daily_kpi(sales, today)
+        try:
+            KPIService.calculate_daily_kpi(sales, today)
+        except Exception as e:
+            print(f"KPI hisoblashda xatolik ({sales.username}): {e}")
 
 
 @shared_task
