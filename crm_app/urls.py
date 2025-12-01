@@ -63,4 +63,12 @@ urlpatterns = [
     
     # Sales Absence (Manager/Admin)
     path('users/sales/<int:pk>/absence/', views.sales_absence_set, name='sales_absence_set'),
+    
+    # Sales Messages (Manager/Admin)
+    path('messages/create/', views.sales_message_create, name='sales_message_create'),
+    path('messages/', views.sales_message_list, name='sales_message_list'),
+    
+    # Sales Messages (Sales)
+    path('messages/inbox/', views.sales_message_inbox, name='sales_message_inbox'),
+    path('messages/<int:pk>/', views.sales_message_detail, name='sales_message_detail'),
 ]

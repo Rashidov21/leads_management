@@ -7,13 +7,13 @@ from django.utils import timezone
 from datetime import date, timedelta
 from .models import (
     Lead, Course, Group, Room, FollowUp, TrialLesson, 
-    KPI, User, Reactivation, LeaveRequest
+    KPI, User, Reactivation, LeaveRequest, SalesMessage
 )
 from .forms import (
     LeadForm, LeadStatusForm, TrialLessonForm, TrialResultForm,
     FollowUpForm, ExcelImportForm, UserCreateForm, UserEditForm,
     CourseForm, RoomForm, GroupForm, LeaveRequestForm,
-    LeaveRequestApprovalForm, SalesAbsenceForm
+    LeaveRequestApprovalForm, SalesAbsenceForm, SalesMessageForm
 )
 from .decorators import role_required, admin_required, manager_or_admin_required
 from .services import (
@@ -681,17 +681,16 @@ def analytics(request):
         'by_source': dict(Lead.objects.values('source').annotate(count=Count('id')).values_list('source', 'count')),
     }
     
-    # Sotuvchi statistikasi
-    if request.user.is_admin:
-        sales_stats = []
-        for sales in User.objects.filter(role='sales', is_active_sales=True):
-            kpi = KPIService.calculate_daily_kpi(sales, timezone.now().date())
-            sales_stats.append({
-                'sales': sales,
-                'kpi': kpi,
-                'overdue': FollowUpService.get_overdue_followups(sales).count(),
-            })
-        context['sales_stats'] = sales_stats
+    # Sotuvchi statistikasi (Admin va Manager uchun)
+    sales_stats = []
+    for sales in User.objects.filter(role='sales', is_active_sales=True):
+        kpi = KPIService.calculate_daily_kpi(sales, timezone.now().date())
+        sales_stats.append({
+            'sales': sales,
+            'kpi': kpi,
+            'overdue': FollowUpService.get_overdue_followups(sales).count(),
+        })
+    context['sales_stats'] = sales_stats
     
     # Guruh statistikasi
     context['groups_stats'] = {
@@ -799,7 +798,16 @@ def leave_request_create(request):
 def leave_request_list(request):
     """Sotuvchi tomonidan o'z ruxsat so'rovlari ro'yxati"""
     leave_requests = LeaveRequest.objects.filter(sales=request.user).order_by('-created_at')
-    return render(request, 'leaves/list.html', {'leave_requests': leave_requests})
+    
+    # Kelgan xabarlar
+    received_messages = SalesMessage.objects.filter(recipients=request.user).order_by('-created_at')[:3]
+    unread_messages_count = SalesMessage.objects.filter(recipients=request.user, is_read=False).count()
+    
+    return render(request, 'leaves/list.html', {
+        'leave_requests': leave_requests,
+        'received_messages': received_messages,
+        'unread_messages_count': unread_messages_count
+    })
 
 
 @login_required
@@ -854,3 +862,99 @@ def sales_absence_set(request, pk):
         form = SalesAbsenceForm(instance=sales)
     
     return render(request, 'users/sales_absence.html', {'form': form, 'sales': sales})
+
+
+# ============ SALES MESSAGES ============
+
+@login_required
+@manager_or_admin_required
+def sales_message_create(request):
+    """Sotuvchilarga xabar yuborish"""
+    if request.method == 'POST':
+        form = SalesMessageForm(request.POST)
+        if form.is_valid():
+            message = form.save(commit=False)
+            message.sender = request.user
+            message.save()
+            form.save_m2m()  # ManyToMany field'larni saqlash
+            
+            # Telegram orqali xabar yuborish
+            from .telegram_bot import send_telegram_notification
+            from .tasks import send_sales_message_task
+            
+            recipients = form.cleaned_data['recipients']
+            telegram_sent_count = 0
+            
+            for recipient in recipients:
+                # Telegram orqali yuborish
+                if recipient.telegram_chat_id:
+                    priority_emoji = {
+                        'urgent': '🚨',
+                        'high': '⚠️',
+                        'normal': '📢',
+                        'low': 'ℹ️',
+                    }.get(message.priority, '📢')
+                    
+                    telegram_message = (
+                        f"{priority_emoji} *{message.subject}*\n\n"
+                        f"{message.message}\n\n"
+                        f"Yuboruvchi: {message.sender.username}"
+                    )
+                    
+                    if send_telegram_notification(recipient.telegram_chat_id, telegram_message):
+                        telegram_sent_count += 1
+            
+            message.telegram_sent = telegram_sent_count > 0
+            message.save()
+            
+            messages.success(
+                request, 
+                f'Xabar {recipients.count()} ta sotuvchiga yuborildi. '
+                f'Telegram orqali: {telegram_sent_count} ta'
+            )
+            return redirect('sales_message_list')
+    else:
+        form = SalesMessageForm()
+    
+    return render(request, 'messages/create.html', {'form': form})
+
+
+@login_required
+@manager_or_admin_required
+def sales_message_list(request):
+    """Yuborilgan xabarlar ro'yxati"""
+    sent_messages = SalesMessage.objects.filter(sender=request.user).order_by('-created_at')
+    return render(request, 'messages/list.html', {'messages': sent_messages})
+
+
+@login_required
+@role_required('sales')
+def sales_message_inbox(request):
+    """Sotuvchi uchun kelgan xabarlar"""
+    received_messages = SalesMessage.objects.filter(recipients=request.user).order_by('-created_at')
+    
+    # O'qilmagan xabarlarni belgilash
+    unread_count = received_messages.filter(is_read=False).count()
+    
+    return render(request, 'messages/inbox.html', {
+        'messages': received_messages,
+        'unread_count': unread_count
+    })
+
+
+@login_required
+@role_required('sales')
+def sales_message_detail(request, pk):
+    """Xabar tafsilotlari"""
+    message = get_object_or_404(SalesMessage, pk=pk)
+    
+    # Faqat xabar qabul qiluvchisi ko'ra oladi
+    if request.user not in message.recipients.all():
+        messages.error(request, "Sizda bu xabarni ko'rish huquqi yo'q")
+        return redirect('sales_message_inbox')
+    
+    # Xabarni o'qilgan deb belgilash
+    if not message.is_read:
+        message.mark_as_read(request.user)
+    
+    return render(request, 'messages/detail.html', {'message': message})

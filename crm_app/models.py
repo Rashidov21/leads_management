@@ -370,3 +370,38 @@ class Reactivation(models.Model):
     def __str__(self):
         return f"Reactivation: {self.lead.name} - {self.reactivation_type}"
 
+
+class SalesMessage(models.Model):
+    """Sotuvchilarga yuborilgan xabarlar"""
+    PRIORITY_CHOICES = [
+        ('low', 'Past'),
+        ('normal', 'Oddiy'),
+        ('high', 'Yuqori'),
+        ('urgent', 'Shoshilinch'),
+    ]
+    
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages', 
+                              limit_choices_to={'role__in': ['admin', 'sales_manager']})
+    recipients = models.ManyToManyField(User, related_name='received_messages', 
+                                       limit_choices_to={'role': 'sales'})
+    subject = models.CharField(max_length=200, help_text="Xabar mavzusi")
+    message = models.TextField(help_text="Xabar matni")
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='normal')
+    is_read = models.BooleanField(default=False)
+    telegram_sent = models.BooleanField(default=False, help_text="Telegram orqali yuborilgan")
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Xabar: {self.subject} - {self.created_at.strftime('%d.%m.%Y %H:%M')}"
+    
+    def mark_as_read(self, user):
+        """Xabarni o'qilgan deb belgilash"""
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = timezone.now()
+            self.save()
+

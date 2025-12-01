@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from .models import Lead, Course, Group, TrialLesson, User, FollowUp, Room, LeaveRequest
+from .models import Lead, Course, Group, TrialLesson, User, FollowUp, Room, LeaveRequest, SalesMessage
 
 
 class LeadForm(forms.ModelForm):
@@ -287,4 +287,31 @@ class SalesAbsenceForm(forms.ModelForm):
                 'type': 'datetime-local',
                 'placeholder': 'Tugash vaqti'
             }),
+        }
+
+
+# Sales Message Forms
+class SalesMessageForm(forms.ModelForm):
+    """Sotuvchilarga xabar yuborish formasi"""
+    recipients = forms.ModelMultipleChoiceField(
+        queryset=User.objects.filter(role='sales', is_active_sales=True),
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'space-y-2'}),
+        required=True,
+        help_text="Xabarni qaysi sotuvchilarga yuborishni tanlang"
+    )
+    
+    class Meta:
+        model = SalesMessage
+        fields = ['recipients', 'subject', 'message', 'priority']
+        widgets = {
+            'subject': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Xabar mavzusi...'
+            }),
+            'message': forms.Textarea(attrs={
+                'class': 'form-textarea',
+                'rows': 6,
+                'placeholder': 'Xabar matni...'
+            }),
+            'priority': forms.Select(attrs={'class': 'form-select'}),
         }

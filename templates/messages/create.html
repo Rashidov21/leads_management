@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block title %}Sotuvchilarga Xabar Yuborish{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="mb-6" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-2 text-sm text-gray-500">
+        <li><a href="{% url 'dashboard' %}" class="hover:text-gray-700"><i class="fas fa-home"></i></a></li>
+        <li><span class="mx-2">/</span></li>
+        <li><a href="{% url 'sales_message_list' %}" class="hover:text-gray-700">Xabarlar</a></li>
+        <li><span class="mx-2">/</span></li>
+        <li class="text-gray-900 font-medium">Yangi Xabar</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="px-4 py-5 sm:p-6">
+    <div class="mb-6">
+        <a href="{% url 'sales_message_list' %}" class="inline-flex items-center text-indigo-600 hover:text-indigo-800 transition-colors">
+            <i class="fas fa-arrow-left mr-2"></i>Orqaga
+        </a>
+    </div>
+    
+    <div class="max-w-3xl mx-auto">
+        <div class="bg-white shadow-lg rounded-xl p-8 border border-gray-100">
+            <div class="flex items-center mb-6">
+                <div class="h-12 w-12 bg-indigo-100 rounded-lg flex items-center justify-center mr-4">
+                    <i class="fas fa-paper-plane text-indigo-600 text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Sotuvchilarga Xabar Yuborish</h1>
+                    <p class="text-sm text-gray-500 mt-1">Xabar Telegram orqali ham yuboriladi</p>
+                </div>
+            </div>
+            
+            <form method="post" class="space-y-6">
+                {% csrf_token %}
+                
+                <div>
+                    <label class="form-label mb-3 block">
+                        <i class="fas fa-users mr-1 text-gray-400"></i>Qabul Qiluvchilar <span class="text-red-500">*</span>
+                    </label>
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-60 overflow-y-auto">
+                        <div class="space-y-2">
+                            {% for checkbox in form.recipients %}
+                            <label class="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
+                                {{ checkbox.tag }}
+                                <span class="ml-2 text-sm text-gray-700">{{ checkbox.choice_label }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% if form.recipients.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ form.recipients.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label for="{{ form.subject.id_for_label }}" class="form-label">
+                        <i class="fas fa-heading mr-1 text-gray-400"></i>Mavzu <span class="text-red-500">*</span>
+                    </label>
+                    {{ form.subject }}
+                    {% if form.subject.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ form.subject.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label for="{{ form.priority.id_for_label }}" class="form-label">
+                        <i class="fas fa-exclamation-circle mr-1 text-gray-400"></i>Prioritet
+                    </label>
+                    {{ form.priority }}
+                    {% if form.priority.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ form.priority.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label for="{{ form.message.id_for_label }}" class="form-label">
+                        <i class="fas fa-comment-alt mr-1 text-gray-400"></i>Xabar Matni <span class="text-red-500">*</span>
+                    </label>
+                    {{ form.message }}
+                    {% if form.message.errors %}
+                        <p class="mt-1 text-sm text-red-600">{{ form.message.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p class="text-sm text-blue-800">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        Xabar barcha tanlangan sotuvchilarga yuboriladi va Telegram orqali ham jo'natiladi (agar ularning telegram_chat_id bo'lsa).
+                    </p>
+                </div>
+                
+                <div class="flex items-center justify-end space-x-4 pt-4">
+                    <a href="{% url 'sales_message_list' %}" class="btn-secondary">Bekor qilish</a>
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-paper-plane mr-2"></i>Yuborish
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

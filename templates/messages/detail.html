@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ message.subject }}{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="mb-6" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-2 text-sm text-gray-500">
+        <li><a href="{% url 'dashboard' %}" class="hover:text-gray-700"><i class="fas fa-home"></i></a></li>
+        <li><span class="mx-2">/</span></li>
+        <li><a href="{% url 'sales_message_inbox' %}" class="hover:text-gray-700">Kelgan Xabarlar</a></li>
+        <li><span class="mx-2">/</span></li>
+        <li class="text-gray-900 font-medium">{{ message.subject|truncatewords:3 }}</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="px-4 py-5 sm:p-6">
+    <div class="mb-6">
+        <a href="{% url 'sales_message_inbox' %}" class="inline-flex items-center text-indigo-600 hover:text-indigo-800 transition-colors">
+            <i class="fas fa-arrow-left mr-2"></i>Orqaga
+        </a>
+    </div>
+    
+    <div class="max-w-3xl mx-auto">
+        <div class="bg-white shadow-lg rounded-xl p-8 border border-gray-100">
+            <div class="mb-6 pb-6 border-b border-gray-200">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1">
+                        <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ message.subject }}</h1>
+                        <div class="flex items-center space-x-4 text-sm text-gray-500">
+                            <span><i class="fas fa-user mr-1"></i>Yuboruvchi: {{ message.sender.username }}</span>
+                            <span><i class="fas fa-clock mr-1"></i>{{ message.created_at|date:"d.m.Y H:i" }}</span>
+                        </div>
+                    </div>
+                    <div>
+                        {% if message.priority == 'urgent' %}
+                            <span class="status-badge bg-red-100 text-red-800">Shoshilinch</span>
+                        {% elif message.priority == 'high' %}
+                            <span class="status-badge bg-orange-100 text-orange-800">Yuqori</span>
+                        {% elif message.priority == 'normal' %}
+                            <span class="status-badge bg-blue-100 text-blue-800">Oddiy</span>
+                        {% else %}
+                            <span class="status-badge bg-gray-100 text-gray-800">Past</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="prose max-w-none">
+                <p class="text-gray-700 whitespace-pre-wrap">{{ message.message }}</p>
+            </div>
+            
+            <div class="mt-6 pt-6 border-t border-gray-200">
+                <div class="flex items-center justify-between text-sm text-gray-500">
+                    <div>
+                        {% if message.telegram_sent %}
+                        <span class="text-green-600">
+                            <i class="fab fa-telegram mr-1"></i>Telegram orqali yuborilgan
+                        </span>
+                        {% else %}
+                        <span class="text-gray-400">
+                            <i class="fas fa-times-circle mr-1"></i>Telegram orqali yuborilmagan
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% if message.is_read %}
+                    <div>
+                        <i class="fas fa-check-double mr-1 text-green-600"></i>O'qilgan: {{ message.read_at|date:"d.m.Y H:i" }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
