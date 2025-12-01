@@ -28,6 +28,7 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
     """Avtomatik follow-up yaratish status o'zgarishi bilan"""
     if created:
         # Yangi lid - 5 daqiqada qo'ng'iroq
+        # Agar assigned_sales bo'lsa, follow-up yaratish va notification yuborish
         if instance.assigned_sales:
             due_date = timezone.now() + timedelta(minutes=5)
             followup = FollowUp.objects.create(
@@ -37,8 +38,14 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
                 notes="Yangi lid - darhol aloqa qilish kerak"
             )
             # Telegram xabarlar
-            send_new_lead_notification.delay(instance.id)
+            # Notification faqat bir marta yuborilishi kerak
+            # Agar distribute_leads ichida yuborilgan bo'lsa, bu yerda yubormaslik
+            # Lekin agar qo'lda assigned_sales biriktirilgan bo'lsa, bu yerda yuborish
+            # Bu muammoni hal qilish uchun, notification yuborishni faqat distribute_leads ichida qilamiz
+            # Yoki bu yerda ham yuborish, lekin dublikatsiyani oldini olish
             send_followup_created_notification.delay(followup.id)
+        # Eslatma: send_new_lead_notification distribute_leads ichida yuboriladi
+        # Agar qo'lda assigned_sales biriktirilgan bo'lsa, views.py da yuboriladi
     else:
         # Status o'zgarishi
         if not instance.assigned_sales:

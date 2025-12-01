@@ -137,6 +137,18 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 daqiqa
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 daqiqa
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_TASK_ALWAYS_EAGER = False  # Production uchun False
+CELERY_TASK_EAGER_PROPAGATES = False
+CELERY_WORKER_SEND_TASK_EVENTS = True
+CELERY_TASK_SEND_SENT_EVENT = True
+CELERY_RESULT_EXPIRES = 3600  # 1 soat
 
 # Celery Beat Schedule
 from celery.schedules import crontab
@@ -156,7 +168,7 @@ CELERY_BEAT_SCHEDULE = {
     },
     'send-post-trial-sales-reminders': {
         'task': 'crm_app.tasks.send_post_trial_sales_reminder_task',
-        'schedule': crontab(minute='*/60'),  # Har soatda
+        'schedule': crontab(minute=0),  # Har soatda (0-daqiqada)
     },
     'calculate-daily-kpi': {
         'task': 'crm_app.tasks.calculate_daily_kpi_task',

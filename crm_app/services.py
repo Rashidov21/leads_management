@@ -10,6 +10,8 @@ class LeadDistributionService:
     @staticmethod
     def distribute_leads(leads):
         """Lidlarni faol va ishda bo'lgan sotuvchilar orasida teng taqsimlash"""
+        from .tasks import send_new_lead_notification
+        
         # Faqat mavjud va ishda bo'lgan sotuvchilarni olish
         active_sales = [sales for sales in User.objects.filter(role='sales', is_active_sales=True) 
                        if sales.is_available_for_leads]
@@ -27,6 +29,10 @@ class LeadDistributionService:
         
         # Lidlarni taqsimlash
         for lead in leads:
+            # Eski assigned_sales ni saqlash (notification uchun)
+            old_assigned_sales_id = lead.assigned_sales_id if lead.pk else None
+            was_new_lead = not lead.pk  # Lid yangi ekanligini tekshirish
+            
             if not sales_lead_counts:
                 # Agar barcha sotuvchilar ishda bo'lmasa, eng kam lidga ega bo'lganiga berish
                 active_sales = [sales for sales in User.objects.filter(role='sales', is_active_sales=True)]
@@ -37,12 +43,22 @@ class LeadDistributionService:
                     ).count())
                     lead.assigned_sales = min_sales
                     lead.save()
+                    # Notification yuborish
+                    # Agar lid yangi bo'lsa yoki assigned_sales o'zgarganda notification yuborish
+                    if was_new_lead or (not old_assigned_sales_id or old_assigned_sales_id != min_sales.id):
+                        send_new_lead_notification.delay(lead.id)
                 continue
             
             # Eng kam lidga ega sotuvchini topish
             min_sales_id = min(sales_lead_counts.items(), key=lambda x: x[1])[0]
             lead.assigned_sales_id = min_sales_id
             lead.save()
+            
+            # Notification yuborish
+            # Agar lid yangi bo'lsa yoki assigned_sales o'zgarganda notification yuborish
+            if was_new_lead or (not old_assigned_sales_id or old_assigned_sales_id != min_sales_id):
+                send_new_lead_notification.delay(lead.id)
+            
             sales_lead_counts[min_sales_id] += 1
         
         return len(active_sales)

@@ -120,11 +120,23 @@ def rating(update: Update, context: CallbackContext):
 
 def error_handler(update: Update, context: CallbackContext):
     """Xatoliklarni qayta ishlash"""
-    print(f"Update {update} caused error {context.error}")
+    error = context.error
+    error_type = type(error).__name__
+    
+    # urllib3 va connection xatolarini e'tiborsiz qoldirish (avtomatik qayta urinadi)
+    if error_type in ['HTTPError', 'RemoteDisconnected', 'ConnectionError', 'Timeout']:
+        print(f"Connection xatolik (avtomatik qayta urinadi): {error_type}")
+        return
+    
+    # Boshqa xatoliklarni log qilish
+    print(f"Update {update} caused error {error_type}: {error}")
     if update and update.message:
-        update.message.reply_text(
-            "Xatolik yuz berdi. Iltimos, keyinroq qayta urinib ko'ring."
-        )
+        try:
+            update.message.reply_text(
+                "Xatolik yuz berdi. Iltimos, keyinroq qayta urinib ko'ring."
+            )
+        except:
+            pass  # Agar xabar yuborishda xatolik bo'lsa, e'tiborsiz qoldirish
 
 
 def run_bot():
@@ -134,8 +146,15 @@ def run_bot():
         return
     
     try:
-        # Updater yaratish (sync)
-        updater = Updater(token=settings.TELEGRAM_BOT_TOKEN, use_context=True)
+        # Updater yaratish (sync) - timeout va retry parametrlarini sozlash
+        updater = Updater(
+            token=settings.TELEGRAM_BOT_TOKEN,
+            use_context=True,
+            request_kwargs={
+                'read_timeout': 30,
+                'connect_timeout': 30,
+            }
+        )
         dispatcher = updater.dispatcher
         
         # Command handlers
@@ -149,15 +168,30 @@ def run_bot():
         # Error handler
         dispatcher.add_error_handler(error_handler)
         
-        # Botni ishga tushirish
+        # Botni ishga tushirish - polling parametrlarini sozlash
         print("Telegram bot ishga tushdi (sync mode)...")
-        updater.start_polling()
+        updater.start_polling(
+            poll_interval=1.0,  # 1 soniya oraliq
+            timeout=20,  # 20 soniya timeout
+            bootstrap_retries=5,  # 5 marta qayta urinish
+            read_latency=2.0,  # 2 soniya read latency
+            drop_pending_updates=True  # Kutilayotgan update'larni tashlab yuborish
+        )
         updater.idle()
         
+    except KeyboardInterrupt:
+        print("\nBot to'xtatildi (Ctrl+C)")
+        if 'updater' in locals():
+            updater.stop()
     except Exception as e:
         print(f"Bot ishga tushirishda xatolik: {e}")
         import traceback
         traceback.print_exc()
+        # Qayta urinish
+        import time
+        print("5 soniyadan keyin qayta uriniladi...")
+        time.sleep(5)
+        run_bot()  # Rekursiv qayta urinish
 
 
 if __name__ == '__main__':

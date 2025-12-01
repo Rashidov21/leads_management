@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, authenticate
+from django.contrib.auth import login,logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q, Count, Sum, F
@@ -47,6 +47,9 @@ def login_view(request):
     
     return render(request, 'login.html')
 
+def logout_view(request):
+    logout(request)
+    return redirect('login')
 
 @login_required
 def dashboard(request):
@@ -82,16 +85,12 @@ def dashboard(request):
 @login_required
 @role_required('admin', 'sales_manager', 'sales')
 def leads_list(request):
-    queryset = Lead.objects.all()
+    queryset = Lead.objects.select_related('assigned_sales', 'interested_course').all()
     
     if request.user.is_sales:
         queryset = queryset.filter(assigned_sales=request.user)
     
     # Filtrlash
-    status_filter = request.GET.get('status')
-    if status_filter:
-        queryset = queryset.filter(status=status_filter)
-    
     source_filter = request.GET.get('source')
     if source_filter:
         queryset = queryset.filter(source=source_filter)
@@ -102,10 +101,21 @@ def leads_list(request):
             Q(name__icontains=search) | Q(phone__icontains=search)
         )
     
+    # Statuslar bo'yicha guruhlash (Kanban board uchun)
+    leads_by_status = {}
+    for status_code, status_name in Lead.STATUS_CHOICES:
+        status_leads = queryset.filter(status=status_code).order_by('-created_at')
+        leads_by_status[status_code] = {
+            'name': status_name,
+            'leads': status_leads,
+            'count': status_leads.count()
+        }
+    
     context = {
-        'leads': queryset.order_by('-created_at'),
+        'leads_by_status': leads_by_status,
         'statuses': Lead.STATUS_CHOICES,
         'sources': Lead.SOURCE_CHOICES,
+        'total_leads': queryset.count(),
     }
     return render(request, 'leads/list.html', context)
 
@@ -146,9 +156,13 @@ def lead_create(request):
         if form.is_valid():
             lead = form.save(commit=False)
             if not lead.assigned_sales:
-                # Avtomatik taqsimlash
+                # Avtomatik taqsimlash (ichida notification yuboriladi)
                 LeadDistributionService.distribute_leads([lead])
-            lead.save()
+            else:
+                # Agar qo'lda biriktirilgan bo'lsa, saqlash va notification yuborish
+                lead.save()
+                from .tasks import send_new_lead_notification
+                send_new_lead_notification.delay(lead.id)
             messages.success(request, 'Lid qo\'shildi')
             return redirect('lead_detail', pk=lead.pk)
     else:
@@ -243,11 +257,17 @@ def excel_import(request):
                     messages.error(request, 'Excel fayllarni o\'qish uchun pandas yoki openpyxl kerak')
                     return render(request, 'leads/import.html', {'form': form})
                 
-                # Taqsimlash
+                # Taqsimlash (distribute_leads ichida allaqachon lead.save() va notification yuboriladi)
                 if leads:
-                    LeadDistributionService.distribute_leads(leads)
+                    # Avval barcha lidlarni saqlash (assigned_sales bo'lmasa ham)
+                    # Bu kerak, chunki distribute_leads ichida lead.save() chaqiriladi
                     for lead in leads:
-                        lead.save()
+                        if not lead.pk:  # Faqat yangi lidlar
+                            lead.save()
+                    
+                    # Keyin taqsimlash (ichida notification yuboriladi)
+                    # distribute_leads ichida lead.save() chaqiriladi va notification yuboriladi
+                    LeadDistributionService.distribute_leads(leads)
                     
                     messages.success(request, f'{len(leads)} ta lid import qilindi')
                 else:

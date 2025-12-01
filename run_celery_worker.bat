@@ -1,4 +1,4 @@
 @echo off
 echo Celery Worker ishga tushiryapman...
-celery -A crm_project worker --loglevel=info
+celery -A crm_project worker --loglevel=info --pool=solo --concurrency=1
 

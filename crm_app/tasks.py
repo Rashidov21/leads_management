@@ -24,222 +24,382 @@ def create_followup_task(lead_id, delay_minutes=5):
 
 @shared_task
 def check_overdue_followups_task():
-    """Overdue follow-uplarni tekshirish"""
-    overdue_followups = FollowUpService.get_overdue_followups()
-    
-    for followup in overdue_followups:
-        followup.is_overdue = True
-        followup.save()
+    """Overdue follow-uplarni tekshirish va notification yuborish"""
+    try:
+        print(f"[{timezone.now()}] check_overdue_followups_task ishga tushdi")
+        overdue_followups = FollowUpService.get_overdue_followups().select_related('lead', 'sales')
         
-        # Sotuvchiga xabar
-        if followup.sales.telegram_chat_id:
-            send_telegram_notification(
-                followup.sales.telegram_chat_id,
-                f"⚠️ Overdue follow-up!\n"
-                f"Lid: {followup.lead.name}\n"
-                f"Vaqt: {followup.due_date.strftime('%Y-%m-%d %H:%M')}"
-            )
+        # Har bir sotuvchi uchun overdue sonini hisoblash
+        sales_overdue_count = {}
+        notifications_sent = 0
         
-        # Manager/Admin ga xabar
-        overdue_count = FollowUpService.get_overdue_followups(followup.sales).count()
-        if overdue_count >= 5:
-            # Manager ga xabar yuborish
-            send_telegram_notification(
-                settings.TELEGRAM_ADMIN_CHAT_ID,
-                f"⚠️ Sotuvchi {followup.sales.username} da 5+ overdue follow-up bor!"
-            )
+        for followup in overdue_followups:
+            # Overdue flag'ni o'rnatish
+            if not followup.is_overdue:
+                followup.is_overdue = True
+                followup.save()
+            
+            # Sotuvchiga xabar (faqat birinchi marta)
+            if followup.sales and followup.sales.telegram_chat_id:
+                due_date_str = followup.due_date.strftime('%d.%m.%Y %H:%M')
+                if send_telegram_notification(
+                    followup.sales.telegram_chat_id,
+                    f"⚠️ Overdue follow-up!\n"
+                    f"Lid: {followup.lead.name}\n"
+                    f"Telefon: {followup.lead.phone}\n"
+                    f"Vaqt: {due_date_str}\n"
+                    f"Eslatma: {followup.notes[:50] if followup.notes else 'Yo\'q'}"
+                ):
+                    notifications_sent += 1
+            
+            # Sotuvchi uchun overdue sonini hisoblash
+            if followup.sales:
+                sales_id = followup.sales.id
+                if sales_id not in sales_overdue_count:
+                    sales_overdue_count[sales_id] = {
+                        'sales': followup.sales,
+                        'count': 0
+                    }
+                sales_overdue_count[sales_id]['count'] += 1
+        
+        # Manager/Admin ga xabar (5+ overdue bo'lsa)
+        if settings.TELEGRAM_ADMIN_CHAT_ID:
+            for sales_id, data in sales_overdue_count.items():
+                if data['count'] >= 5:
+                    send_telegram_notification(
+                        settings.TELEGRAM_ADMIN_CHAT_ID,
+                        f"⚠️ Sotuvchi {data['sales'].username} da {data['count']} ta overdue follow-up bor!\n"
+                        f"Darhol tekshirish kerak."
+                    )
+        
+        print(f"[{timezone.now()}] check_overdue_followups_task yakunlandi: {notifications_sent} ta notification yuborildi")
+    except Exception as e:
+        print(f"[{timezone.now()}] check_overdue_followups_task xatolik: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 @shared_task
 def send_trial_reminder_task():
     """Sinov oldidan eslatma yuborish (2 soat oldin)"""
-    two_hours_later = timezone.now() + timedelta(hours=2)
-    tomorrow = timezone.now().date() + timedelta(days=1)
-    
-    trials = TrialLesson.objects.filter(
-        date=timezone.now().date(),
-        reminder_sent=False
-    )
-    
-    for trial in trials:
-        trial_time = timezone.datetime.combine(trial.date, trial.time)
-        if trial_time <= two_hours_later:
-            # Telegram xabar yuborish
-            if trial.lead.assigned_sales and trial.lead.assigned_sales.telegram_chat_id:
-                send_telegram_notification(
-                    trial.lead.assigned_sales.telegram_chat_id,
-                    f"🔔 Sinov eslatmasi!\n"
-                    f"Lid: {trial.lead.name}\n"
-                    f"Vaqt: {trial.date} {trial.time}\n"
-                    f"Xona: {trial.room.name if trial.room else 'N/A'}"
-                )
-            trial.reminder_sent = True
-            trial.save()
+    try:
+        print(f"[{timezone.now()}] send_trial_reminder_task ishga tushdi")
+        now = timezone.now()
+        two_hours_later = now + timedelta(hours=2)
+        today = now.date()
+        
+        # Bugungi sinovlar
+        trials = TrialLesson.objects.filter(
+            date=today,
+            reminder_sent=False,
+            lead__status__in=['trial_registered', 'trial_attended']  # Faqat sinovga yozilganlar
+        ).select_related('lead', 'lead__assigned_sales', 'group', 'room')
+        
+        notifications_sent = 0
+        for trial in trials:
+            # Timezone aware datetime yaratish
+            trial_datetime = timezone.make_aware(
+                timezone.datetime.combine(trial.date, trial.time)
+            )
+            
+            # Agar sinov 2 soat ichida bo'lsa, eslatma yuborish
+            if now <= trial_datetime <= two_hours_later:
+                # Telegram xabar yuborish
+                if trial.lead.assigned_sales and trial.lead.assigned_sales.telegram_chat_id:
+                    hours_left = int((trial_datetime - now).total_seconds() / 3600)
+                    minutes_left = int(((trial_datetime - now).total_seconds() % 3600) / 60)
+                    
+                    time_str = f"{hours_left} soat {minutes_left} daqiqa" if hours_left > 0 else f"{minutes_left} daqiqa"
+                    
+                    if send_telegram_notification(
+                        trial.lead.assigned_sales.telegram_chat_id,
+                        f"🔔 Sinov eslatmasi!\n"
+                        f"Lid: {trial.lead.name}\n"
+                        f"Telefon: {trial.lead.phone}\n"
+                        f"Vaqt: {trial.date.strftime('%d.%m.%Y')} {trial.time.strftime('%H:%M')}\n"
+                        f"Qolgan vaqt: {time_str}\n"
+                        f"Guruh: {trial.group.name if trial.group else 'N/A'}\n"
+                        f"Xona: {trial.room.name if trial.room else 'N/A'}"
+                    ):
+                        notifications_sent += 1
+                trial.reminder_sent = True
+                trial.save()
+        
+        print(f"[{timezone.now()}] send_trial_reminder_task yakunlandi: {notifications_sent} ta notification yuborildi")
+    except Exception as e:
+        print(f"[{timezone.now()}] send_trial_reminder_task xatolik: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 @shared_task
 def send_followup_reminders_task():
     """Follow-up eslatmalari yuborish (1 soat oldin)"""
-    now = timezone.now()
-    one_hour_later = now + timedelta(hours=1)
-    
-    # 1 soat ichida bajarilishi kerak bo'lgan follow-up'lar
-    upcoming_followups = FollowUp.objects.filter(
-        due_date__gte=now,
-        due_date__lte=one_hour_later,
-        completed=False,
-        reminder_sent=False
-    )
-    
-    for followup in upcoming_followups:
-        if followup.sales and followup.sales.telegram_chat_id:
-            due_date_str = followup.due_date.strftime('%d.%m.%Y %H:%M')
-            minutes_left = int((followup.due_date - now).total_seconds() / 60)
-            
-            send_telegram_notification(
-                followup.sales.telegram_chat_id,
-                f"⏰ Follow-up eslatmasi!\n"
-                f"Lid: {followup.lead.name}\n"
-                f"Vaqt: {due_date_str}\n"
-                f"Qolgan vaqt: {minutes_left} daqiqa\n"
-                f"Eslatma: {followup.notes[:50] if followup.notes else 'Yo\'q'}"
-            )
-            followup.reminder_sent = True
-            followup.save()
+    try:
+        print(f"[{timezone.now()}] send_followup_reminders_task ishga tushdi")
+        now = timezone.now()
+        one_hour_later = now + timedelta(hours=1)
+        
+        # 1 soat ichida bajarilishi kerak bo'lgan follow-up'lar
+        upcoming_followups = FollowUp.objects.filter(
+            due_date__gte=now,
+            due_date__lte=one_hour_later,
+            completed=False,
+            reminder_sent=False,
+            sales__isnull=False  # Faqat assigned sales bo'lganlar
+        ).select_related('lead', 'sales')
+        
+        notifications_sent = 0
+        for followup in upcoming_followups:
+            if followup.sales and followup.sales.telegram_chat_id:
+                due_date_str = followup.due_date.strftime('%d.%m.%Y %H:%M')
+                minutes_left = int((followup.due_date - now).total_seconds() / 60)
+                
+                # Vaqt formatlash
+                if minutes_left >= 60:
+                    hours = minutes_left // 60
+                    mins = minutes_left % 60
+                    time_left = f"{hours} soat {mins} daqiqa"
+                else:
+                    time_left = f"{minutes_left} daqiqa"
+                
+                if send_telegram_notification(
+                    followup.sales.telegram_chat_id,
+                    f"⏰ Follow-up eslatmasi!\n"
+                    f"Lid: {followup.lead.name}\n"
+                    f"Telefon: {followup.lead.phone}\n"
+                    f"Vaqt: {due_date_str}\n"
+                    f"Qolgan vaqt: {time_left}\n"
+                    f"Eslatma: {followup.notes[:50] if followup.notes else 'Yo\'q'}"
+                ):
+                    notifications_sent += 1
+                followup.reminder_sent = True
+                followup.save()
+        
+        print(f"[{timezone.now()}] send_followup_reminders_task yakunlandi: {notifications_sent} ta notification yuborildi")
+    except Exception as e:
+        print(f"[{timezone.now()}] send_followup_reminders_task xatolik: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 @shared_task
 def send_post_trial_sales_reminder_task():
     """Sinovdan keyin sotuv taklifi eslatmasi"""
-    # Sinovdan keyin 3 daqiqada follow-up yaratiladi, lekin alohida eslatma ham yuboramiz
-    # Sinovga keldi va natija 'attended' bo'lgan, lekin hali 'enrolled' bo'lmagan lidlar
-    from datetime import date
-    
-    today = timezone.now().date()
-    yesterday = today - timedelta(days=1)
-    
-    # Kechagi va bugungi sinovlar
-    recent_trials = TrialLesson.objects.filter(
-        date__gte=yesterday,
-        result='attended',
-        sales_reminder_sent=False
-    )
-    
-    for trial in recent_trials:
-        # Agar lid hali 'enrolled' bo'lmagan bo'lsa
-        if trial.lead.status != 'enrolled' and trial.lead.assigned_sales:
-            if trial.lead.assigned_sales.telegram_chat_id:
-                send_telegram_notification(
-                    trial.lead.assigned_sales.telegram_chat_id,
-                    f"💰 Sotuv taklifi!\n"
-                    f"Lid: {trial.lead.name}\n"
-                    f"Telefon: {trial.lead.phone}\n"
-                    f"Sinovga keldi: {trial.date}\n"
-                    f"Kurs: {trial.lead.interested_course.name if trial.lead.interested_course else 'N/A'}\n"
-                    f"⚠️ Sotuv taklifi berish vaqt keldi!"
-                )
-            trial.sales_reminder_sent = True
-            trial.save()
+    try:
+        print(f"[{timezone.now()}] send_post_trial_sales_reminder_task ishga tushdi")
+        # Sinovdan keyin 3 daqiqada follow-up yaratiladi, lekin alohida eslatma ham yuboramiz
+        # Sinovga keldi va natija 'attended' bo'lgan, lekin hali 'enrolled' bo'lmagan lidlar
+        now = timezone.now()
+        today = now.date()
+        yesterday = today - timedelta(days=1)
+        
+        # Kechagi va bugungi sinovlar (faqat 'attended' natijali)
+        recent_trials = TrialLesson.objects.filter(
+            date__gte=yesterday,
+            result='attended',
+            sales_reminder_sent=False,
+            lead__status__in=['trial_attended', 'interested', 'contacted']  # Faqat sinovga kelgan, lekin hali yozilmagan
+        ).select_related('lead', 'lead__assigned_sales', 'lead__interested_course')
+        
+        notifications_sent = 0
+        for trial in recent_trials:
+            # Agar lid hali 'enrolled' bo'lmagan bo'lsa
+            if trial.lead.status != 'enrolled' and trial.lead.assigned_sales:
+                if trial.lead.assigned_sales.telegram_chat_id:
+                    # Sinovdan keyin necha vaqt o'tganini hisoblash
+                    trial_datetime = timezone.make_aware(
+                        timezone.datetime.combine(trial.date, trial.time)
+                    )
+                    time_since_trial = now - trial_datetime
+                    hours_since = int(time_since_trial.total_seconds() / 3600)
+                    
+                    if send_telegram_notification(
+                        trial.lead.assigned_sales.telegram_chat_id,
+                        f"💰 Sotuv taklifi eslatmasi!\n"
+                        f"Lid: {trial.lead.name}\n"
+                        f"Telefon: {trial.lead.phone}\n"
+                        f"Sinov sanasi: {trial.date.strftime('%d.%m.%Y')} {trial.time.strftime('%H:%M')}\n"
+                        f"Kurs: {trial.lead.interested_course.name if trial.lead.interested_course else 'N/A'}\n"
+                        f"Sinovdan keyin: {hours_since} soat o'tdi\n"
+                        f"⚠️ Sotuv taklifi berish vaqt keldi!"
+                    ):
+                        notifications_sent += 1
+                trial.sales_reminder_sent = True
+                trial.save()
+        
+        print(f"[{timezone.now()}] send_post_trial_sales_reminder_task yakunlandi: {notifications_sent} ta notification yuborildi")
+    except Exception as e:
+        print(f"[{timezone.now()}] send_post_trial_sales_reminder_task xatolik: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 @shared_task
 def calculate_daily_kpi_task():
     """Kunlik KPI hisoblash"""
-    from .models import User
-    
-    today = timezone.now().date()
-    sales_users = User.objects.filter(role='sales', is_active_sales=True)
-    
-    for sales in sales_users:
-        try:
-            KPIService.calculate_daily_kpi(sales, today)
-        except Exception as e:
-            print(f"KPI hisoblashda xatolik ({sales.username}): {e}")
+    try:
+        print(f"[{timezone.now()}] calculate_daily_kpi_task ishga tushdi")
+        from .models import User
+        
+        today = timezone.now().date()
+        sales_users = User.objects.filter(role='sales', is_active_sales=True)
+        
+        calculated_count = 0
+        for sales in sales_users:
+            try:
+                KPIService.calculate_daily_kpi(sales, today)
+                calculated_count += 1
+            except Exception as e:
+                print(f"KPI hisoblashda xatolik ({sales.username}): {e}")
+        
+        print(f"[{timezone.now()}] calculate_daily_kpi_task yakunlandi: {calculated_count} ta sotuvchi uchun KPI hisoblandi")
+    except Exception as e:
+        print(f"[{timezone.now()}] calculate_daily_kpi_task xatolik: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 @shared_task
 def reactivation_task():
     """Reaktivatsiya tekshirish"""
-    ReactivationService.check_and_reactivate()
+    try:
+        print(f"[{timezone.now()}] reactivation_task ishga tushdi")
+        ReactivationService.check_and_reactivate()
+        print(f"[{timezone.now()}] reactivation_task yakunlandi")
+    except Exception as e:
+        print(f"[{timezone.now()}] reactivation_task xatolik: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 @shared_task
 def send_new_lead_notification(lead_id):
     """Yangi lid haqida xabar"""
     try:
-        lead = Lead.objects.get(id=lead_id)
+        lead = Lead.objects.select_related('assigned_sales', 'interested_course').get(id=lead_id)
         if lead.assigned_sales and lead.assigned_sales.telegram_chat_id:
             send_telegram_notification(
                 lead.assigned_sales.telegram_chat_id,
                 f"🆕 Yangi lid!\n"
                 f"Ism: {lead.name}\n"
                 f"Telefon: {lead.phone}\n"
-                f"Kurs: {lead.interested_course.name if lead.interested_course else 'N/A'}\n"
-                f"Manba: {lead.get_source_display()}"
+                f"Kurs: {lead.interested_course.name if lead.interested_course else 'Tanlanmagan'}\n"
+                f"Manba: {lead.get_source_display()}\n"
+                f"Status: {lead.get_status_display()}\n"
+                f"⚠️ Darhol aloqa qilish kerak!"
             )
     except Lead.DoesNotExist:
         pass
+    except Exception as e:
+        print(f"send_new_lead_notification xatolik (lead_id={lead_id}): {e}")
 
 
 @shared_task
 def send_status_change_notification(lead_id, old_status, new_status):
     """Status o'zgarishi haqida xabar"""
     try:
-        lead = Lead.objects.get(id=lead_id)
+        lead = Lead.objects.select_related('assigned_sales', 'interested_course').get(id=lead_id)
         if lead.assigned_sales and lead.assigned_sales.telegram_chat_id:
-            status_display = lead.get_status_display()
+            old_status_display = dict(Lead.STATUS_CHOICES).get(old_status, old_status)
+            new_status_display = lead.get_status_display()
+            
+            # Status o'zgarishiga qarab emoji
+            emoji = "✅" if new_status == 'enrolled' else "📊" if new_status != 'lost' else "❌"
+            
             send_telegram_notification(
                 lead.assigned_sales.telegram_chat_id,
-                f"📊 Status o'zgardi!\n"
+                f"{emoji} Status o'zgardi!\n"
                 f"Lid: {lead.name}\n"
-                f"Eski status: {dict(Lead.STATUS_CHOICES).get(old_status, old_status)}\n"
-                f"Yangi status: {status_display}\n"
-                f"Telefon: {lead.phone}"
+                f"Telefon: {lead.phone}\n"
+                f"Eski status: {old_status_display}\n"
+                f"Yangi status: {new_status_display}\n"
+                f"Kurs: {lead.interested_course.name if lead.interested_course else 'N/A'}"
             )
     except Lead.DoesNotExist:
         pass
+    except Exception as e:
+        print(f"send_status_change_notification xatolik (lead_id={lead_id}): {e}")
 
 
 @shared_task
 def send_followup_created_notification(followup_id):
     """Follow-up yaratilganda xabar"""
     try:
-        followup = FollowUp.objects.get(id=followup_id)
+        followup = FollowUp.objects.select_related('lead', 'sales', 'lead__interested_course').get(id=followup_id)
         if followup.sales and followup.sales.telegram_chat_id:
             due_date_str = followup.due_date.strftime('%d.%m.%Y %H:%M')
+            
+            # Qolgan vaqtni hisoblash
+            now = timezone.now()
+            if followup.due_date > now:
+                time_left = followup.due_date - now
+                hours = int(time_left.total_seconds() / 3600)
+                minutes = int((time_left.total_seconds() % 3600) / 60)
+                if hours > 0:
+                    time_left_str = f"{hours} soat {minutes} daqiqa"
+                else:
+                    time_left_str = f"{minutes} daqiqa"
+            else:
+                time_left_str = "Vaqt o'tib ketgan"
+            
             send_telegram_notification(
                 followup.sales.telegram_chat_id,
                 f"📋 Yangi follow-up!\n"
                 f"Lid: {followup.lead.name}\n"
+                f"Telefon: {followup.lead.phone}\n"
                 f"Vaqt: {due_date_str}\n"
-                f"Eslatma: {followup.notes[:50] if followup.notes else 'Yo\'q'}"
+                f"Qolgan vaqt: {time_left_str}\n"
+                f"Eslatma: {followup.notes[:100] if followup.notes else 'Yo\'q'}"
             )
     except FollowUp.DoesNotExist:
         pass
+    except Exception as e:
+        print(f"send_followup_created_notification xatolik (followup_id={followup_id}): {e}")
 
 
 @shared_task
 def send_reactivation_notification(reactivation_id):
     """Reaktivatsiya haqida xabar"""
     try:
-        reactivation = Reactivation.objects.get(id=reactivation_id)
+        reactivation = Reactivation.objects.select_related(
+            'lead', 'lead__assigned_sales', 'lead__interested_course'
+        ).get(id=reactivation_id)
         lead = reactivation.lead
+        
         if lead.assigned_sales and lead.assigned_sales.telegram_chat_id:
             reactivation_type_map = {
-                '7_days': '7 kun o\'tdi - qayta taklif qilish',
-                '14_days': '14 kun o\'tdi - boshqa kurs tavsiyasi',
-                '30_days': '30 kun o\'tdi - yangi guruhlar haqida xabar',
+                '7_days': {
+                    'message': '7 kun o\'tdi - qayta taklif qilish',
+                    'emoji': '🔄'
+                },
+                '14_days': {
+                    'message': '14 kun o\'tdi - boshqa kurs tavsiyasi',
+                    'emoji': '💡'
+                },
+                '30_days': {
+                    'message': '30 kun o\'tdi - yangi guruhlar haqida xabar',
+                    'emoji': '📢'
+                },
             }
-            message = reactivation_type_map.get(reactivation.reactivation_type, 'Reaktivatsiya')
+            
+            reactivation_info = reactivation_type_map.get(
+                reactivation.reactivation_type,
+                {'message': 'Reaktivatsiya', 'emoji': '🔄'}
+            )
             
             send_telegram_notification(
                 lead.assigned_sales.telegram_chat_id,
-                f"🔄 Reaktivatsiya!\n"
+                f"{reactivation_info['emoji']} Reaktivatsiya!\n"
                 f"Lid: {lead.name}\n"
                 f"Telefon: {lead.phone}\n"
-                f"Tavsiya: {message}\n"
-                f"Kurs: {lead.interested_course.name if lead.interested_course else 'N/A'}"
+                f"Kurs: {lead.interested_course.name if lead.interested_course else 'N/A'}\n"
+                f"Kunlar: {reactivation.days_since_lost} kun o'tdi\n"
+                f"Tavsiya: {reactivation_info['message']}\n"
+                f"⚠️ Lid bilan qayta aloqa qilish kerak!"
             )
     except Reactivation.DoesNotExist:
         pass
+    except Exception as e:
+        print(f"send_reactivation_notification xatolik (reactivation_id={reactivation_id}): {e}")
 

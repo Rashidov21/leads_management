@@ -139,6 +139,8 @@ class UserCreateForm(UserCreationForm):
             'email': forms.EmailInput(attrs={'class': 'form-input', 'type': 'email'}),
             'first_name': forms.TextInput(attrs={'class': 'form-input'}),
             'last_name': forms.TextInput(attrs={'class': 'form-input'}),
+            'password1': forms.PasswordInput(attrs={'class': 'form-input'}),
+            'password2': forms.PasswordInput(attrs={'class': 'form-input'}),
         }
 
 
@@ -156,17 +158,17 @@ class UserEditForm(forms.ModelForm):
             'role': forms.Select(attrs={'class': 'form-select'}),
             'phone': forms.TextInput(attrs={'class': 'form-input', 'type': 'tel'}),
             'telegram_chat_id': forms.TextInput(attrs={'class': 'form-input'}),
-            'is_active_sales': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
+            'is_active_sales': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
             'work_start_time': forms.TimeInput(attrs={'class': 'form-input', 'type': 'time'}),
             'work_end_time': forms.TimeInput(attrs={'class': 'form-input', 'type': 'time'}),
-            'work_monday': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
-            'work_tuesday': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
-            'work_wednesday': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
-            'work_thursday': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
-            'work_friday': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
-            'work_saturday': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
-            'work_sunday': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
+            'work_monday': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'work_tuesday': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'work_wednesday': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'work_thursday': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'work_friday': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'work_saturday': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'work_sunday': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
         }
 
 
@@ -271,7 +273,7 @@ class SalesAbsenceForm(forms.ModelForm):
         model = User
         fields = ['is_absent', 'absent_reason', 'absent_from', 'absent_until']
         widgets = {
-            'is_absent': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}),
+            'is_absent': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
             'absent_reason': forms.Textarea(attrs={
                 'class': 'form-textarea',
                 'rows': 3,

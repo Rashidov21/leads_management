@@ -13,5 +13,6 @@ app = Celery('crm_project')
 app.config_from_object('django.conf:settings', namespace='CELERY')
 
 # Load task modules from all registered Django apps.
+# autodiscover_tasks Django apps yuklangandan keyin ishlaydi
 app.autodiscover_tasks()
 
