@@ -60,23 +60,7 @@
             @apply transition-all duration-200 ease-in-out;
         }
         
-        /* Button Styles */
-        .btn-primary {
-            @apply inline-flex items-center justify-center px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg;
-            @apply hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500;
-            @apply transition-all duration-200 ease-in-out;
-            @apply disabled:opacity-50 disabled:cursor-not-allowed;
-        }
-        .btn-secondary {
-            @apply inline-flex items-center justify-center px-5 py-2.5 text-sm font-medium text-gray-800 bg-gray-200 rounded-lg;
-            @apply hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500;
-            @apply transition-all duration-200 ease-in-out;
-        }
-        .btn-danger {
-            @apply inline-flex items-center justify-center px-5 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg;
-            @apply hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500;
-            @apply transition-all duration-200 ease-in-out;
-        }
+        /* Button Styles - Tailwind CSS class'lar to'g'ridan-to'g'ri HTML da ishlatiladi */
         
         /* Status Badge */
         .status-badge {
@@ -211,16 +195,21 @@
     <script>
         // Auto-hide success messages after 5 seconds
         document.addEventListener('DOMContentLoaded', function() {
-            const successMessages = document.querySelectorAll('.bg-green-50');
-            successMessages.forEach(function(msg) {
-                setTimeout(function() {
-                    msg.style.transition = 'opacity 0.5s';
-                    msg.style.opacity = '0';
+            // Faqat messages container ichidagi success message'larni topish
+            // role="alert" yoki messages container ichida bo'lgan elementlarni o'chirish
+            const messagesContainer = document.querySelector('.mb-6.space-y-2');
+            if (messagesContainer) {
+                const successMessages = messagesContainer.querySelectorAll('.bg-green-50[role="alert"], .bg-blue-50[role="alert"], .bg-red-50[role="alert"]');
+                successMessages.forEach(function(msg) {
                     setTimeout(function() {
-                        msg.remove();
-                    }, 500);
-                }, 5000);
-            });
+                        msg.style.transition = 'opacity 0.5s';
+                        msg.style.opacity = '0';
+                        setTimeout(function() {
+                            msg.remove();
+                        }, 500);
+                    }, 5000);
+                });
+            }
         });
     </script>
 </body>

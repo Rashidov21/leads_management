@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
+{% load uzbek_timesince %}
 
 {% block title %}Lidlar{% endblock %}
 
 {% block breadcrumbs %}
-<nav id="breadcrumbs-nav" class="mb-6" aria-label="Breadcrumb">
+<nav id="breadcrumbs-nav" class="mb-3" aria-label="Breadcrumb">
     <ol class="flex items-center space-x-2 text-sm text-gray-500">
         <li><a href="{% url 'dashboard' %}" class="hover:text-gray-700"><i class="fas fa-home"></i></a></li>
         <li><span class="mx-2">/</span></li>
@@ -13,7 +14,7 @@
 {% endblock %}
 
 {% block content %}
-<div id="leads-container" class="px-4 py-5 sm:p-6">
+<div id="leads-container" class="px-4 py-2 sm:p-6">
     <!-- Header Section (fullscreen rejimda yashiriladi) -->
     <div id="header-section" class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
         <div>
@@ -21,58 +22,106 @@
             <p class="mt-1 text-sm text-gray-500">Barcha lidlar ro'yxati va boshqaruvi</p>
         </div>
         <div class="flex space-x-3">
-            <button id="fullscreen-toggle" class="btn-secondary" title="To'liq ekran rejimi">
-                <i class="fas fa-expand mr-2"></i>To'liq Ekran
+            <button id="fullscreen-toggle" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out" title="To'liq ekran rejimi">
+                <i class="fas fa-expand"></i>To'liq Ekran
             </button>
-            <a href="{% url 'excel_import' %}" class="btn-secondary">
-                <i class="fas fa-file-excel mr-2"></i>Excel Import
+            <a href="{% url 'excel_import' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
+                <i class="fas fa-file-excel"></i>Excel Import
             </a>
-            <a href="{% url 'lead_create' %}" class="btn-primary">
-                <i class="fas fa-plus mr-2"></i>Yangi Lid
+            <a href="{% url 'lead_create' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-indigo-700/30">
+                <i class="fas fa-plus"></i>Yangi Lid
             </a>
         </div>
     </div>
     
     <!-- Filtrlar (fullscreen rejimda yashiriladi) -->
-    <div id="filters-section" class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-100">
-        <div class="flex items-center mb-4">
-            <i class="fas fa-filter text-gray-400 mr-2"></i>
-            <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Filtrlar</h3>
-        </div>
-        <form method="get" class="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div>
-                <label for="source_filter" class="form-label">
-                    <i class="fas fa-source-fork mr-1 text-gray-400"></i>Manba
+    <div id="filters-section" class="bg-white shadow-md rounded-lg p-4 mb-4 border border-gray-200">
+        <form method="get" class="flex flex-col sm:flex-row items-end gap-3">
+            <!-- Manba Filter -->
+            <div class="flex-1 w-full sm:w-auto min-w-[180px]">
+                <label for="source_filter" class="block text-xs font-medium text-gray-600 mb-1.5">
+                    <i class="fas fa-tag text-indigo-500 mr-1 text-xs"></i>Manba
                 </label>
-                <select name="source" id="source_filter" class="form-select">
-                    <option value="">Barchasi</option>
-                    {% for source_code, source_name in sources %}
-                    <option value="{{ source_code }}" {% if request.GET.source == source_code %}selected{% endif %}>{{ source_name }}</option>
-                    {% endfor %}
-                </select>
+                <div class="relative">
+                    <select name="source" id="source_filter" class="form-select w-full text-sm py-2 pl-9 pr-8">
+                        <option value="">Barchasi</option>
+                        {% for source_code, source_name in sources %}
+                        <option value="{{ source_code }}" {% if request.GET.source == source_code %}selected{% endif %}>{{ source_name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                        <i class="fas fa-tag text-gray-400 text-xs"></i>
+                    </div>
+                </div>
             </div>
-            <div>
-                <label for="search_input" class="form-label">
-                    <i class="fas fa-search mr-1 text-gray-400"></i>Qidirish
+            
+            <!-- Qidirish Input -->
+            <div class="flex-1 w-full sm:w-auto min-w-[200px]">
+                <label for="search_input" class="block text-xs font-medium text-gray-600 mb-1.5">
+                    <i class="fas fa-search text-indigo-500 mr-1 text-xs"></i>Qidirish
                 </label>
-                <input type="text" 
-                       name="search" 
-                       id="search_input"
-                       value="{{ request.GET.search }}" 
-                       placeholder="Ism yoki telefon bo'yicha qidirish" 
-                       class="form-input">
+                <div class="relative">
+                    <input type="text" 
+                           name="search" 
+                           id="search_input"
+                           value="{{ request.GET.search }}" 
+                           placeholder="Ism yoki telefon..." 
+                           class="form-input w-full text-sm py-2 pl-9 pr-8">
+                    <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400 text-xs"></i>
+                    </div>
+                    {% if request.GET.search %}
+                    <button type="button" 
+                            onclick="document.getElementById('search_input').value=''; document.getElementById('search_input').focus();" 
+                            class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-gray-400 hover:text-gray-600 transition-colors">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
+                    {% endif %}
+                </div>
             </div>
-            <div class="flex items-end space-x-2">
-                <button type="submit" class="btn-primary w-full">
-                    <i class="fas fa-filter mr-2"></i>Filtr
+            
+            <!-- Action Buttons -->
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+                <button type="submit" class="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-lg hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500 active:scale-[0.98] transform transition-all duration-200 border border-indigo-700/30">
+                    <i class="fas fa-filter text-xs"></i>
+                    <span>Filtr</span>
                 </button>
                 {% if request.GET.source or request.GET.search %}
-                <a href="{% url 'leads_list' %}" class="btn-secondary" title="Filtrni tozalash">
-                    <i class="fas fa-times"></i>
+                <a href="{% url 'leads_list' %}" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-500 active:scale-[0.98] transform transition-all duration-200" title="Filtrni tozalash">
+                    <i class="fas fa-times text-xs"></i>
                 </a>
                 {% endif %}
             </div>
         </form>
+        
+        <!-- Active Filters Display (kompakt) -->
+        {% if request.GET.source or request.GET.search %}
+        <div class="mt-3 pt-3 border-t border-gray-200">
+            <div class="flex items-center flex-wrap gap-1.5">
+                <span class="text-xs text-gray-500">Faol:</span>
+                {% if request.GET.source %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded">
+                    <i class="fas fa-tag text-xs"></i>
+                    {% for source_code, source_name in sources %}
+                        {% if source_code == request.GET.source %}{{ source_name }}{% endif %}
+                    {% endfor %}
+                    <a href="?{% if request.GET.search %}search={{ request.GET.search }}{% endif %}" class="ml-0.5 text-indigo-600 hover:text-indigo-800">
+                        <i class="fas fa-times text-xs"></i>
+                    </a>
+                </span>
+                {% endif %}
+                {% if request.GET.search %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded">
+                    <i class="fas fa-search text-xs"></i>
+                    "{{ request.GET.search|truncatewords:3 }}"
+                    <a href="?{% if request.GET.source %}source={{ request.GET.source }}{% endif %}" class="ml-0.5 text-indigo-600 hover:text-indigo-800">
+                        <i class="fas fa-times text-xs"></i>
+                    </a>
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
     </div>
     
     <!-- Kanban Board Info (fullscreen rejimda yashiriladi) -->
@@ -145,17 +194,39 @@
                             
                             <!-- Lead Info -->
                             <div class="space-y-2">
+                                <!-- Status Badge -->
+                                <div class="flex items-center">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium 
+                                        {% if lead.status == 'new' %}bg-blue-100 text-blue-800
+                                        {% elif lead.status == 'contacted' %}bg-yellow-100 text-yellow-800
+                                        {% elif lead.status == 'interested' %}bg-purple-100 text-purple-800
+                                        {% elif lead.status == 'trial_registered' %}bg-indigo-100 text-indigo-800
+                                        {% elif lead.status == 'trial_attended' %}bg-green-100 text-green-800
+                                        {% elif lead.status == 'enrolled' %}bg-emerald-100 text-emerald-800
+                                        {% elif lead.status == 'lost' %}bg-red-100 text-red-800
+                                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                        {{ lead.get_status_display }}
+                                    </span>
+                                </div>
+                                
                                 {% if lead.interested_course %}
                                 <div class="flex items-center text-xs text-gray-600">
                                     <i class="fas fa-book text-gray-400 mr-2 w-4"></i>
-                                    <span class="truncate">{{ lead.interested_course.name }}</span>
+                                    <span class="truncate" title="{{ lead.interested_course.name }}">{{ lead.interested_course.name }}</span>
+                                </div>
+                                {% else %}
+                                <div class="flex items-center text-xs text-amber-600">
+                                    <i class="fas fa-exclamation-circle text-amber-400 mr-2 w-4"></i>
+                                    <span>Kurs tanlanmagan</span>
                                 </div>
                                 {% endif %}
                                 
                                 {% if lead.assigned_sales %}
                                 <div class="flex items-center text-xs text-gray-600">
                                     <i class="fas fa-user-tie text-gray-400 mr-2 w-4"></i>
-                                    <span class="truncate">{{ lead.assigned_sales.username }}</span>
+                                    <span class="truncate" title="{{ lead.assigned_sales.get_full_name|default:lead.assigned_sales.username }}">
+                                        {{ lead.assigned_sales.username }}
+                                    </span>
                                 </div>
                                 {% else %}
                                 <div class="flex items-center text-xs text-amber-600">
@@ -164,17 +235,23 @@
                                 </div>
                                 {% endif %}
                                 
+                                {% if lead.source %}
+                                <div class="flex items-center text-xs text-gray-500">
+                                    <i class="fas fa-tag text-gray-400 mr-2 w-4"></i>
+                                    <span class="truncate">{{ lead.get_source_display }}</span>
+                                </div>
+                                {% endif %}
+                                
                                 <div class="flex items-center text-xs text-gray-500">
                                     <i class="fas fa-calendar text-gray-400 mr-2 w-4"></i>
                                     <span>{{ lead.created_at|date:"d.m.Y" }}</span>
                                 </div>
                                 
-                                {% if lead.source %}
-                                <div class="flex items-center">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                                        <i class="fas fa-tag text-xs mr-1"></i>
-                                        {{ lead.get_source_display }}
-                                    </span>
+                                <!-- Overdue Follow-ups Indicator -->
+                                {% if lead.has_overdue_followup %}
+                                <div class="flex items-center text-xs text-red-600 font-semibold">
+                                    <i class="fas fa-exclamation-triangle text-red-500 mr-2 w-4"></i>
+                                    <span>Overdue follow-up</span>
                                 </div>
                                 {% endif %}
                             </div>
@@ -184,7 +261,7 @@
                                 <div class="flex items-center justify-between">
                                     <span class="text-xs text-gray-500">
                                         <i class="fas fa-clock mr-1"></i>
-                                        {{ lead.created_at|timesince }} oldin
+                                        {{ lead.created_at|uzbek_timesince }}
                                     </span>
                                     <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
                                 </div>
@@ -221,13 +298,13 @@
                 {% endif %}
             </p>
             {% if not request.GET.source and not request.GET.search %}
-            <a href="{% url 'lead_create' %}" class="btn-primary inline-flex items-center">
-                <i class="fas fa-plus mr-2"></i>Yangi Lid Qo'shish
-            </a>
-            {% else %}
-            <a href="{% url 'leads_list' %}" class="btn-secondary inline-flex items-center">
-                <i class="fas fa-times mr-2"></i>Filtrni Tozalash
-            </a>
+                <a href="{% url 'lead_create' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-indigo-700/30">
+                    <i class="fas fa-plus"></i>Yangi Lid Qo'shish
+                </a>
+                {% else %}
+                <a href="{% url 'leads_list' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
+                    <i class="fas fa-times"></i>Filtrni Tozalash
+                </a>
             {% endif %}
         </div>
     </div>

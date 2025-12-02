@@ -178,6 +178,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'crm_app.tasks.reactivation_task',
         'schedule': crontab(hour=9, minute=0),  # Har kuni ertalab
     },
+    'check-trial-attended-not-enrolled': {
+        'task': 'crm_app.tasks.check_trial_attended_not_enrolled_task',
+        'schedule': crontab(minute='*/60'),  # Har soatda
+    },
 }
 
 # Telegram Bot

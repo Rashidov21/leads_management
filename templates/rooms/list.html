@@ -19,8 +19,8 @@
             <h1 class="text-3xl font-bold text-gray-900">Xonalar</h1>
             <p class="mt-1 text-sm text-gray-500">Barcha mavjud xonalar ro'yxati</p>
         </div>
-        <a href="{% url 'room_create' %}" class="btn-primary">
-            <i class="fas fa-plus mr-2"></i>Yangi Xona
+        <a href="{% url 'room_create' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-indigo-700/30">
+            <i class="fas fa-plus"></i>Yangi Xona
         </a>
     </div>
     
@@ -62,10 +62,10 @@
                         </span>
                         {% endif %}
                         <div class="flex space-x-2">
-                            <a href="{% url 'room_edit' room.pk %}" class="btn-secondary text-sm">
+                            <a href="{% url 'room_edit' room.pk %}" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
                                 <i class="fas fa-edit"></i>
                             </a>
-                            <a href="{% url 'room_delete' room.pk %}" class="btn-danger text-sm" onclick="return confirm('Bu xonani o\'chirishni xohlaysizmi?')">
+                            <a href="{% url 'room_delete' room.pk %}" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-gradient-to-r from-red-600 via-red-600 to-red-700 rounded-lg shadow-md hover:shadow-xl hover:from-red-700 hover:via-red-700 hover:to-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-red-700/30" onclick="return confirm('Bu xonani o\'chirishni xohlaysizmi?')">
                                 <i class="fas fa-trash"></i>
                             </a>
                         </div>
@@ -81,8 +81,8 @@
                         </div>
                         <h3 class="text-lg font-medium text-gray-900 mb-2">Xonalar topilmadi</h3>
                         <p class="text-sm text-gray-500 mb-6">Hozircha xonalar yo'q</p>
-                        <a href="{% url 'room_create' %}" class="btn-primary inline-flex items-center">
-                            <i class="fas fa-plus mr-2"></i>Yangi Xona Qo'shish
+                        <a href="{% url 'room_create' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-indigo-700/30">
+                            <i class="fas fa-plus"></i>Yangi Xona Qo'shish
                         </a>
                     </div>
                 </div>

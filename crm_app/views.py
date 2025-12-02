@@ -54,9 +54,12 @@ def logout_view(request):
 @login_required
 def dashboard(request):
     context = {}
+    now = timezone.now()
     
     if request.user.is_admin or request.user.is_sales_manager:
         # Admin/Manager dashboard
+        overdue_followups_queryset = FollowUpService.get_overdue_followups()
+        
         context.update({
             'total_leads': Lead.objects.count(),
             'new_leads_today': Lead.objects.filter(
@@ -65,15 +68,23 @@ def dashboard(request):
             ).count(),
             'total_sales': User.objects.filter(role='sales', is_active_sales=True).count(),
             'active_groups': Group.objects.filter(is_active=True).count(),
-            'overdue_followups': FollowUpService.get_overdue_followups().count(),
+            'overdue_followups': overdue_followups_queryset.count(),
+            'overdue_followups_list': overdue_followups_queryset.select_related(
+                'lead', 'sales', 'lead__assigned_sales', 'lead__interested_course'
+            ).order_by('due_date')[:10],  # Eng qadimgi 10 tasi
         })
     else:
         # Sales dashboard
         sales = request.user
+        overdue_followups_queryset = FollowUpService.get_overdue_followups(sales)
+        
         context.update({
             'my_leads': Lead.objects.filter(assigned_sales=sales).count(),
             'today_followups': FollowUpService.get_today_followups(sales).count(),
-            'overdue_followups': FollowUpService.get_overdue_followups(sales).count(),
+            'overdue_followups': overdue_followups_queryset.count(),
+            'overdue_followups_list': overdue_followups_queryset.select_related(
+                'lead', 'lead__interested_course'
+            ).order_by('due_date')[:10],  # Eng qadimgi 10 tasi
             'is_blocked': FollowUpService.check_sales_blocked(sales),
         })
     
@@ -102,9 +113,16 @@ def leads_list(request):
         )
     
     # Statuslar bo'yicha guruhlash (Kanban board uchun)
+    now = timezone.now()
     leads_by_status = {}
     for status_code, status_name in Lead.STATUS_CHOICES:
-        status_leads = queryset.filter(status=status_code).order_by('-created_at')
+        status_leads = queryset.filter(status=status_code).prefetch_related('followups').order_by('-created_at')
+        # Har bir lid uchun overdue follow-up borligini tekshirish
+        for lead in status_leads:
+            lead.has_overdue_followup = lead.followups.filter(
+                completed=False, 
+                due_date__lt=now
+            ).exists()
         leads_by_status[status_code] = {
             'name': status_name,
             'leads': status_leads,
@@ -131,17 +149,28 @@ def lead_detail(request, pk):
         return redirect('leads_list')
     
     if request.method == 'POST':
-        form = LeadStatusForm(request.POST, instance=lead)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Status yangilandi')
-            return redirect('lead_detail', pk=pk)
+        # Status o'zgartirish
+        if 'status_form' in request.POST:
+            form = LeadStatusForm(request.POST, instance=lead)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Status yangilandi')
+                return redirect('lead_detail', pk=pk)
+        # Lid ma'lumotlarini o'zgartirish
+        elif 'edit_form' in request.POST:
+            edit_form = LeadForm(request.POST, instance=lead)
+            if edit_form.is_valid():
+                edit_form.save()
+                messages.success(request, 'Lid ma\'lumotlari yangilandi')
+                return redirect('lead_detail', pk=pk)
     else:
         form = LeadStatusForm(instance=lead)
+        edit_form = LeadForm(instance=lead)
     
     context = {
         'lead': lead,
         'form': form,
+        'edit_form': edit_form,
         'followups': lead.followups.all().order_by('-due_date'),
         'trials': lead.trials.all().order_by('-date'),
     }
@@ -691,33 +720,171 @@ def manager_delete(request, pk):
 @login_required
 @manager_or_admin_required
 def analytics(request):
+    from datetime import datetime, time as dt_time
+    from collections import defaultdict
+    
     context = {}
+    today = timezone.now().date()
+    now = timezone.now()
     
     # Lid statistikasi
     context['leads_stats'] = {
         'total': Lead.objects.count(),
-        'new_today': Lead.objects.filter(created_at__date=timezone.now().date()).count(),
+        'new_today': Lead.objects.filter(created_at__date=today).count(),
         'by_status': dict(Lead.objects.values('status').annotate(count=Count('id')).values_list('status', 'count')),
         'by_source': dict(Lead.objects.values('source').annotate(count=Count('id')).values_list('source', 'count')),
     }
     
-    # Sotuvchi statistikasi (Admin va Manager uchun)
+    # Sotuvchi statistikasi (Admin va Manager uchun) - aniq statistikalar
     sales_stats = []
     for sales in User.objects.filter(role='sales', is_active_sales=True):
-        kpi = KPIService.calculate_daily_kpi(sales, timezone.now().date())
+        kpi = KPIService.calculate_daily_kpi(sales, today)
+        
+        # Sotuvchi tomonidan jalb qilingan mijozlar soni
+        leads_assigned = Lead.objects.filter(assigned_sales=sales).count()
+        
+        # Sotuvchi tomonidan sotilgan (enrolled) lidlar soni
+        sales_count = Lead.objects.filter(
+            assigned_sales=sales,
+            status='enrolled'
+        ).count()
+        
+        # Sotuvchi tomonidan sinovga yozilgan lidlar soni
+        trials_registered = TrialLesson.objects.filter(
+            lead__assigned_sales=sales
+        ).count()
+        
         sales_stats.append({
             'sales': sales,
             'kpi': kpi,
             'overdue': FollowUpService.get_overdue_followups(sales).count(),
+            'leads_assigned': leads_assigned,  # Jalb qilingan mijozlar
+            'sales_count': sales_count,  # Sotuvlar
+            'trials_registered': trials_registered,  # Sinovga yozilganlar
         })
     context['sales_stats'] = sales_stats
     
     # Guruh statistikasi
+    all_groups = Group.objects.filter(is_active=True)
     context['groups_stats'] = {
-        'total': Group.objects.count(),
-        'full': Group.objects.filter(current_students__gte=F('capacity')).count(),
-        'available': Group.objects.filter(current_students__lt=F('capacity')).count(),
+        'total': all_groups.count(),
+        'full': all_groups.filter(current_students__gte=F('capacity')).count(),
+        'available': all_groups.filter(current_students__lt=F('capacity')).count(),
     }
+    
+    # Xonalar statistikasi va bo'sh vaqtlar
+    # O'quv markaz ish vaqti: 8:30 - 19:00 (10.5 soat = 630 minut)
+    # Har bir guruh darsi: 90 minut
+    # Bir kunda bir xonada maksimal guruhlar soni: 630 / 90 = 7 guruh
+    WORK_START = dt_time(8, 30)  # 8:30
+    WORK_END = dt_time(19, 0)    # 19:00
+    LESSON_DURATION_MINUTES = 90  # 90 minut
+    WORK_DURATION_MINUTES = (19 * 60) - (8 * 60 + 30)  # 630 minut
+    MAX_GROUPS_PER_ROOM_PER_DAY = WORK_DURATION_MINUTES // LESSON_DURATION_MINUTES  # 7 guruh
+    
+    rooms = Room.objects.filter(is_active=True)
+    rooms_stats = []
+    total_center_capacity = 0
+    total_center_available = 0
+    total_center_occupied = 0
+    
+    # Joriy vaqt uchun bo'sh xonalar va vaqtlar
+    current_time = now.time()
+    current_weekday = now.weekday()  # 0 = Monday, 6 = Sunday
+    
+    # Hafta kunlarini Group modelidagi days formatiga moslashtirish
+    day_mapping = {
+        0: 'odd',  # Monday - toq kun
+        1: 'even',  # Tuesday - juft kun
+        2: 'odd',  # Wednesday - toq kun
+        3: 'even',  # Thursday - juft kun
+        4: 'odd',  # Friday - toq kun
+        5: 'even',  # Saturday - juft kun
+        6: 'odd',  # Sunday - toq kun
+    }
+    current_day_type = day_mapping.get(current_weekday, 'odd')
+    
+    for room in rooms:
+        # Xona sig'imi
+        room_capacity = room.capacity
+        
+        # Xonadagi guruhlar
+        groups_in_room = all_groups.filter(room=room)
+        
+        # Xonadagi jami o'quvchilar (faqat faol guruhlardan)
+        total_students = sum(g.current_students for g in groups_in_room)
+        
+        # Xonadagi jami sig'im (faqat faol guruhlardan)
+        total_capacity_groups = sum(g.capacity for g in groups_in_room)
+        
+        # Xonadagi bo'sh joylar (faqat to'liq bo'lmagan guruhlardan)
+        available_spots = sum(g.available_spots for g in groups_in_room if not g.is_full)
+        
+        # Xona uchun maksimal sig'im (ish vaqti va dars davomiyligiga qarab)
+        # Bir kunda bir xonada maksimal: xona_sig'imi * maksimal_guruhlar_soni
+        room_max_capacity_per_day = room_capacity * MAX_GROUPS_PER_ROOM_PER_DAY
+        
+        # Xonadagi joriy band o'rinlar (faqat faol guruhlardan)
+        room_occupied = total_students
+        
+        # Xonadagi joriy bo'sh o'rinlar
+        room_available = room_max_capacity_per_day - room_occupied
+        
+        # Joriy vaqtda xonada ishlayotgan guruhlar
+        # 90 minutlik dars davomiyligini hisobga olish
+        current_groups = []
+        for group in groups_in_room.filter(days__in=[current_day_type, 'daily']):
+            group_start = group.time
+            # Dars davomiyligi: 90 minut
+            group_end_minutes = (group_start.hour * 60 + group_start.minute + LESSON_DURATION_MINUTES) % (24 * 60)
+            group_end = dt_time(group_end_minutes // 60, group_end_minutes % 60)
+            
+            # Joriy vaqt dars vaqtida ekanligini tekshirish
+            if group_start <= current_time < group_end or (group_end < group_start and (current_time >= group_start or current_time < group_end)):
+                current_groups.append(group)
+        
+        # Joriy vaqtda bo'sh ekanligini tekshirish
+        is_free_now = len(current_groups) == 0
+        
+        # Xonaning band vaqtlari (guruhlar bo'lgan vaqtlar)
+        busy_times = sorted(set(groups_in_room.values_list('time', flat=True)))
+        
+        rooms_stats.append({
+            'room': room,
+            'capacity': room_capacity,
+            'total_students': total_students,
+            'total_capacity': total_capacity_groups,
+            'available_spots': available_spots,
+            'groups_count': groups_in_room.count(),
+            'is_free_now': is_free_now,
+            'busy_times': busy_times,
+            'max_capacity_per_day': room_max_capacity_per_day,
+            'occupied_per_day': room_occupied,
+            'available_per_day': room_available,
+        })
+        
+        # Markaz sig'imi hisoblash
+        total_center_capacity += room_max_capacity_per_day
+        total_center_occupied += room_occupied
+        total_center_available += room_available
+    
+    context['rooms_stats'] = rooms_stats
+    context['center_stats'] = {
+        'total_capacity': total_center_capacity,
+        'total_available': total_center_available,
+        'total_occupied': total_center_occupied,
+        'occupancy_percentage': (total_center_occupied / total_center_capacity * 100) if total_center_capacity > 0 else 0,
+        'work_hours': f"{WORK_START.strftime('%H:%M')} - {WORK_END.strftime('%H:%M')}",
+        'lesson_duration': LESSON_DURATION_MINUTES,
+        'max_groups_per_room': MAX_GROUPS_PER_ROOM_PER_DAY,
+    }
+    
+    # Guruhlar va vaqtlar bo'yicha statistikalar
+    groups_by_time = defaultdict(list)
+    for group in all_groups:
+        groups_by_time[group.time].append(group)
+    
+    context['groups_by_time'] = dict(sorted(groups_by_time.items()))
     
     return render(request, 'analytics/index.html', context)
 

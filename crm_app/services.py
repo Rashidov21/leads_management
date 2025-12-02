@@ -68,6 +68,85 @@ class FollowUpService:
     """Follow-up xizmatlari"""
     
     @staticmethod
+    def calculate_work_hours_due_date(sales, base_time, delay):
+        """
+        Follow-up vaqtini ish vaqtlariga moslashtirish
+        
+        Args:
+            sales: User model instance (sotuvchi)
+            base_time: datetime - boshlang'ich vaqt
+            delay: timedelta - kechikish (masalan, timedelta(hours=24))
+        
+        Returns:
+            datetime - ish vaqtiga moslashtirilgan follow-up vaqti
+        """
+        if not sales or not sales.is_active_sales:
+            # Agar sotuvchi yo'q yoki faol emas bo'lsa, oddiy hisoblash
+            return base_time + delay
+        
+        # Agar ish vaqtlari belgilanmagan bo'lsa, oddiy hisoblash
+        if not sales.work_start_time or not sales.work_end_time:
+            return base_time + delay
+        
+        # Hisoblangan vaqt
+        calculated_time = base_time + delay
+        
+        # Ish kunlari
+        work_days = {
+            0: sales.work_monday,      # Dushanba
+            1: sales.work_tuesday,     # Seshanba
+            2: sales.work_wednesday,   # Chorshanba
+            3: sales.work_thursday,    # Payshanba
+            4: sales.work_friday,      # Juma
+            5: sales.work_saturday,    # Shanba
+            6: sales.work_sunday,      # Yakshanba
+        }
+        
+        # Hisoblangan vaqtning kuni va vaqti
+        calculated_weekday = calculated_time.weekday()
+        calculated_time_only = calculated_time.time()
+        calculated_date = calculated_time.date()
+        
+        # Ish kuni va ish vaqti ichida ekanligini tekshirish
+        is_work_day = work_days.get(calculated_weekday, False)
+        is_work_hours = sales.work_start_time <= calculated_time_only <= sales.work_end_time
+        
+        if is_work_day and is_work_hours:
+            # Agar ish vaqti ichida bo'lsa, shu vaqtni qaytarish
+            return calculated_time
+        
+        # Agar ish vaqti tashqarisida bo'lsa, keyingi ish kunining boshlanishiga o'tkazish
+        # Hisoblangan kundan boshlab keyingi ish kunini topish
+        max_days_to_check = 14  # Maksimal 2 hafta tekshirish
+        
+        for day_offset in range(max_days_to_check):
+            check_date = calculated_date + timedelta(days=day_offset)
+            check_weekday = check_date.weekday()
+            
+            # Agar bu ish kuni bo'lsa
+            if work_days.get(check_weekday, False):
+                # Bu kunning ish vaqti boshlanishini yaratish
+                work_start_datetime = timezone.make_aware(
+                    timezone.datetime.combine(check_date, sales.work_start_time)
+                )
+                
+                # Agar bu kun hisoblangan kun bo'lsa
+                if check_date == calculated_date:
+                    # Agar hisoblangan vaqt ish vaqti boshlanishidan oldin bo'lsa
+                    if calculated_time_only < sales.work_start_time:
+                        # Bugun ish vaqti boshlanishiga o'tkazish
+                        return work_start_datetime
+                    # Agar hisoblangan vaqt ish vaqti tugashidan keyin bo'lsa yoki ish kuni emas bo'lsa
+                    # Keyingi ish kunining boshlanishiga o'tkazish
+                    continue
+                
+                # Keyingi ish kunining boshlanish vaqtini qaytarish
+                return work_start_datetime
+        
+        # Agar ish kuni topilmasa, oddiy hisoblangan vaqtni qaytarish
+        return calculated_time
+    
+    @staticmethod
     def get_today_followups(sales=None):
         """Bugungi follow-uplarni olish"""
         today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)

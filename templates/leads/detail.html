@@ -21,25 +21,31 @@
         <a href="{% url 'leads_list' %}" class="inline-flex items-center text-indigo-600 hover:text-indigo-800 transition-colors">
             <i class="fas fa-arrow-left mr-2"></i>Orqaga
         </a>
-        {% if user.is_admin or user.is_sales_manager %}
-        <a href="{% url 'lead_assign' lead.pk %}" class="btn-secondary">
-            <i class="fas fa-user-tie mr-2"></i>Biriktirish
-        </a>
-        {% endif %}
+        <div class="flex space-x-3">
+            {% if user.is_admin or user.is_sales_manager %}
+            <a href="{% url 'lead_assign' lead.pk %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
+                <i class="fas fa-user-tie"></i>Biriktirish
+            </a>
+            {% endif %}
+            <button type="button" onclick="toggleEditForm()" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out" id="editToggleBtn">
+                <i class="fas fa-edit"></i>Tahrirlash
+            </button>
+        </div>
     </div>
     
     <!-- Lead Info Card -->
-    <div class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-100">
+    <div class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-100" id="leadInfoCard">
         <div class="flex justify-between items-start mb-6">
             <div class="flex items-center space-x-4">
                 <div class="h-16 w-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl shadow-lg">
                     {{ lead.name|first|upper }}
                 </div>
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-900">{{ lead.name }}</h1>
+                    <h1 class="text-3xl font-bold text-gray-900" id="leadNameDisplay">{{ lead.name }}</h1>
                     <div class="mt-2 flex items-center space-x-4 text-gray-600">
                         <span class="flex items-center">
-                            <i class="fas fa-phone mr-2"></i>{{ lead.phone }}
+                            <i class="fas fa-phone mr-2"></i>
+                            <span id="leadPhoneDisplay">{{ lead.phone }}</span>
                         </span>
                         <span class="flex items-center">
                             <i class="fas fa-calendar mr-2"></i>{{ lead.created_at|date:"d.m.Y H:i" }}
@@ -57,19 +63,32 @@
                 <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
                     <i class="fas fa-book mr-1"></i>Kurs
                 </label>
-                <p class="text-base font-medium text-gray-900">{{ lead.interested_course.name|default:"Tanlanmagan" }}</p>
+                <p class="text-base font-medium text-gray-900" id="leadCourseDisplay">
+                    {{ lead.interested_course.name|default:"Tanlanmagan" }}
+                </p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
                 <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
                     <i class="fas fa-source-fork mr-1"></i>Manba
                 </label>
-                <p class="text-base font-medium text-gray-900">{{ lead.get_source_display }}</p>
+                <p class="text-base font-medium text-gray-900" id="leadSourceDisplay">
+                    {{ lead.get_source_display }}
+                </p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
                 <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
                     <i class="fas fa-user-tie mr-1"></i>Mas'ul Sotuvchi
                 </label>
-                <p class="text-base font-medium text-gray-900">{{ lead.assigned_sales.username|default:"Biriktirilmagan" }}</p>
+                <p class="text-base font-medium text-gray-900">
+                    {% if lead.assigned_sales %}
+                        {{ lead.assigned_sales.get_full_name|default:lead.assigned_sales.username }}
+                        {% if lead.assigned_sales.phone %}
+                            <span class="text-sm text-gray-500">({{ lead.assigned_sales.phone }})</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="text-amber-600">Biriktirilmagan</span>
+                    {% endif %}
+                </p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
                 <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
@@ -84,21 +103,95 @@
             <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">
                 <i class="fas fa-sticky-note mr-1"></i>Eslatmalar
             </label>
-            <p class="text-sm text-gray-700 whitespace-pre-line">{{ lead.notes }}</p>
+            <p class="text-sm text-gray-700 whitespace-pre-line" id="leadNotesDisplay">{{ lead.notes }}</p>
         </div>
         {% endif %}
+    </div>
+    
+    <!-- Edit Form (Hidden by default) -->
+    <div class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-100 hidden" id="editFormCard">
+        <div class="flex items-center mb-6">
+            <div class="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                <i class="fas fa-edit text-indigo-600"></i>
+            </div>
+            <h2 class="text-xl font-bold text-gray-900">Lid ma'lumotlarini tahrirlash</h2>
+        </div>
+        <form method="post" id="editForm">
+            {% csrf_token %}
+            <input type="hidden" name="edit_form" value="1">
+            <div class="space-y-5">
+                <div>
+                    <label for="{{ edit_form.name.id_for_label }}" class="form-label">
+                        Ism <span class="text-red-500">*</span>
+                    </label>
+                    {{ edit_form.name }}
+                    {% if edit_form.name.errors %}
+                        <p class="mt-1 text-sm text-red-600 flex items-center">
+                            <i class="fas fa-exclamation-circle mr-1"></i>{{ edit_form.name.errors.0 }}
+                        </p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="{{ edit_form.phone.id_for_label }}" class="form-label">
+                        Telefon <span class="text-red-500">*</span>
+                    </label>
+                    {{ edit_form.phone }}
+                    {% if edit_form.phone.errors %}
+                        <p class="mt-1 text-sm text-red-600 flex items-center">
+                            <i class="fas fa-exclamation-circle mr-1"></i>{{ edit_form.phone.errors.0 }}
+                        </p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="{{ edit_form.interested_course.id_for_label }}" class="form-label">Kurs</label>
+                    {{ edit_form.interested_course }}
+                    {% if edit_form.interested_course.errors %}
+                        <p class="mt-1 text-sm text-red-600 flex items-center">
+                            <i class="fas fa-exclamation-circle mr-1"></i>{{ edit_form.interested_course.errors.0 }}
+                        </p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="{{ edit_form.source.id_for_label }}" class="form-label">Manba</label>
+                    {{ edit_form.source }}
+                    {% if edit_form.source.errors %}
+                        <p class="mt-1 text-sm text-red-600 flex items-center">
+                            <i class="fas fa-exclamation-circle mr-1"></i>{{ edit_form.source.errors.0 }}
+                        </p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="{{ edit_form.notes.id_for_label }}" class="form-label">Eslatmalar</label>
+                    {{ edit_form.notes }}
+                    {% if edit_form.notes.errors %}
+                        <p class="mt-1 text-sm text-red-600 flex items-center">
+                            <i class="fas fa-exclamation-circle mr-1"></i>{{ edit_form.notes.errors.0 }}
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="mt-6 flex space-x-3">
+                <button type="submit" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md disabled:hover:from-indigo-600 disabled:hover:via-indigo-600 disabled:hover:to-indigo-700 border border-indigo-700/30">
+                    <i class="fas fa-save"></i>Saqlash
+                </button>
+                <button type="button" onclick="toggleEditForm()" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
+                    <i class="fas fa-times"></i>Bekor qilish
+                </button>
+            </div>
+        </form>
     </div>
     
     <!-- Status o'zgartirish -->
     <div class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-100">
         <div class="flex items-center mb-6">
             <div class="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
-                <i class="fas fa-edit text-indigo-600"></i>
+                <i class="fas fa-exchange-alt text-indigo-600"></i>
             </div>
             <h2 class="text-xl font-bold text-gray-900">Status o'zgartirish</h2>
         </div>
         <form method="post">
             {% csrf_token %}
+            <input type="hidden" name="status_form" value="1">
             <div class="space-y-5">
                 <div>
                     <label for="{{ form.status.id_for_label }}" class="form-label">Status <span class="text-red-500">*</span></label>
@@ -110,7 +203,7 @@
                     {% endif %}
                 </div>
                 <div>
-                    <label for="{{ form.notes.id_for_label }}" class="form-label">Eslatmalar</label>
+                    <label for="{{ form.notes.id_for_label }}" class="form-label">Status o'zgarishi haqida eslatma</label>
                     {{ form.notes }}
                     {% if form.notes.errors %}
                         <p class="mt-1 text-sm text-red-600 flex items-center">
@@ -120,8 +213,8 @@
                 </div>
             </div>
             <div class="mt-6 flex space-x-3">
-                <button type="submit" class="btn-primary">
-                    <i class="fas fa-save mr-2"></i>Saqlash
+                <button type="submit" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md disabled:hover:from-indigo-600 disabled:hover:via-indigo-600 disabled:hover:to-indigo-700 border border-indigo-700/30">
+                    <i class="fas fa-save"></i>Statusni yangilash
                 </button>
             </div>
         </form>
@@ -219,8 +312,8 @@
                         {% endif %}
                     </div>
                     {% if not trial.result %}
-                    <a href="{% url 'trial_result' trial.pk %}" class="btn-primary text-sm">
-                        <i class="fas fa-edit mr-1"></i>Natija
+                    <a href="{% url 'trial_result' trial.pk %}" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-indigo-700/30">
+                        <i class="fas fa-edit"></i>Natija
                     </a>
                     {% endif %}
                 </div>
@@ -232,8 +325,8 @@
                 </div>
                 <p class="text-gray-500 mb-4">Sinov darslari yo'q</p>
                 {% if lead.status != 'enrolled' and lead.status != 'lost' %}
-                <a href="{% url 'trial_register' lead.pk %}" class="btn-primary inline-flex items-center">
-                    <i class="fas fa-plus mr-2"></i>Sinovga Yozish
+                <a href="{% url 'trial_register' lead.pk %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-indigo-700/30">
+                    <i class="fas fa-plus"></i>Sinovga Yozish
                 </a>
                 {% endif %}
             </div>
@@ -241,11 +334,31 @@
         </div>
         {% if lead.status != 'enrolled' and lead.status != 'lost' and trials %}
         <div class="mt-6 pt-6 border-t border-gray-200">
-            <a href="{% url 'trial_register' lead.pk %}" class="btn-primary">
-                <i class="fas fa-plus mr-2"></i>Yangi Sinovga Yozish
+            <a href="{% url 'trial_register' lead.pk %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-indigo-700/30">
+                <i class="fas fa-plus"></i>Yangi Sinovga Yozish
             </a>
         </div>
         {% endif %}
     </div>
 </div>
+
+<script>
+function toggleEditForm() {
+    const editFormCard = document.getElementById('editFormCard');
+    const leadInfoCard = document.getElementById('leadInfoCard');
+    const editToggleBtn = document.getElementById('editToggleBtn');
+    
+    if (editFormCard.classList.contains('hidden')) {
+        editFormCard.classList.remove('hidden');
+        leadInfoCard.classList.add('hidden');
+        editToggleBtn.innerHTML = '<i class="fas fa-times"></i>Bekor qilish';
+        editToggleBtn.className = 'inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-red-600 via-red-600 to-red-700 rounded-lg shadow-md hover:shadow-xl hover:from-red-700 hover:via-red-700 hover:to-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-red-700/30';
+    } else {
+        editFormCard.classList.add('hidden');
+        leadInfoCard.classList.remove('hidden');
+        editToggleBtn.innerHTML = '<i class="fas fa-edit"></i>Tahrirlash';
+        editToggleBtn.className = 'inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out';
+    }
+}
+</script>
 {% endblock %}

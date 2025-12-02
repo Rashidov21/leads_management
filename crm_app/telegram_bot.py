@@ -4,7 +4,7 @@ from telegram import Bot
 from telegram.error import TelegramError
 
 
-def send_telegram_notification(chat_id, message):
+def send_telegram_notification(chat_id, message, parse_mode='HTML'):
     """Telegram xabar yuborish (sync) - retry bilan"""
     if not settings.TELEGRAM_BOT_TOKEN:
         print("TELEGRAM_BOT_TOKEN sozlanmagan!")
@@ -24,7 +24,7 @@ def send_telegram_notification(chat_id, message):
     for attempt in range(max_retries):
         try:
             bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
-            bot.send_message(chat_id=chat_id, text=message, timeout=10)
+            bot.send_message(chat_id=chat_id, text=message, timeout=10, parse_mode=parse_mode)
             return True
         except (HTTPError, ConnectionError, Timeout, NewConnectionError, MaxRetryError) as e:
             # Network xatolarini qayta urinish
