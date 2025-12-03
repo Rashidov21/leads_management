@@ -182,6 +182,14 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'crm_app.tasks.check_trial_attended_not_enrolled_task',
         'schedule': crontab(minute='*/60'),  # Har soatda
     },
+    'create-followup-after-trial-end': {
+        'task': 'crm_app.tasks.create_followup_after_trial_end_task',
+        'schedule': crontab(minute='*/15'),  # Har 15 daqiqada
+    },
+    'check-expired-leaves': {
+        'task': 'crm_app.tasks.check_expired_leaves_task',
+        'schedule': crontab(minute='*/60'),  # Har soatda
+    },
 }
 
 # Telegram Bot

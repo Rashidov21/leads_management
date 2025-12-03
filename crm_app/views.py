@@ -58,7 +58,7 @@ def dashboard(request):
     
     if request.user.is_admin or request.user.is_sales_manager:
         # Admin/Manager dashboard
-        overdue_followups_queryset = FollowUpService.get_overdue_followups()
+        overdue_followups_queryset = FollowUpService.get_overdue_followups_prioritized()
         
         context.update({
             'total_leads': Lead.objects.count(),
@@ -71,12 +71,13 @@ def dashboard(request):
             'overdue_followups': overdue_followups_queryset.count(),
             'overdue_followups_list': overdue_followups_queryset.select_related(
                 'lead', 'sales', 'lead__assigned_sales', 'lead__interested_course'
-            ).order_by('due_date')[:10],  # Eng qadimgi 10 tasi
+            )[:10],  # Eng qadimgi 10 tasi
+            'overdue_stats': FollowUpService.get_overdue_statistics(),
         })
     else:
         # Sales dashboard
         sales = request.user
-        overdue_followups_queryset = FollowUpService.get_overdue_followups(sales)
+        overdue_followups_queryset = FollowUpService.get_overdue_followups_prioritized(sales)
         
         context.update({
             'my_leads': Lead.objects.filter(assigned_sales=sales).count(),
@@ -84,7 +85,7 @@ def dashboard(request):
             'overdue_followups': overdue_followups_queryset.count(),
             'overdue_followups_list': overdue_followups_queryset.select_related(
                 'lead', 'lead__interested_course'
-            ).order_by('due_date')[:10],  # Eng qadimgi 10 tasi
+            )[:10],  # Eng qadimgi 10 tasi
             'is_blocked': FollowUpService.check_sales_blocked(sales),
         })
     
@@ -116,13 +117,26 @@ def leads_list(request):
     now = timezone.now()
     leads_by_status = {}
     for status_code, status_name in Lead.STATUS_CHOICES:
-        status_leads = queryset.filter(status=status_code).prefetch_related('followups').order_by('-created_at')
+        status_leads = queryset.filter(status=status_code).prefetch_related(
+            'followups',
+            'trials__group__course',
+            'trials__group',
+            'trials__room'
+        ).order_by('-created_at')
         # Har bir lid uchun overdue follow-up borligini tekshirish
         for lead in status_leads:
             lead.has_overdue_followup = lead.followups.filter(
                 completed=False, 
                 due_date__lt=now
             ).exists()
+            # Eng yaqin sinov darsini topish (natija bo'lmagan yoki kelajakdagi)
+            upcoming_trial = lead.trials.filter(
+                result__in=['', 'attended', 'not_attended']
+            ).order_by('date', 'time').first()
+            if not upcoming_trial:
+                # Agar kelajakdagi bo'lmasa, barcha sinov darslardan eng yaqinini olish
+                upcoming_trial = lead.trials.all().order_by('date', 'time').first()
+            lead.upcoming_trial = upcoming_trial
         leads_by_status[status_code] = {
             'name': status_name,
             'leads': status_leads,
@@ -238,10 +252,27 @@ def excel_import(request):
                         if not phone or Lead.objects.filter(phone=phone).exists():
                             continue
                         
+                        # Source ustunini o'qish
+                        source_value = str(row.get('source', '')).strip().lower()
+                        # Source'ni Lead modelidagi SOURCE_CHOICES ga moslashtirish
+                        source = 'excel'  # Default
+                        if source_value:
+                            # Mapping
+                            source_mapping = {
+                                'instagram': 'instagram',
+                                'telegram': 'telegram',
+                                'youtube': 'youtube',
+                                'organic': 'organic',
+                                'form': 'form',
+                                'excel': 'excel',
+                                'google_sheets': 'google_sheets',
+                            }
+                            source = source_mapping.get(source_value, 'excel')
+                        
                         lead = Lead(
                             name=str(row.get('name', '')).strip(),
                             phone=phone,
-                            source='excel',
+                            source=source,
                         )
                         leads.append(lead)
                 elif load_workbook:
@@ -253,12 +284,16 @@ def excel_import(request):
                     headers = [cell.value for cell in ws[1]]
                     name_col = None
                     phone_col = None
+                    source_col = None
                     
                     for idx, header in enumerate(headers, 1):
-                        if header and 'name' in str(header).lower():
+                        header_str = str(header or '').lower()
+                        if 'name' in header_str:
                             name_col = idx
-                        if header and 'phone' in str(header).lower():
+                        if 'phone' in header_str:
                             phone_col = idx
+                        if 'source' in header_str:
+                            source_col = idx
                     
                     if not name_col or not phone_col:
                         messages.error(request, 'Excel faylda "name" va "phone" ustunlari topilmadi')
@@ -276,10 +311,27 @@ def excel_import(request):
                         if Lead.objects.filter(phone=phone).exists():
                             continue
                         
+                        # Source ustunini o'qish
+                        source = 'excel'  # Default
+                        if source_col:
+                            source_value = str(row[source_col - 1].value or '').strip().lower()
+                            if source_value:
+                                # Mapping
+                                source_mapping = {
+                                    'instagram': 'instagram',
+                                    'telegram': 'telegram',
+                                    'youtube': 'youtube',
+                                    'organic': 'organic',
+                                    'form': 'form',
+                                    'excel': 'excel',
+                                    'google_sheets': 'google_sheets',
+                                }
+                                source = source_mapping.get(source_value, 'excel')
+                        
                         lead = Lead(
                             name=name,
                             phone=phone,
-                            source='excel',
+                            source=source,
                         )
                         leads.append(lead)
                 else:
@@ -333,6 +385,138 @@ def followups_today(request):
     return render(request, 'followups/today.html', {'followups': followups})
 
 
+@login_required
+@role_required('admin', 'sales_manager', 'sales')
+def overdue_followups_list(request):
+    """Overdue follow-up'lar ro'yxati"""
+    sales = request.user if request.user.is_sales else None
+    
+    # Filterlar
+    sales_filter = request.GET.get('sales')
+    age_filter = request.GET.get('age')  # <1h, 1-6h, 6-24h, >24h
+    
+    overdue = FollowUpService.get_overdue_followups_prioritized(sales)
+    
+    if sales_filter and (request.user.is_admin or request.user.is_sales_manager):
+        overdue = overdue.filter(sales_id=sales_filter)
+    
+    if age_filter:
+        now = timezone.now()
+        if age_filter == '<1h':
+            overdue = overdue.filter(due_date__gte=now - timedelta(hours=1))
+        elif age_filter == '1-6h':
+            overdue = overdue.filter(
+                due_date__lt=now - timedelta(hours=1),
+                due_date__gte=now - timedelta(hours=6)
+            )
+        elif age_filter == '6-24h':
+            overdue = overdue.filter(
+                due_date__lt=now - timedelta(hours=6),
+                due_date__gte=now - timedelta(days=1)
+            )
+        elif age_filter == '>24h':
+            overdue = overdue.filter(due_date__lt=now - timedelta(days=1))
+    
+    # Statistics
+    stats = FollowUpService.get_overdue_statistics(sales)
+    
+    # Sales list (for filter)
+    sales_list = User.objects.filter(role='sales', is_active_sales=True) if (request.user.is_admin or request.user.is_sales_manager) else None
+    
+    context = {
+        'overdue_followups': overdue.select_related('lead', 'sales', 'lead__interested_course'),
+        'stats': stats,
+        'sales_list': sales_list,
+        'current_sales_filter': sales_filter,
+        'current_age_filter': age_filter,
+    }
+    
+    return render(request, 'followups/overdue.html', context)
+
+
+@login_required
+@role_required('admin', 'sales_manager', 'sales')
+def overdue_followup_complete(request, followup_id):
+    """Overdue follow-up'ni bajarilgan deb belgilash"""
+    followup = get_object_or_404(FollowUp, pk=followup_id)
+    
+    if request.user.is_sales and followup.sales != request.user:
+        messages.error(request, "Sizda bu follow-upni bajarish huquqi yo'q")
+    else:
+        followup.mark_completed()
+        messages.success(request, 'Follow-up bajarildi')
+    
+    return redirect('overdue_followups_list')
+
+
+@login_required
+@role_required('admin', 'sales_manager')
+def bulk_reschedule_overdue(request):
+    """Bir nechta overdue'larni qayta rejalashtirish"""
+    if request.method == 'POST':
+        followup_ids = request.POST.getlist('followup_ids')
+        hours_ahead = int(request.POST.get('hours_ahead', 2))
+        
+        if not followup_ids:
+            messages.error(request, "Hech qanday follow-up tanlanmagan")
+        else:
+            count = 0
+            for followup_id in followup_ids:
+                followup = get_object_or_404(FollowUp, pk=followup_id)
+                if FollowUpService.auto_reschedule_overdue(followup, hours_ahead):
+                    count += 1
+            
+            messages.success(request, f'{count} ta follow-up qayta rejalashtirildi')
+    
+    return redirect('overdue_followups_list')
+
+
+@login_required
+@role_required('admin', 'sales_manager')
+def bulk_reassign_overdue(request):
+    """Bir nechta overdue'larni boshqa sotuvchiga o'tkazish"""
+    if request.method == 'POST':
+        followup_ids = request.POST.getlist('followup_ids')
+        new_sales_id = request.POST.get('new_sales_id')
+        
+        if not followup_ids:
+            messages.error(request, "Hech qanday follow-up tanlanmagan")
+        elif not new_sales_id:
+            messages.error(request, "Sotuvchi tanlanmagan")
+        else:
+            new_sales = get_object_or_404(User, pk=new_sales_id, role='sales')
+            count = 0
+            for followup_id in followup_ids:
+                followup = get_object_or_404(FollowUp, pk=followup_id)
+                if FollowUpService.reassign_overdue_followup(followup, new_sales):
+                    count += 1
+            
+            messages.success(request, f'{count} ta follow-up {new_sales.username} ga o\'tkazildi')
+    
+    return redirect('overdue_followups_list')
+
+
+@login_required
+@role_required('admin', 'sales_manager')
+def bulk_complete_overdue(request):
+    """Bir nechta overdue'larni bajarilgan deb belgilash"""
+    if request.method == 'POST':
+        followup_ids = request.POST.getlist('followup_ids')
+        
+        if not followup_ids:
+            messages.error(request, "Hech qanday follow-up tanlanmagan")
+        else:
+            count = 0
+            for followup_id in followup_ids:
+                followup = get_object_or_404(FollowUp, pk=followup_id)
+                followup.mark_completed()
+                count += 1
+            
+            messages.success(request, f'{count} ta follow-up bajarilgan deb belgilandi')
+    
+    return redirect('overdue_followups_list')
+
+
 # ============ TRIAL MANAGEMENT ============
 
 @login_required
@@ -359,7 +543,16 @@ def trial_register(request, lead_pk):
                 })
             
             trial.save()
+            
+            # Guruhning trial_students ga qo'shish
+            trial.group.trial_students.add(lead)
+            
             lead.status = 'trial_registered'
+            
+            # Agar lid uchun kurs tanlanmagan bo'lsa, guruh kursini avtomatik tanlash
+            if not lead.interested_course and trial.group.course:
+                lead.interested_course = trial.group.course
+            
             lead.save()
             messages.success(request, 'Sinovga yozildi')
             return redirect('lead_detail', pk=lead_pk)
@@ -411,8 +604,13 @@ def trial_result(request, trial_pk):
             elif trial.result == 'accepted':
                 lead.status = 'enrolled'
                 lead.enrolled_group = trial.group
+                
+                # Guruhning current_students oshirish
                 trial.group.current_students += 1
                 trial.group.save()
+                
+                # Trial students dan olib tashlash (agar mavjud bo'lsa)
+                trial.group.trial_students.remove(lead)
             elif trial.result == 'rejected':
                 lead.status = 'lost'
             
@@ -812,20 +1010,28 @@ def analytics(request):
         groups_in_room = all_groups.filter(room=room)
         
         # Xonadagi jami o'quvchilar (faqat faol guruhlardan)
+        # current_students + trial_students
         total_students = sum(g.current_students for g in groups_in_room)
+        total_trial_students = sum(g.trial_students.count() for g in groups_in_room)
+        total_students_with_trials = total_students + total_trial_students
         
         # Xonadagi jami sig'im (faqat faol guruhlardan)
         total_capacity_groups = sum(g.capacity for g in groups_in_room)
         
         # Xonadagi bo'sh joylar (faqat to'liq bo'lmagan guruhlardan)
-        available_spots = sum(g.available_spots for g in groups_in_room if not g.is_full)
+        # Trial students ham hisobga olinadi
+        available_spots = sum(
+            max(0, g.capacity - g.current_students - g.trial_students.count()) 
+            for g in groups_in_room
+        )
         
         # Xona uchun maksimal sig'im (ish vaqti va dars davomiyligiga qarab)
         # Bir kunda bir xonada maksimal: xona_sig'imi * maksimal_guruhlar_soni
         room_max_capacity_per_day = room_capacity * MAX_GROUPS_PER_ROOM_PER_DAY
         
         # Xonadagi joriy band o'rinlar (faqat faol guruhlardan)
-        room_occupied = total_students
+        # Trial students ham hisobga olinadi
+        room_occupied = total_students_with_trials
         
         # Xonadagi joriy bo'sh o'rinlar
         room_available = room_max_capacity_per_day - room_occupied
@@ -853,6 +1059,8 @@ def analytics(request):
             'room': room,
             'capacity': room_capacity,
             'total_students': total_students,
+            'total_trial_students': total_trial_students,
+            'total_students_with_trials': total_students_with_trials,
             'total_capacity': total_capacity_groups,
             'available_spots': available_spots,
             'groups_count': groups_in_room.count(),

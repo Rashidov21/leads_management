@@ -25,6 +25,99 @@ def uzbek_timesince(value):
     # Agar kelajakda bo'lsa
     if delta.total_seconds() < 0:
         return "hozir"
+    
+    # Sekundlar
+    total_seconds = int(delta.total_seconds())
+    
+    # Bir necha soniya oldin
+    if total_seconds < 60:
+        return "hozirgina"
+    
+    # Daqiqalar
+    total_minutes = total_seconds // 60
+    if total_minutes < 60:
+        if total_minutes == 1:
+            return "1 daqiqa oldin"
+        return f"{total_minutes} daqiqa oldin"
+    
+    # Soatlar
+    total_hours = total_minutes // 60
+    remaining_minutes = total_minutes % 60
+    
+    if total_hours < 24:
+        if total_hours == 1:
+            if remaining_minutes == 0:
+                return "1 soat oldin"
+            elif remaining_minutes == 1:
+                return "1 soat 1 daqiqa oldin"
+            else:
+                return f"1 soat {remaining_minutes} daqiqa oldin"
+        else:
+            if remaining_minutes == 0:
+                return f"{total_hours} soat oldin"
+            elif remaining_minutes == 1:
+                return f"{total_hours} soat 1 daqiqa oldin"
+            else:
+                return f"{total_hours} soat {remaining_minutes} daqiqa oldin"
+    
+    # Kunlar
+    total_days = total_hours // 24
+    remaining_hours = total_hours % 24
+    
+    if total_days < 30:
+        if total_days == 1:
+            if remaining_hours == 0:
+                return "1 kun oldin"
+            elif remaining_hours == 1:
+                return "1 kun 1 soat oldin"
+            else:
+                return f"1 kun {remaining_hours} soat oldin"
+        else:
+            if remaining_hours == 0:
+                return f"{total_days} kun oldin"
+            elif remaining_hours == 1:
+                return f"{total_days} kun 1 soat oldin"
+            else:
+                return f"{total_days} kun {remaining_hours} soat oldin"
+    
+    # Oylar
+    total_months = total_days // 30
+    remaining_days = total_days % 30
+    
+    if total_months < 12:
+        if total_months == 1:
+            if remaining_days == 0:
+                return "1 oy oldin"
+            elif remaining_days == 1:
+                return "1 oy 1 kun oldin"
+            else:
+                return f"1 oy {remaining_days} kun oldin"
+        else:
+            if remaining_days == 0:
+                return f"{total_months} oy oldin"
+            elif remaining_days == 1:
+                return f"{total_months} oy 1 kun oldin"
+            else:
+                return f"{total_months} oy {remaining_days} kun oldin"
+    
+    # Yillar
+    total_years = total_months // 12
+    remaining_months = total_months % 12
+    
+    if total_years == 1:
+        if remaining_months == 0:
+            return "1 yil oldin"
+        elif remaining_months == 1:
+            return "1 yil 1 oy oldin"
+        else:
+            return f"1 yil {remaining_months} oy oldin"
+    else:
+        if remaining_months == 0:
+            return f"{total_years} yil oldin"
+        elif remaining_months == 1:
+            return f"{total_years} yil 1 oy oldin"
+        else:
+            return f"{total_years} yil {remaining_months} oy oldin"
 
 
 @register.filter
@@ -141,97 +234,4 @@ def uzbek_timeuntil(value):
             return f"{total_years} yil 1 oydan keyin"
         else:
             return f"{total_years} yil {remaining_months} oydan keyin"
-    
-    # Sekundlar
-    total_seconds = int(delta.total_seconds())
-    
-    # Bir necha soniya oldin
-    if total_seconds < 60:
-        return "hozirgina"
-    
-    # Daqiqalar
-    total_minutes = total_seconds // 60
-    if total_minutes < 60:
-        if total_minutes == 1:
-            return "1 daqiqa oldin"
-        return f"{total_minutes} daqiqa oldin"
-    
-    # Soatlar
-    total_hours = total_minutes // 60
-    remaining_minutes = total_minutes % 60
-    
-    if total_hours < 24:
-        if total_hours == 1:
-            if remaining_minutes == 0:
-                return "1 soat oldin"
-            elif remaining_minutes == 1:
-                return "1 soat 1 daqiqa oldin"
-            else:
-                return f"1 soat {remaining_minutes} daqiqa oldin"
-        else:
-            if remaining_minutes == 0:
-                return f"{total_hours} soat oldin"
-            elif remaining_minutes == 1:
-                return f"{total_hours} soat 1 daqiqa oldin"
-            else:
-                return f"{total_hours} soat {remaining_minutes} daqiqa oldin"
-    
-    # Kunlar
-    total_days = total_hours // 24
-    remaining_hours = total_hours % 24
-    
-    if total_days < 30:
-        if total_days == 1:
-            if remaining_hours == 0:
-                return "1 kun oldin"
-            elif remaining_hours == 1:
-                return "1 kun 1 soat oldin"
-            else:
-                return f"1 kun {remaining_hours} soat oldin"
-        else:
-            if remaining_hours == 0:
-                return f"{total_days} kun oldin"
-            elif remaining_hours == 1:
-                return f"{total_days} kun 1 soat oldin"
-            else:
-                return f"{total_days} kun {remaining_hours} soat oldin"
-    
-    # Oylar
-    total_months = total_days // 30
-    remaining_days = total_days % 30
-    
-    if total_months < 12:
-        if total_months == 1:
-            if remaining_days == 0:
-                return "1 oy oldin"
-            elif remaining_days == 1:
-                return "1 oy 1 kun oldin"
-            else:
-                return f"1 oy {remaining_days} kun oldin"
-        else:
-            if remaining_days == 0:
-                return f"{total_months} oy oldin"
-            elif remaining_days == 1:
-                return f"{total_months} oy 1 kun oldin"
-            else:
-                return f"{total_months} oy {remaining_days} kun oldin"
-    
-    # Yillar
-    total_years = total_months // 12
-    remaining_months = total_months % 12
-    
-    if total_years == 1:
-        if remaining_months == 0:
-            return "1 yil oldin"
-        elif remaining_months == 1:
-            return "1 yil 1 oy oldin"
-        else:
-            return f"1 yil {remaining_months} oy oldin"
-    else:
-        if remaining_months == 0:
-            return f"{total_years} yil oldin"
-        elif remaining_months == 1:
-            return f"{total_years} yil 1 oy oldin"
-        else:
-            return f"{total_years} yil {remaining_months} oy oldin"
 

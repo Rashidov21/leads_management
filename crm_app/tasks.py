@@ -447,6 +447,112 @@ def check_trial_attended_not_enrolled_task():
 
 
 @shared_task
+def create_followup_after_trial_end_task():
+    """Sinov darsi tugagandan keyin (90 minutdan keyin) follow-up yaratish"""
+    try:
+        print(f"[{timezone.now()}] create_followup_after_trial_end_task ishga tushdi")
+        from datetime import timedelta
+        from .models import TrialLesson, Lead, FollowUp
+        from .services import FollowUpService
+        
+        now = timezone.now()
+        LESSON_DURATION_MINUTES = 90
+        
+        # Sinov darslari tugagan, lekin natija kiritilmagan trial'lar
+        trials = TrialLesson.objects.filter(
+            result__in=['', None],  # Natija kiritilmagan
+            lead__status='trial_registered',  # Hali sinovga yozilgan statusida
+            lead__assigned_sales__isnull=False  # Assigned sales bo'lishi kerak
+        ).select_related('lead', 'lead__assigned_sales')
+        
+        followups_created = 0
+        for trial in trials:
+            # Sinov darsi tugash vaqti
+            trial_datetime = timezone.make_aware(
+                timezone.datetime.combine(trial.date, trial.time)
+            )
+            trial_end_time = trial_datetime + timedelta(minutes=LESSON_DURATION_MINUTES)
+            
+            # Agar sinov darsi tugagan bo'lsa (90 minutdan keyin)
+            if now >= trial_end_time:
+                # Follow-up allaqachon yaratilganligini tekshirish
+                existing = FollowUp.objects.filter(
+                    lead=trial.lead,
+                    notes__contains="Sinov darsi tugadi",
+                    completed=False
+                ).exists()
+                
+                if not existing and trial.lead.assigned_sales:
+                    # Darhol follow-up yaratish
+                    due_date = FollowUpService.calculate_work_hours_due_date(
+                        trial.lead.assigned_sales,
+                        now,
+                        timedelta(0)  # Darhol
+                    )
+                    followup = FollowUp.objects.create(
+                        lead=trial.lead,
+                        sales=trial.lead.assigned_sales,
+                        due_date=due_date,
+                        notes="Sinov darsi tugadi - natija kiritish va aloqa qilish kerak (keldi/kelmadi)"
+                    )
+                    send_followup_created_notification.delay(followup.id)
+                    followups_created += 1
+        
+        print(f"[{timezone.now()}] create_followup_after_trial_end_task yakunlandi: {followups_created} ta follow-up yaratildi")
+    except Exception as e:
+        print(f"[{timezone.now()}] create_followup_after_trial_end_task xatolik: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+@shared_task
+def check_expired_leaves_task():
+    """Ruxsat tugagan sotuvchilarning is_on_leave holatini yangilash"""
+    try:
+        print(f"[{timezone.now()}] check_expired_leaves_task ishga tushdi")
+        from .models import LeaveRequest, User
+        from datetime import date, time as dt_time
+        
+        now = timezone.now()
+        today = now.date()
+        current_time = now.time()
+        
+        # Ruxsat tugagan, lekin hali is_on_leave True bo'lgan sotuvchilar
+        expired_leaves = LeaveRequest.objects.filter(
+            status='approved',
+            sales__is_on_leave=True
+        ).select_related('sales')
+        
+        updated_count = 0
+        for leave in expired_leaves:
+            # Agar ruxsat tugagan bo'lsa
+            if leave.end_date < today:
+                # Ruxsat tugagan
+                leave.sales.is_on_leave = False
+                leave.sales.save()
+                updated_count += 1
+            elif leave.end_date == today:
+                # Agar bugun ruxsat tugashi kerak bo'lsa
+                if leave.end_time:
+                    # Agar soat belgilangan bo'lsa
+                    if current_time > leave.end_time:
+                        leave.sales.is_on_leave = False
+                        leave.sales.save()
+                        updated_count += 1
+                else:
+                    # Agar butun kun ruxsat bo'lsa, kun oxirida o'chirish
+                    # (bu yerda end_time yo'q, shuning uchun kun oxirida o'chirish kerak)
+                    # Lekin hozircha o'chirmaymiz, chunki kun hali tugamagan bo'lishi mumkin
+                    pass
+        
+        print(f"[{timezone.now()}] check_expired_leaves_task yakunlandi: {updated_count} ta sotuvchi yangilandi")
+    except Exception as e:
+        print(f"[{timezone.now()}] check_expired_leaves_task xatolik: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+@shared_task
 def send_new_lead_notification(lead_id):
     """Yangi lid haqida xabar"""
     try:

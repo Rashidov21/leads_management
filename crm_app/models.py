@@ -176,17 +176,28 @@ class Group(models.Model):
     
     @property
     def available_spots(self):
-        return self.capacity - self.current_students
+        # Trial students ham hisobga olinadi
+        total_students = self.current_students + self.trial_students.count()
+        return max(0, self.capacity - total_students)
     
     @property
     def is_full(self):
-        return self.current_students >= self.capacity
+        # Trial students ham hisobga olinadi
+        total_students = self.current_students + self.trial_students.count()
+        return total_students >= self.capacity
     
     @property
     def occupancy_percentage(self):
         if self.capacity == 0:
             return 0
-        return (self.current_students / self.capacity) * 100
+        # Trial students ham hisobga olinadi
+        total_students = self.current_students + self.trial_students.count()
+        return (total_students / self.capacity) * 100
+    
+    @property
+    def total_students_with_trials(self):
+        """Jami o'quvchilar (enrolled + trial)"""
+        return self.current_students + self.trial_students.count()
 
 
 class Lead(models.Model):
@@ -231,10 +242,48 @@ class Lead(models.Model):
         return f"{self.name} - {self.phone}"
     
     def save(self, *args, **kwargs):
+        # Eski statusni saqlash (signals uchun)
+        old_status = None
+        old_enrolled_group = None
+        if self.pk:
+            try:
+                old_instance = Lead.objects.get(pk=self.pk)
+                old_status = old_instance.status
+                old_enrolled_group = old_instance.enrolled_group
+            except Lead.DoesNotExist:
+                pass
+        
         if self.status == 'lost' and not self.lost_at:
             self.lost_at = timezone.now()
+        
         if self.status == 'enrolled' and not self.enrolled_at:
             self.enrolled_at = timezone.now()
+            
+            # Agar enrolled_group o'zgarganda, eski guruhdan olib tashlash
+            if old_enrolled_group and old_enrolled_group != self.enrolled_group:
+                old_enrolled_group.current_students = max(0, old_enrolled_group.current_students - 1)
+                old_enrolled_group.save()
+            
+            # Yangi guruhga qo'shish
+            if self.enrolled_group:
+                # Agar status 'enrolled' dan boshqa statusga o'zgarganda, guruhdan olib tashlash
+                if old_status == 'enrolled' and self.status != 'enrolled':
+                    if old_enrolled_group:
+                        old_enrolled_group.current_students = max(0, old_enrolled_group.current_students - 1)
+                        old_enrolled_group.save()
+                # Agar yangi enrolled_group bo'lsa va oldin enrolled bo'lmagan bo'lsa
+                elif old_status != 'enrolled' and self.enrolled_group:
+                    self.enrolled_group.current_students += 1
+                    self.enrolled_group.save()
+                    # Trial students dan olib tashlash
+                    self.enrolled_group.trial_students.remove(self)
+        
+        # Agar status enrolled dan boshqa statusga o'zgarganda
+        if old_status == 'enrolled' and self.status != 'enrolled':
+            if old_enrolled_group:
+                old_enrolled_group.current_students = max(0, old_enrolled_group.current_students - 1)
+                old_enrolled_group.save()
+        
         super().save(*args, **kwargs)
 
 

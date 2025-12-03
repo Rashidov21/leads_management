@@ -1,0 +1,334 @@
+{% extends 'base.html' %}
+{% load uzbek_timesince %}
+
+{% block title %}Overdue Follow-ups{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="mb-6" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-2 text-sm text-gray-500">
+        <li><a href="{% url 'dashboard' %}" class="hover:text-gray-700"><i class="fas fa-home"></i></a></li>
+        <li><span class="mx-2">/</span></li>
+        <li class="text-gray-900 font-medium">Overdue Follow-ups</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="px-4 py-5 sm:p-6">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Overdue Follow-ups</h1>
+            <p class="mt-1 text-sm text-gray-500">Vaqti o'tib ketgan follow-up vazifalar</p>
+        </div>
+        <a href="{% url 'dashboard' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
+            <i class="fas fa-arrow-left"></i>Orqaga
+        </a>
+    </div>
+    
+    <!-- Statistics -->
+    {% if stats %}
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-6">
+        <div class="bg-white overflow-hidden shadow-lg rounded-xl border-l-4 border-red-500">
+            <div class="p-4">
+                <p class="text-xs font-medium text-gray-500 uppercase">Jami</p>
+                <p class="mt-1 text-2xl font-bold text-gray-900">{{ stats.total }}</p>
+            </div>
+        </div>
+        <div class="bg-white overflow-hidden shadow-lg rounded-xl border-l-4 border-yellow-500">
+            <div class="p-4">
+                <p class="text-xs font-medium text-gray-500 uppercase">&lt; 1 soat</p>
+                <p class="mt-1 text-2xl font-bold text-yellow-600">{{ stats.by_age.less_1_hour|default:"0" }}</p>
+            </div>
+        </div>
+        <div class="bg-white overflow-hidden shadow-lg rounded-xl border-l-4 border-orange-500">
+            <div class="p-4">
+                <p class="text-xs font-medium text-gray-500 uppercase">1-6 soat</p>
+                <p class="mt-1 text-2xl font-bold text-orange-600">{{ stats.by_age.hours_1_6|default:"0" }}</p>
+            </div>
+        </div>
+        <div class="bg-white overflow-hidden shadow-lg rounded-xl border-l-4 border-red-500">
+            <div class="p-4">
+                <p class="text-xs font-medium text-gray-500 uppercase">6-24 soat</p>
+                <p class="mt-1 text-2xl font-bold text-red-600">{{ stats.by_age.hours_6_24|default:"0" }}</p>
+            </div>
+        </div>
+        <div class="bg-white overflow-hidden shadow-lg rounded-xl border-l-4 border-red-800">
+            <div class="p-4">
+                <p class="text-xs font-medium text-gray-500 uppercase">&gt; 24 soat</p>
+                <p class="mt-1 text-2xl font-bold text-red-800">{{ stats.by_age.more_24_hours|default:"0" }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Filters and Bulk Actions -->
+    <div class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-100">
+        <form method="GET" action="{% url 'overdue_followups_list' %}" class="mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {% if user.is_admin or user.is_sales_manager %}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Sotuvchi</label>
+                    <select name="sales" class="form-input w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="">Barchasi</option>
+                        {% for sales_user in sales_list %}
+                        <option value="{{ sales_user.id }}" {% if current_sales_filter == sales_user.id|stringformat:"s" %}selected{% endif %}>{{ sales_user.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Kechikish vaqti</label>
+                    <select name="age" class="form-input w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="">Barchasi</option>
+                        <option value="<1h" {% if current_age_filter == "<1h" %}selected{% endif %}>1 soatdan kam</option>
+                        <option value="1-6h" {% if current_age_filter == "1-6h" %}selected{% endif %}>1-6 soat</option>
+                        <option value="6-24h" {% if current_age_filter == "6-24h" %}selected{% endif %}>6-24 soat</option>
+                        <option value=">24h" {% if current_age_filter == ">24h" %}selected{% endif %}>24+ soat</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-indigo-700/30">
+                        <i class="fas fa-filter"></i>Filter
+                    </button>
+                </div>
+            </div>
+        </form>
+        
+        {% if user.is_admin or user.is_sales_manager %}
+        <div class="border-t border-gray-200 pt-4">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-semibold text-gray-900">Bulk Actions</h3>
+                <button type="button" onclick="selectAll()" class="text-sm text-indigo-600 hover:text-indigo-800">Barchasini tanlash</button>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <form method="POST" action="{% url 'bulk_reschedule_overdue' %}" class="inline" id="bulk-reschedule-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="followup_ids" id="reschedule-ids" value="">
+                    <div class="flex items-center gap-2">
+                        <input type="number" name="hours_ahead" value="2" min="1" max="24" class="w-20 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        <button type="button" onclick="bulkAction('reschedule')" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-md hover:shadow-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            <i class="fas fa-calendar-alt"></i>Qayta rejalashtirish
+                        </button>
+                    </div>
+                </form>
+                <form method="POST" action="{% url 'bulk_reassign_overdue' %}" class="inline" id="bulk-reassign-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="followup_ids" id="reassign-ids" value="">
+                    <div class="flex items-center gap-2">
+                        <select name="new_sales_id" class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                            <option value="">Sotuvchi tanlang</option>
+                            {% for sales_user in sales_list %}
+                            <option value="{{ sales_user.id }}">{{ sales_user.username }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" onclick="bulkAction('reassign')" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg shadow-md hover:shadow-xl hover:from-purple-700 hover:to-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                            <i class="fas fa-user-friends"></i>O'tkazish
+                        </button>
+                    </div>
+                </form>
+                <form method="POST" action="{% url 'bulk_complete_overdue' %}" class="inline" id="bulk-complete-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="followup_ids" id="complete-ids" value="">
+                    <button type="button" onclick="bulkAction('complete')" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-green-600 to-green-700 rounded-lg shadow-md hover:shadow-xl hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                        <i class="fas fa-check"></i>Bajarilgan deb belgilash
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Overdue Follow-ups Table -->
+    <div class="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
+        <div class="px-6 py-4 border-b border-gray-200 bg-red-50">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-exclamation-triangle text-red-600 mr-2"></i>Overdue Follow-ups
+                </h3>
+                <span class="text-sm text-gray-500">{{ overdue_followups|length }} ta overdue</span>
+            </div>
+        </div>
+        
+        {% if overdue_followups %}
+        <form id="overdue-form">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-red-50">
+                        <tr>
+                            {% if user.is_admin or user.is_sales_manager %}
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <input type="checkbox" id="select-all" onchange="selectAll()" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            </th>
+                            {% endif %}
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <i class="fas fa-user mr-1"></i>Lid
+                            </th>
+                            {% if user.is_admin or user.is_sales_manager %}
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <i class="fas fa-user-tie mr-1"></i>Sotuvchi
+                            </th>
+                            {% endif %}
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <i class="fas fa-clock mr-1"></i>Vaqt
+                            </th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <i class="fas fa-hourglass-half mr-1"></i>Kechikish
+                            </th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <i class="fas fa-tag mr-1"></i>Status
+                            </th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <i class="fas fa-cog mr-1"></i>Amallar
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for followup in overdue_followups %}
+                        <tr class="hover:bg-red-50 transition-colors {% if forloop.counter|divisibleby:2 %}bg-gray-50{% endif %}">
+                            {% if user.is_admin or user.is_sales_manager %}
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <input type="checkbox" name="followup_ids" value="{{ followup.id }}" class="followup-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            </td>
+                            {% endif %}
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                                        <i class="fas fa-user text-red-600"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-900">{{ followup.lead.name }}</div>
+                                        <div class="text-xs text-gray-500">{{ followup.lead.phone }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            {% if user.is_admin or user.is_sales_manager %}
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">{{ followup.sales.username }}</div>
+                            </td>
+                            {% endif %}
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">{{ followup.due_date|date:"d.m.Y H:i" }}</div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    <i class="fas fa-clock mr-1"></i>{{ followup.due_date|uzbek_timesince }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                    {% if followup.lead.status == 'interested' %}bg-green-100 text-green-800
+                                    {% elif followup.lead.status == 'trial_registered' %}bg-blue-100 text-blue-800
+                                    {% elif followup.lead.status == 'contacted' %}bg-yellow-100 text-yellow-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ followup.lead.get_status_display }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm">
+                                <div class="flex items-center gap-2">
+                                    <a href="{% url 'lead_detail' followup.lead.pk %}" class="inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-indigo-700/30">
+                                        <i class="fas fa-eye"></i>Ko'rish
+                                    </a>
+                                    {% if not followup.completed %}
+                                    <form method="POST" action="{% url 'overdue_followup_complete' followup.id %}" class="inline">
+                                        {% csrf_token %}
+                                        <button type="submit" onclick="return confirm('Bu follow-up bajarilgan deb belgilanadi. Davom etasizmi?')" class="inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-green-600 to-green-700 rounded-lg shadow-md hover:shadow-xl hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-green-700/30">
+                                            <i class="fas fa-check"></i>Bajarildi
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+        {% else %}
+        <div class="text-center py-12">
+            <div class="h-16 w-16 mx-auto bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <i class="fas fa-check-circle text-green-600 text-3xl"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Overdue follow-up'lar yo'q!</h3>
+            <p class="text-sm text-gray-500">Barcha follow-up'lar o'z vaqtida bajarilmoqda</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function selectAll() {
+    const selectAllCheckbox = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('.followup-checkbox');
+    
+    if (selectAllCheckbox) {
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAllCheckbox.checked;
+        });
+    } else {
+        // Agar select-all yo'q bo'lsa, barchasini tanlash
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+    }
+}
+
+function bulkAction(action) {
+    const checkboxes = document.querySelectorAll('.followup-checkbox:checked');
+    const ids = Array.from(checkboxes).map(cb => cb.value);
+    
+    if (ids.length === 0) {
+        alert('Iltimos, kamida bitta follow-up tanlang!');
+        return;
+    }
+    
+    let formId, confirmMessage;
+    
+    switch(action) {
+        case 'reschedule':
+            formId = 'bulk-reschedule-form';
+            confirmMessage = ids.length + ' ta follow-up qayta rejalashtirilsinmi?';
+            document.getElementById('reschedule-ids').value = ids.join(',');
+            break;
+        case 'reassign':
+            formId = 'bulk-reassign-form';
+            const salesSelect = document.querySelector('#bulk-reassign-form select[name="new_sales_id"]');
+            if (!salesSelect.value) {
+                alert('Iltimos, sotuvchi tanlang!');
+                return;
+            }
+            confirmMessage = ids.length + ' ta follow-up ' + salesSelect.options[salesSelect.selectedIndex].text + ' ga o\'tkazilsinmi?';
+            document.getElementById('reassign-ids').value = ids.join(',');
+            break;
+        case 'complete':
+            formId = 'bulk-complete-form';
+            confirmMessage = ids.length + ' ta follow-up bajarilgan deb belgilansinmi?';
+            document.getElementById('complete-ids').value = ids.join(',');
+            break;
+    }
+    
+    if (confirm(confirmMessage)) {
+        // Create hidden inputs for each ID
+        const form = document.getElementById(formId);
+        const existingInput = form.querySelector('input[name="followup_ids"]');
+        
+        // Remove old inputs
+        form.querySelectorAll('input[name="followup_ids"]').forEach(input => {
+            if (input.type === 'hidden') input.remove();
+        });
+        
+        // Add new inputs
+        ids.forEach(id => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'followup_ids';
+            input.value = id;
+            form.appendChild(input);
+        });
+        
+        form.submit();
+    }
+}
+</script>
+{% endblock %}
+

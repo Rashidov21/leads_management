@@ -71,6 +71,7 @@ class FollowUpService:
     def calculate_work_hours_due_date(sales, base_time, delay):
         """
         Follow-up vaqtini ish vaqtlariga moslashtirish
+        Ruxsat so'rovlarini ham inobatga oladi
         
         Args:
             sales: User model instance (sotuvchi)
@@ -87,6 +88,30 @@ class FollowUpService:
         # Agar ish vaqtlari belgilanmagan bo'lsa, oddiy hisoblash
         if not sales.work_start_time or not sales.work_end_time:
             return base_time + delay
+        
+        # Ruxsat so'rovlarini tekshirish funksiyasi
+        def is_on_leave_at_time(check_datetime):
+            """Belgilangan vaqtda ruxsat olganligini tekshirish"""
+            from .models import LeaveRequest
+            check_date = check_datetime.date()
+            check_time = check_datetime.time()
+            
+            active_leave = LeaveRequest.objects.filter(
+                sales=sales,
+                status='approved',
+                start_date__lte=check_date,
+                end_date__gte=check_date
+            ).first()
+            
+            if active_leave:
+                # Agar soatlar belgilangan bo'lsa
+                if active_leave.start_time and active_leave.end_time:
+                    if active_leave.start_time <= check_time <= active_leave.end_time:
+                        return True
+                else:
+                    # Butun kun ruxsat
+                    return True
+            return False
         
         # Hisoblangan vaqt
         calculated_time = base_time + delay
@@ -110,14 +135,15 @@ class FollowUpService:
         # Ish kuni va ish vaqti ichida ekanligini tekshirish
         is_work_day = work_days.get(calculated_weekday, False)
         is_work_hours = sales.work_start_time <= calculated_time_only <= sales.work_end_time
+        is_on_leave = is_on_leave_at_time(calculated_time)
         
-        if is_work_day and is_work_hours:
-            # Agar ish vaqti ichida bo'lsa, shu vaqtni qaytarish
+        # Agar ish vaqti ichida va ruxsat olmagan bo'lsa
+        if is_work_day and is_work_hours and not is_on_leave:
             return calculated_time
         
-        # Agar ish vaqti tashqarisida bo'lsa, keyingi ish kunining boshlanishiga o'tkazish
+        # Agar ish vaqti tashqarisida yoki ruxsat olgan bo'lsa, keyingi ish kunini topish
         # Hisoblangan kundan boshlab keyingi ish kunini topish
-        max_days_to_check = 14  # Maksimal 2 hafta tekshirish
+        max_days_to_check = 30  # 1 oy tekshirish (ruxsatlar uzoq bo'lishi mumkin)
         
         for day_offset in range(max_days_to_check):
             check_date = calculated_date + timedelta(days=day_offset)
@@ -130,18 +156,19 @@ class FollowUpService:
                     timezone.datetime.combine(check_date, sales.work_start_time)
                 )
                 
-                # Agar bu kun hisoblangan kun bo'lsa
-                if check_date == calculated_date:
-                    # Agar hisoblangan vaqt ish vaqti boshlanishidan oldin bo'lsa
-                    if calculated_time_only < sales.work_start_time:
-                        # Bugun ish vaqti boshlanishiga o'tkazish
-                        return work_start_datetime
-                    # Agar hisoblangan vaqt ish vaqti tugashidan keyin bo'lsa yoki ish kuni emas bo'lsa
-                    # Keyingi ish kunining boshlanishiga o'tkazish
-                    continue
-                
-                # Keyingi ish kunining boshlanish vaqtini qaytarish
-                return work_start_datetime
+                # Agar ruxsat olmagan bo'lsa
+                if not is_on_leave_at_time(work_start_datetime):
+                    if check_date == calculated_date:
+                        # Agar bu kun hisoblangan kun bo'lsa
+                        if calculated_time_only < sales.work_start_time:
+                            # Bugun ish vaqti boshlanishiga o'tkazish
+                            return work_start_datetime
+                        # Agar hisoblangan vaqt ish vaqti tugashidan keyin bo'lsa yoki ish kuni emas bo'lsa
+                        # Keyingi ish kunining boshlanishiga o'tkazish
+                        continue
+                    
+                    # Keyingi ish kunining boshlanish vaqtini qaytarish
+                    return work_start_datetime
         
         # Agar ish kuni topilmasa, oddiy hisoblangan vaqtni qaytarish
         return calculated_time
@@ -181,6 +208,138 @@ class FollowUpService:
         """Sotuvchi bloklanganligini tekshirish (5+ overdue)"""
         overdue_count = FollowUpService.get_overdue_followups(sales).count()
         return overdue_count >= 5
+    
+    @staticmethod
+    def get_overdue_followups_prioritized(sales=None):
+        """Overdue'larni prioritet bo'yicha tartiblash"""
+        from django.db.models import F, Case, When, IntegerField
+        
+        overdue = FollowUpService.get_overdue_followups(sales)
+        
+        # Prioritizatsiya:
+        # 1. Eng qadimgi overdue (urgent)
+        # 2. Lead status (interested > contacted > new)
+        
+        # Annotate qilish uchun status priority
+        overdue = overdue.annotate(
+            status_priority=Case(
+                When(lead__status='interested', then=3),
+                When(lead__status='trial_registered', then=2),
+                When(lead__status='contacted', then=1),
+                When(lead__status='new', then=0),
+                default=0,
+                output_field=IntegerField()
+            )
+        )
+        
+        return overdue.order_by('due_date', '-status_priority')
+    
+    @staticmethod
+    def auto_reschedule_overdue(followup, hours_ahead=2):
+        """Overdue follow-up'ni avtomatik qayta rejalashtirish"""
+        if followup.completed:
+            return False
+        
+        # Keyingi ish vaqtiga o'tkazish
+        new_due_date = FollowUpService.calculate_work_hours_due_date(
+            followup.sales,
+            timezone.now(),
+            timedelta(hours=hours_ahead)
+        )
+        
+        followup.due_date = new_due_date
+        followup.is_overdue = False
+        followup.save()
+        
+        return True
+    
+    @staticmethod
+    def escalate_overdue_followup(followup):
+        """Overdue follow-up'ni manager'ga ko'tarish"""
+        from .tasks import send_telegram_notification
+        
+        # Agar 24+ soat overdue bo'lsa, manager'ga xabar
+        hours_overdue = (timezone.now() - followup.due_date).total_seconds() / 3600
+        
+        if hours_overdue >= 24:
+            # Manager'larga notification
+            managers = User.objects.filter(
+                role__in=['admin', 'sales_manager']
+            )
+            for manager in managers:
+                if manager.telegram_chat_id:
+                    due_date_str = followup.due_date.strftime('%d.%m.%Y %H:%M')
+                    message = (
+                        f"🚨 <b>ESCALATION: Overdue Follow-up</b>\n"
+                        f"{'=' * 30}\n\n"
+                        f"👤 <b>Lid:</b> {followup.lead.name}\n"
+                        f"📞 <b>Telefon:</b> <code>{followup.lead.phone}</code>\n"
+                        f"👨‍💼 <b>Sotuvchi:</b> {followup.sales.username}\n\n"
+                        f"⏰ <b>Vaqt:</b> {due_date_str}\n"
+                        f"⏳ <b>Kechikish:</b> {hours_overdue:.1f} soat\n\n"
+                        f"🔴 <b>24+ soat overdue - DARHOL TAXSIR QILING!</b>"
+                    )
+                    send_telegram_notification(
+                        manager.telegram_chat_id,
+                        message
+                    )
+            return True
+        return False
+    
+    @staticmethod
+    def reassign_overdue_followup(followup, new_sales=None):
+        """Overdue follow-up'ni boshqa sotuvchiga o'tkazish"""
+        if new_sales is None:
+            # Eng kam overdue'ga ega sotuvchini topish
+            sales_overdue = {}
+            for sales in User.objects.filter(role='sales', is_active_sales=True):
+                sales_overdue[sales] = FollowUpService.get_overdue_followups(sales).count()
+            
+            if not sales_overdue:
+                return None
+            
+            new_sales = min(sales_overdue.items(), key=lambda x: x[1])[0]
+        
+        followup.sales = new_sales
+        followup.save()
+        
+        return new_sales
+    
+    @staticmethod
+    def get_overdue_statistics(sales=None, days=7):
+        """Overdue statistikasi"""
+        overdue = FollowUpService.get_overdue_followups(sales)
+        now = timezone.now()
+        
+        stats = {
+            'total': overdue.count(),
+            'by_age': {
+                'less_1_hour': overdue.filter(
+                    due_date__gte=now - timedelta(hours=1)
+                ).count(),
+                'hours_1_6': overdue.filter(
+                    due_date__lt=now - timedelta(hours=1),
+                    due_date__gte=now - timedelta(hours=6)
+                ).count(),
+                'hours_6_24': overdue.filter(
+                    due_date__lt=now - timedelta(hours=6),
+                    due_date__gte=now - timedelta(days=1)
+                ).count(),
+                'more_24_hours': overdue.filter(
+                    due_date__lt=now - timedelta(days=1)
+                ).count(),
+            },
+            'by_sales': {}
+        }
+        
+        # Har bir sotuvchi uchun overdue soni
+        if not sales:
+            for sales_user in User.objects.filter(role='sales', is_active_sales=True):
+                count = FollowUpService.get_overdue_followups(sales_user).count()
+                if count > 0:
+                    stats['by_sales'][sales_user.username] = count
+        
+        return stats
 
 
 class GroupService:

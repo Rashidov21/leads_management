@@ -2,7 +2,7 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 from datetime import timedelta
-from .models import Lead, FollowUp, TrialLesson, KPI
+from .models import Lead, FollowUp, TrialLesson, KPI, LeaveRequest
 from .tasks import (
     send_new_lead_notification,
     send_status_change_notification,
@@ -217,9 +217,11 @@ def create_followup_after_trial(sender, instance, created, **kwargs):
     shuning uchun 3 daqiqada follow-up yaratmaymiz.
     Agar 24 soatdan keyin enrolled bo'lmagan bo'lsa, 
     check_trial_attended_not_enrolled_task orqali follow-up yaratiladi.
+    Sinov darsi tugagandan keyin (90 minutdan keyin) follow-up 
+    create_followup_after_trial_end_task orqali yaratiladi.
     """
     # Trial Attended uchun follow-up yaratmaymiz (offline taklif)
-    # Bu signal'ni o'chirish yoki bo'sh qoldirish mumkin
+    # Sinov darsi tugagandan keyin follow-up create_followup_after_trial_end_task orqali yaratiladi
     pass
 
 
@@ -240,4 +242,27 @@ def check_overdue(sender, instance, **kwargs):
 #     # Qo'lda yaratilgan follow-up'lar uchun alohida notification kerak bo'lsa,
 #     # views.py da yuborish kerak
 #     pass
+
+
+@receiver(post_save, sender=LeaveRequest)
+def handle_leave_request_status_change(sender, instance, created, **kwargs):
+    """Ruxsat so'rovi statusi o'zgarganda ishdan ruxsat holatini yangilash"""
+    from .models import User
+    
+    # Agar ruxsat tasdiqlangan bo'lsa
+    if instance.status == 'approved':
+        # Agar butun kun ruxsat bo'lsa, is_on_leave ni True qilish
+        if not instance.start_time and not instance.end_time:
+            instance.sales.is_on_leave = True
+            instance.sales.save()
+    
+    # Agar ruxsat rad etilgan bo'lsa yoki ruxsat tugagan bo'lsa
+    elif instance.status == 'rejected':
+        # is_on_leave ni False qilish
+        if instance.sales.is_on_leave:
+            instance.sales.is_on_leave = False
+            instance.sales.save()
+    
+    # Ruxsat tugagandan keyin is_on_leave ni o'chirish
+    # Bu Celery task orqali tekshiriladi (check_expired_leaves_task)
 

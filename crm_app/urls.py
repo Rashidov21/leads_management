@@ -15,6 +15,11 @@ urlpatterns = [
     
     # Follow-ups
     path('followups/today/', views.followups_today, name='followups_today'),
+    path('followups/overdue/', views.overdue_followups_list, name='overdue_followups_list'),
+    path('followups/overdue/<int:followup_id>/complete/', views.overdue_followup_complete, name='overdue_followup_complete'),
+    path('followups/overdue/bulk/reschedule/', views.bulk_reschedule_overdue, name='bulk_reschedule_overdue'),
+    path('followups/overdue/bulk/reassign/', views.bulk_reassign_overdue, name='bulk_reassign_overdue'),
+    path('followups/overdue/bulk/complete/', views.bulk_complete_overdue, name='bulk_complete_overdue'),
     
     # Trials
     path('trials/register/<int:lead_pk>/', views.trial_register, name='trial_register'),
