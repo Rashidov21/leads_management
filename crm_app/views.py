@@ -185,8 +185,8 @@ def lead_detail(request, pk):
         'lead': lead,
         'form': form,
         'edit_form': edit_form,
-        'followups': lead.followups.all().order_by('-due_date'),
-        'trials': lead.trials.all().order_by('-date'),
+        'followups': lead.followups.select_related('sales').all().order_by('-due_date'),
+        'trials': lead.trials.select_related('group', 'group__course', 'room').all().order_by('-date'),
     }
     return render(request, 'leads/detail.html', context)
 
@@ -925,13 +925,22 @@ def analytics(request):
     today = timezone.now().date()
     now = timezone.now()
     
-    # Lid statistikasi
-    context['leads_stats'] = {
-        'total': Lead.objects.count(),
-        'new_today': Lead.objects.filter(created_at__date=today).count(),
-        'by_status': dict(Lead.objects.values('status').annotate(count=Count('id')).values_list('status', 'count')),
-        'by_source': dict(Lead.objects.values('source').annotate(count=Count('id')).values_list('source', 'count')),
-    }
+    # Lid statistikasi (cached)
+    from django.core.cache import cache
+    cache_key = f'leads_stats_{today}'
+    leads_stats = cache.get(cache_key)
+    
+    if leads_stats is None:
+        leads_stats = {
+            'total': Lead.objects.count(),
+            'new_today': Lead.objects.filter(created_at__date=today).count(),
+            'by_status': dict(Lead.objects.values('status').annotate(count=Count('id')).values_list('status', 'count')),
+            'by_source': dict(Lead.objects.values('source').annotate(count=Count('id')).values_list('source', 'count')),
+        }
+        # Cache for 1 hour
+        cache.set(cache_key, leads_stats, 3600)
+    
+    context['leads_stats'] = leads_stats
     
     # Sotuvchi statistikasi (Admin va Manager uchun) - aniq statistikalar
     sales_stats = []
@@ -950,7 +959,7 @@ def analytics(request):
         # Sotuvchi tomonidan sinovga yozilgan lidlar soni
         trials_registered = TrialLesson.objects.filter(
             lead__assigned_sales=sales
-        ).count()
+        ).select_related('lead', 'group').count()
         
         sales_stats.append({
             'sales': sales,

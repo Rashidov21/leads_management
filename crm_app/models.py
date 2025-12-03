@@ -238,6 +238,15 @@ class Lead(models.Model):
     enrolled_at = models.DateTimeField(null=True, blank=True)
     enrolled_group = models.ForeignKey(Group, on_delete=models.SET_NULL, null=True, blank=True)
     
+    class Meta:
+        indexes = [
+            models.Index(fields=['status', 'assigned_sales'], name='lead_status_sales_idx'),
+            models.Index(fields=['created_at'], name='lead_created_at_idx'),
+            models.Index(fields=['phone'], name='lead_phone_idx'),
+            models.Index(fields=['source'], name='lead_source_idx'),
+            models.Index(fields=['assigned_sales', 'status'], name='lead_sales_status_idx'),
+        ]
+    
     def __str__(self):
         return f"{self.name} - {self.phone}"
     
@@ -300,6 +309,13 @@ class FollowUp(models.Model):
     
     class Meta:
         ordering = ['due_date']
+        indexes = [
+            models.Index(fields=['due_date', 'completed'], name='followup_due_completed_idx'),
+            models.Index(fields=['sales', 'completed'], name='followup_sales_completed_idx'),
+            models.Index(fields=['lead', 'completed'], name='followup_lead_completed_idx'),
+            models.Index(fields=['is_overdue', 'completed'], name='followup_overdue_completed_idx'),
+            models.Index(fields=['due_date'], name='followup_due_date_idx'),
+        ]
     
     def __str__(self):
         return f"Follow-up: {self.lead.name} - {self.due_date}"
@@ -330,6 +346,14 @@ class TrialLesson(models.Model):
     sales_reminder_sent = models.BooleanField(default=False)  # Sinovdan keyin sotuv eslatmasi
     created_at = models.DateTimeField(auto_now_add=True)
     
+    class Meta:
+        indexes = [
+            models.Index(fields=['date', 'time'], name='trial_date_time_idx'),
+            models.Index(fields=['lead', 'date'], name='trial_lead_date_idx'),
+            models.Index(fields=['result'], name='trial_result_idx'),
+            models.Index(fields=['date', 'result'], name='trial_date_result_idx'),
+        ]
+    
     def __str__(self):
         return f"Sinov: {self.lead.name} - {self.date}"
 
@@ -357,6 +381,11 @@ class LeaveRequest(models.Model):
     
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['sales', 'status'], name='leave_sales_status_idx'),
+            models.Index(fields=['start_date', 'end_date'], name='leave_dates_idx'),
+            models.Index(fields=['status', 'start_date'], name='leave_status_start_idx'),
+        ]
     
     def __str__(self):
         return f"Ruxsat: {self.sales.username} - {self.start_date} to {self.end_date}"
@@ -396,6 +425,10 @@ class KPI(models.Model):
     class Meta:
         unique_together = ['sales', 'date']
         ordering = ['-date']
+        indexes = [
+            models.Index(fields=['sales', 'date'], name='kpi_sales_date_idx'),
+            models.Index(fields=['date'], name='kpi_date_idx'),
+        ]
     
     def __str__(self):
         return f"KPI: {self.sales.username} - {self.date}"

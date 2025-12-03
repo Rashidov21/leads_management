@@ -7,6 +7,42 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* Sidebar Styles */
+        .sidebar {
+            transition: transform 0.3s ease-in-out, width 0.3s ease-in-out;
+        }
+        .sidebar-hidden {
+            transform: translateX(-100%);
+        }
+        .sidebar-collapsed {
+            width: 4rem;
+        }
+        .sidebar-expanded {
+            width: 16rem;
+        }
+        .main-content {
+            transition: margin-left 0.3s ease-in-out;
+        }
+        .main-content-sidebar {
+            margin-left: 16rem;
+        }
+        .main-content-sidebar-collapsed {
+            margin-left: 4rem;
+        }
+        .main-content-no-sidebar {
+            margin-left: 0;
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                z-index: 50;
+                height: 100vh;
+            }
+            .main-content-sidebar,
+            .main-content-sidebar-collapsed {
+                margin-left: 0;
+            }
+        }
         /* Form Input Styles */
         .form-input {
             @apply w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm;
@@ -94,70 +130,147 @@
 </head>
 <body class="bg-gray-50">
     {% if user.is_authenticated %}
-    <nav class="bg-white shadow-md border-b border-gray-200">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex">
-                    <div class="flex-shrink-0 flex items-center">
-                        <a href="{% url 'dashboard' %}" class="flex items-center space-x-2">
-                            <i class="fas fa-chart-line text-indigo-600 text-2xl"></i>
-                            <span class="text-xl font-bold text-indigo-600">CRM</span>
-                        </a>
-                    </div>
-                    <div class="hidden sm:ml-8 sm:flex sm:space-x-1">
-                        <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}bg-indigo-50 text-indigo-700 border-indigo-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} inline-flex items-center px-4 py-2 border-b-2 border-transparent text-sm font-medium transition-colors duration-200">
-                            <i class="fas fa-home mr-2"></i>Dashboard
-                        </a>
-                        <a href="{% url 'leads_list' %}" class="{% if 'lead' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-indigo-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} inline-flex items-center px-4 py-2 border-b-2 border-transparent text-sm font-medium transition-colors duration-200">
-                            <i class="fas fa-users mr-2"></i>Lidlar
-                        </a>
-                        {% if user.is_admin %}
-                        <a href="{% url 'courses_list' %}" class="{% if 'course' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-indigo-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} inline-flex items-center px-4 py-2 border-b-2 border-transparent text-sm font-medium transition-colors duration-200">
-                            <i class="fas fa-book mr-2"></i>Kurslar
-                        </a>
-                        <a href="{% url 'rooms_list' %}" class="{% if 'room' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-indigo-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} inline-flex items-center px-4 py-2 border-b-2 border-transparent text-sm font-medium transition-colors duration-200">
-                            <i class="fas fa-door-open mr-2"></i>Xonalar
-                        </a>
-                        <a href="{% url 'groups_list' %}" class="{% if 'group' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-indigo-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} inline-flex items-center px-4 py-2 border-b-2 border-transparent text-sm font-medium transition-colors duration-200">
-                            <i class="fas fa-layer-group mr-2"></i>Guruhlar
-                        </a>
-                        {% endif %}
-                        {% if user.is_admin or user.is_sales_manager %}
-                        <a href="{% url 'sales_list' %}" class="{% if 'sales' in request.resolver_match.url_name and 'manager' not in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-indigo-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} inline-flex items-center px-4 py-2 border-b-2 border-transparent text-sm font-medium transition-colors duration-200">
-                            <i class="fas fa-user-tie mr-2"></i>Sotuvchilar
-                        </a>
-                        {% endif %}
-   
-                        <a href="{% url 'followups_today' %}" class="{% if 'followup' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-indigo-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} inline-flex items-center px-4 py-2 border-b-2 border-transparent text-sm font-medium transition-colors duration-200">
-                            <i class="fas fa-tasks mr-2"></i>Follow-ups
-                        </a>
-                        {% if user.is_sales %}
-                        <a href="{% url 'sales_kpi' %}" class="{% if 'sales_kpi' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-indigo-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} inline-flex items-center px-4 py-2 border-b-2 border-transparent text-sm font-medium transition-colors duration-200">
-                            <i class="fas fa-chart-line mr-2"></i>Mening KPI'larim
-                        </a>
-                        <a href="{% url 'leave_request_list' %}" class="{% if 'leave' in request.resolver_match.url_name and 'sales_kpi' not in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-indigo-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} inline-flex items-center px-4 py-2 border-b-2 border-transparent text-sm font-medium transition-colors duration-200">
-                            <i class="fas fa-calendar-times mr-2"></i>Ruxsat So'rovlari
-                        </a>
-                        {% endif %}
-                        {% if user.is_admin or user.is_sales_manager %}
-                        <a href="{% url 'leave_request_pending_list' %}" class="{% if 'leave' in request.resolver_match.url_name and 'pending' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-indigo-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} inline-flex items-center px-4 py-2 border-b-2 border-transparent text-sm font-medium transition-colors duration-200">
-                            <i class="fas fa-clock mr-2"></i>So'rovlar
-                        </a>
-                        <a href="{% url 'sales_message_list' %}" class="{% if 'message' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-indigo-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} inline-flex items-center px-4 py-2 border-b-2 border-transparent text-sm font-medium transition-colors duration-200">
-                            <i class="fas fa-envelope mr-2"></i>Xabarlar
-                        </a>
-                        <a href="{% url 'analytics' %}" class="{% if 'analytics' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-indigo-500{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %} inline-flex items-center px-4 py-2 border-b-2 border-transparent text-sm font-medium transition-colors duration-200">
-                            <i class="fas fa-chart-bar mr-2"></i>Analitika
-                        </a>
-                        {% endif %}
-                    </div>
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar sidebar-expanded fixed left-0 top-0 h-full bg-white shadow-lg z-40 overflow-y-auto">
+        <!-- Sidebar Header -->
+        <div class="flex items-center justify-between h-16 px-4 border-b border-gray-200 bg-indigo-600">
+            <a href="{% url 'dashboard' %}" class="flex items-center space-x-2 flex-1">
+                <i class="fas fa-chart-line text-white text-xl"></i>
+                <span id="sidebar-logo-text" class="text-lg font-bold text-white">CRM</span>
+            </a>
+            <button id="sidebar-toggle" class="text-white hover:text-gray-200 transition-colors" title="Yig'ish/Kengaytirish">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+
+        <!-- Sidebar Menu -->
+        <nav class="py-4">
+            <!-- Dashboard -->
+            <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
+                <i class="fas fa-home w-5 text-center"></i>
+                <span id="menu-dashboard" class="ml-3 font-medium">Dashboard</span>
+            </a>
+
+            <!-- Lidlar -->
+            <a href="{% url 'leads_list' %}" class="{% if 'lead' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
+                <i class="fas fa-users w-5 text-center"></i>
+                <span id="menu-leads" class="ml-3 font-medium">Lidlar</span>
+            </a>
+
+            <!-- Admin Section -->
+            {% if user.is_admin %}
+            <div class="px-4 py-2 mt-2">
+                <p id="menu-admin-label" class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Boshqaruv</p>
+            </div>
+            <a href="{% url 'courses_list' %}" class="{% if 'course' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
+                <i class="fas fa-book w-5 text-center"></i>
+                <span id="menu-courses" class="ml-3 font-medium">Kurslar</span>
+            </a>
+            <a href="{% url 'rooms_list' %}" class="{% if 'room' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
+                <i class="fas fa-door-open w-5 text-center"></i>
+                <span id="menu-rooms" class="ml-3 font-medium">Xonalar</span>
+            </a>
+            <a href="{% url 'groups_list' %}" class="{% if 'group' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
+                <i class="fas fa-layer-group w-5 text-center"></i>
+                <span id="menu-groups" class="ml-3 font-medium">Guruhlar</span>
+            </a>
+            {% endif %}
+
+            <!-- Manager Section -->
+            {% if user.is_admin or user.is_sales_manager %}
+            <div class="px-4 py-2 mt-2">
+                <p id="menu-manager-label" class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Menejment</p>
+            </div>
+            <a href="{% url 'sales_list' %}" class="{% if 'sales' in request.resolver_match.url_name and 'manager' not in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
+                <i class="fas fa-user-tie w-5 text-center"></i>
+                <span id="menu-sales" class="ml-3 font-medium">Sotuvchilar</span>
+            </a>
+            {% endif %}
+
+            <!-- Follow-ups -->
+            <div class="px-4 py-2 mt-2">
+                <p id="menu-tasks-label" class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Vazifalar</p>
+            </div>
+            <a href="{% url 'followups_today' %}" class="{% if 'followup' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
+                <i class="fas fa-tasks w-5 text-center"></i>
+                <span id="menu-followups" class="ml-3 font-medium">Follow-ups</span>
+            </a>
+            <a href="{% url 'overdue_followups_list' %}" class="{% if 'overdue' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
+                <i class="fas fa-exclamation-triangle w-5 text-center"></i>
+                <span id="menu-overdue" class="ml-3 font-medium">Overdue</span>
+            </a>
+
+            <!-- Sales Section -->
+            {% if user.is_sales %}
+            <div class="px-4 py-2 mt-2">
+                <p id="menu-sales-section-label" class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Mening</p>
+            </div>
+            <a href="{% url 'sales_kpi' %}" class="{% if 'sales_kpi' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
+                <i class="fas fa-chart-line w-5 text-center"></i>
+                <span id="menu-kpi" class="ml-3 font-medium">KPI'larim</span>
+            </a>
+            <a href="{% url 'leave_request_list' %}" class="{% if 'leave' in request.resolver_match.url_name and 'sales_kpi' not in request.resolver_match.url_name and 'pending' not in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
+                <i class="fas fa-calendar-times w-5 text-center"></i>
+                <span id="menu-leaves" class="ml-3 font-medium">Ruxsatlar</span>
+            </a>
+            {% endif %}
+
+            <!-- Manager/Admin Section -->
+            {% if user.is_admin or user.is_sales_manager %}
+            <div class="px-4 py-2 mt-2">
+                <p id="menu-admin-tasks-label" class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Boshqaruv</p>
+            </div>
+            <a href="{% url 'leave_request_pending_list' %}" class="{% if 'leave' in request.resolver_match.url_name and 'pending' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
+                <i class="fas fa-clock w-5 text-center"></i>
+                <span id="menu-pending-leaves" class="ml-3 font-medium">So'rovlar</span>
+            </a>
+            <a href="{% url 'sales_message_list' %}" class="{% if 'message' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
+                <i class="fas fa-envelope w-5 text-center"></i>
+                <span id="menu-messages" class="ml-3 font-medium">Xabarlar</span>
+            </a>
+            <a href="{% url 'analytics' %}" class="{% if 'analytics' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
+                <i class="fas fa-chart-bar w-5 text-center"></i>
+                <span id="menu-analytics" class="ml-3 font-medium">Analitika</span>
+            </a>
+            {% endif %}
+        </nav>
+
+        <!-- Sidebar Footer -->
+        <div class="absolute bottom-0 left-0 right-0 border-t border-gray-200 bg-gray-50 p-4">
+            <div class="flex items-center space-x-3 mb-3">
+                <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-user text-indigo-600"></i>
                 </div>
+                <div id="sidebar-user-info" class="flex-1 min-w-0">
+                    <div class="font-medium text-gray-700 text-sm truncate">{{ user.username }}</div>
+                    <div class="text-xs text-gray-500 truncate">{{ user.get_role_display }}</div>
+                </div>
+            </div>
+            <a href="{% url 'logout' %}" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                <i class="fas fa-sign-out-alt w-5 text-center"></i>
+                <span id="menu-logout" class="ml-3 font-medium">Chiqish</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Mobile Overlay -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden md:hidden"></div>
+
+    <!-- Main Content -->
+    <div id="main-content" class="main-content main-content-sidebar min-h-screen">
+        <!-- Top Bar -->
+        <header class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
+            <div class="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
+                <button id="mobile-sidebar-toggle" class="md:hidden text-gray-600 hover:text-gray-900 p-2">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <div class="flex-1"></div>
                 <div class="flex items-center space-x-4">
-                    <div class="flex items-center space-x-2 text-sm">
+                    <div class="hidden md:flex items-center space-x-2 text-sm">
                         <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
                             <i class="fas fa-user text-indigo-600"></i>
                         </div>
-                        <div class="hidden md:block">
+                        <div>
                             <div class="font-medium text-gray-700">{{ user.username }}</div>
                             <div class="text-xs text-gray-500">{{ user.get_role_display }}</div>
                         </div>
@@ -167,11 +280,9 @@
                     </a>
                 </div>
             </div>
-        </div>
-    </nav>
-    {% endif %}
+        </header>
 
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 min-h-screen">
+        <main class="py-6 px-4 sm:px-6 lg:px-8">
         {% if messages %}
         <div class="mb-6 space-y-2">
             {% for message in messages %}
@@ -192,11 +303,158 @@
         {% endblock %}
     </main>
     
+        {% if messages %}
+        <div class="mb-6 space-y-2">
+            {% for message in messages %}
+            <div class="bg-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-50 border-l-4 border-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-400 text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-700 p-4 rounded-md shadow-sm flex items-start" role="alert">
+                <i class="fas fa-{% if message.tags == 'error' %}exclamation-circle{% elif message.tags == 'success' %}check-circle{% else %}info-circle{% endif %} mr-3 mt-0.5"></i>
+                <span class="flex-1">{{ message }}</span>
+                <button onclick="this.parentElement.remove()" class="ml-4 text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-700 hover:text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-900">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% block breadcrumbs %}{% endblock %}
+
+        {% block content %}
+        {% endblock %}
+        </main>
+    </div>
+    {% endif %}
+
+    {% if not user.is_authenticated %}
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 min-h-screen">
+        {% if messages %}
+        <div class="mb-6 space-y-2">
+            {% for message in messages %}
+            <div class="bg-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-50 border-l-4 border-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-400 text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-700 p-4 rounded-md shadow-sm flex items-start" role="alert">
+                <i class="fas fa-{% if message.tags == 'error' %}exclamation-circle{% elif message.tags == 'success' %}check-circle{% else %}info-circle{% endif %} mr-3 mt-0.5"></i>
+                <span class="flex-1">{{ message }}</span>
+                <button onclick="this.parentElement.remove()" class="ml-4 text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-700 hover:text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-900">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% block breadcrumbs %}{% endblock %}
+
+        {% block content %}
+        {% endblock %}
+    </main>
+    {% endif %}
+    
     <script>
+        // Sidebar Toggle Functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebar-toggle');
+            const mobileSidebarToggle = document.getElementById('mobile-sidebar-toggle');
+            const sidebarOverlay = document.getElementById('sidebar-overlay');
+            const mainContent = document.getElementById('main-content');
+            
+            // Check localStorage for sidebar state
+            const sidebarState = localStorage.getItem('sidebarCollapsed');
+            const isCollapsed = sidebarState === 'true';
+            
+            if (isCollapsed) {
+                collapseSidebar();
+            }
+            
+            // Desktop toggle
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', function() {
+                    toggleSidebar();
+                });
+            }
+            
+            // Mobile toggle
+            if (mobileSidebarToggle) {
+                mobileSidebarToggle.addEventListener('click', function() {
+                    if (sidebar.classList.contains('sidebar-hidden')) {
+                        showSidebar();
+                    } else {
+                        hideSidebar();
+                    }
+                });
+            }
+            
+            // Overlay click to close on mobile
+            if (sidebarOverlay) {
+                sidebarOverlay.addEventListener('click', function() {
+                    hideSidebar();
+                });
+            }
+            
+            function toggleSidebar() {
+                if (sidebar.classList.contains('sidebar-collapsed')) {
+                    expandSidebar();
+                } else {
+                    collapseSidebar();
+                }
+            }
+            
+            function collapseSidebar() {
+                sidebar.classList.remove('sidebar-expanded');
+                sidebar.classList.add('sidebar-collapsed');
+                mainContent.classList.remove('main-content-sidebar');
+                mainContent.classList.add('main-content-sidebar-collapsed');
+                
+                // Hide text elements
+                const textElements = document.querySelectorAll('[id^="menu-"], [id^="sidebar-"]');
+                textElements.forEach(el => {
+                    if (el.id !== 'sidebar-toggle') {
+                        el.style.display = 'none';
+                    }
+                });
+                
+                localStorage.setItem('sidebarCollapsed', 'true');
+            }
+            
+            function expandSidebar() {
+                sidebar.classList.remove('sidebar-collapsed');
+                sidebar.classList.add('sidebar-expanded');
+                mainContent.classList.remove('main-content-sidebar-collapsed');
+                mainContent.classList.add('main-content-sidebar');
+                
+                // Show text elements
+                const textElements = document.querySelectorAll('[id^="menu-"], [id^="sidebar-"]');
+                textElements.forEach(el => {
+                    el.style.display = '';
+                });
+                
+                localStorage.setItem('sidebarCollapsed', 'false');
+            }
+            
+            function showSidebar() {
+                sidebar.classList.remove('sidebar-hidden');
+                sidebarOverlay.classList.remove('hidden');
+            }
+            
+            function hideSidebar() {
+                sidebar.classList.add('sidebar-hidden');
+                sidebarOverlay.classList.add('hidden');
+            }
+            
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                if (window.innerWidth > 768) {
+                    sidebar.classList.remove('sidebar-hidden');
+                    sidebarOverlay.classList.add('hidden');
+                } else {
+                    if (!sidebar.classList.contains('sidebar-collapsed')) {
+                        hideSidebar();
+                    }
+                }
+            });
+        });
+        
         // Auto-hide success messages after 5 seconds
         document.addEventListener('DOMContentLoaded', function() {
-            // Faqat messages container ichidagi success message'larni topish
-            // role="alert" yoki messages container ichida bo'lgan elementlarni o'chirish
             const messagesContainer = document.querySelector('.mb-6.space-y-2');
             if (messagesContainer) {
                 const successMessages = messagesContainer.querySelectorAll('.bg-green-50[role="alert"], .bg-blue-50[role="alert"], .bg-red-50[role="alert"]');

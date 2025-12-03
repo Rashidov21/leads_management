@@ -179,7 +179,9 @@ class FollowUpService:
         today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = today_start + timedelta(days=1)
         
-        queryset = FollowUp.objects.filter(
+        queryset = FollowUp.objects.select_related(
+            'lead', 'sales', 'lead__assigned_sales', 'lead__interested_course'
+        ).filter(
             due_date__gte=today_start,
             due_date__lt=today_end,
             completed=False
@@ -193,7 +195,9 @@ class FollowUpService:
     @staticmethod
     def get_overdue_followups(sales=None):
         """Overdue follow-uplarni olish"""
-        queryset = FollowUp.objects.filter(
+        queryset = FollowUp.objects.select_related(
+            'lead', 'sales', 'lead__assigned_sales', 'lead__interested_course'
+        ).filter(
             due_date__lt=timezone.now(),
             completed=False
         )
@@ -311,33 +315,43 @@ class FollowUpService:
         overdue = FollowUpService.get_overdue_followups(sales)
         now = timezone.now()
         
-        stats = {
-            'total': overdue.count(),
-            'by_age': {
-                'less_1_hour': overdue.filter(
-                    due_date__gte=now - timedelta(hours=1)
-                ).count(),
-                'hours_1_6': overdue.filter(
-                    due_date__lt=now - timedelta(hours=1),
-                    due_date__gte=now - timedelta(hours=6)
-                ).count(),
-                'hours_6_24': overdue.filter(
-                    due_date__lt=now - timedelta(hours=6),
-                    due_date__gte=now - timedelta(days=1)
-                ).count(),
-                'more_24_hours': overdue.filter(
-                    due_date__lt=now - timedelta(days=1)
-                ).count(),
-            },
-            'by_sales': {}
-        }
+        from django.core.cache import cache
         
-        # Har bir sotuvchi uchun overdue soni
-        if not sales:
-            for sales_user in User.objects.filter(role='sales', is_active_sales=True):
-                count = FollowUpService.get_overdue_followups(sales_user).count()
-                if count > 0:
-                    stats['by_sales'][sales_user.username] = count
+        # Cache key
+        cache_key = f'overdue_stats_{sales.id if sales else "all"}'
+        stats = cache.get(cache_key)
+        
+        if stats is None:
+            stats = {
+                'total': overdue.count(),
+                'by_age': {
+                    '< 1 hour': overdue.filter(
+                        due_date__gte=now - timedelta(hours=1)
+                    ).count(),
+                    '1-6 hours': overdue.filter(
+                        due_date__lt=now - timedelta(hours=1),
+                        due_date__gte=now - timedelta(hours=6)
+                    ).count(),
+                    '6-24 hours': overdue.filter(
+                        due_date__lt=now - timedelta(hours=6),
+                        due_date__gte=now - timedelta(days=1)
+                    ).count(),
+                    '> 24 hours': overdue.filter(
+                        due_date__lt=now - timedelta(days=1)
+                    ).count(),
+                },
+                'by_sales': {}
+            }
+            
+            # Har bir sotuvchi uchun overdue soni
+            if not sales:
+                for sales_user in User.objects.filter(role='sales', is_active_sales=True):
+                    count = FollowUpService.get_overdue_followups(sales_user).count()
+                    if count > 0:
+                        stats['by_sales'][sales_user.username] = count
+            
+            # Cache for 5 minutes
+            cache.set(cache_key, stats, 300)
         
         return stats
 
