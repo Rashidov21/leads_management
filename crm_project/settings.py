@@ -160,7 +160,7 @@ CELERY_BEAT_SCHEDULE = {
     },
     'send-followup-reminders': {
         'task': 'crm_app.tasks.send_followup_reminders_task',
-        'schedule': crontab(minute='*/30'),  # Har 30 daqiqada (1 soat oldin eslatma)
+        'schedule': crontab(minute='*/5'),  # Har 5 daqiqada (ish vaqtlarini tekshirish uchun)
     },
     'send-trial-reminders': {
         'task': 'crm_app.tasks.send_trial_reminder_task',

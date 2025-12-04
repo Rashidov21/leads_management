@@ -57,8 +57,14 @@ class User(AbstractUser):
         if check_time is None:
             check_time = timezone.now()
         
+        # Timezone-aware datetime ni local timezone'ga o'tkazish
+        if timezone.is_aware(check_time):
+            local_time = timezone.localtime(check_time)
+        else:
+            local_time = check_time
+        
         # Kunni tekshirish
-        weekday = check_time.weekday()  # 0 = Monday, 6 = Sunday
+        weekday = local_time.weekday()  # 0 = Monday, 6 = Sunday
         work_days = {
             0: self.work_monday,
             1: self.work_tuesday,
@@ -72,9 +78,9 @@ class User(AbstractUser):
         if not work_days.get(weekday, False):
             return False
         
-        # Vaqtni tekshirish
+        # Vaqtni tekshirish (local timezone'da)
         if self.work_start_time and self.work_end_time:
-            current_time = check_time.time()
+            current_time = local_time.time()  # Local timezone'da vaqt
             if not (self.work_start_time <= current_time <= self.work_end_time):
                 return False
         
@@ -305,6 +311,7 @@ class FollowUp(models.Model):
     notes = models.TextField(blank=True)
     is_overdue = models.BooleanField(default=False)
     reminder_sent = models.BooleanField(default=False)  # Follow-up eslatmasi yuborilganligi
+    followup_sequence = models.IntegerField(null=True, blank=True, help_text='Ketma-ketlik raqami (contacted status uchun)')
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -320,7 +327,20 @@ class FollowUp(models.Model):
     def __str__(self):
         return f"Follow-up: {self.lead.name} - {self.due_date}"
     
-    def mark_completed(self):
+    def mark_completed(self, check_work_hours=True):
+        """
+        Follow-up'ni bajarilgan deb belgilash
+        check_work_hours: Agar True bo'lsa, ish vaqti va ruxsat tekshiriladi
+        """
+        if check_work_hours:
+            # Ish vaqti va ruxsat tekshirish
+            if not self.sales.is_available_for_leads:
+                from django.core.exceptions import ValidationError
+                raise ValidationError(
+                    "Siz hozir ish vaqtida emassiz yoki ruxsat olgansiz. "
+                    "Follow-up'ni faqat ish vaqtida bajarilgan deb belgilash mumkin."
+                )
+        
         self.completed = True
         self.completed_at = timezone.now()
         self.save()

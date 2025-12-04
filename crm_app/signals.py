@@ -7,6 +7,7 @@ from .tasks import (
     send_new_lead_notification,
     send_status_change_notification,
     send_followup_created_notification,
+    create_next_contacted_followup,
 )
 
 
@@ -65,28 +66,42 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
         if old_status and old_status != instance.status:
             send_status_change_notification.delay(instance.id, old_status, instance.status)
         
-        # Contacted status uchun ko'p bosqichli follow-up
+        # Contacted status uchun ketma-ket follow-up yaratish
         if instance.status == 'contacted':
-            delays = [
-                timedelta(hours=24),   # 1-aloqa
-                timedelta(hours=48),   # 2-aloqa
-                timedelta(hours=72),   # 3-aloqa
-            ]
             base_time = timezone.now()
-            for delay in delays:
-                due_date = FollowUpService.calculate_work_hours_due_date(
-                    instance.assigned_sales,
-                    base_time,
-                    delay
-                )
-                hours = int(delay.total_seconds() / 3600)
-                followup = FollowUp.objects.create(
-                    lead=instance,
-                    sales=instance.assigned_sales,
-                    due_date=due_date,
-                    notes=f"Contacted - {hours} soatdan keyin aloqa (ko'proq ma'lumot, kurs narxi, jadval, guruhlar)"
-                )
-                send_followup_created_notification.delay(followup.id)
+            first_delay = timedelta(hours=24)
+            
+            # Birinchi follow-up'ni darhol yaratamiz
+            first_due_date = FollowUpService.calculate_work_hours_due_date(
+                instance.assigned_sales,
+                base_time,
+                first_delay
+            )
+            first_followup = FollowUp.objects.create(
+                lead=instance,
+                sales=instance.assigned_sales,
+                due_date=first_due_date,
+                notes="Contacted - 24 soatdan keyin aloqa (ko'proq ma'lumot, kurs narxi, jadval, guruhlar)",
+                followup_sequence=1
+            )
+            send_followup_created_notification.delay(first_followup.id)
+            
+            # Keyingi follow-up'larni ketma-ket yaratish uchun task
+            # 2-followup: 3 kun (72 soat)
+            create_next_contacted_followup.delay(
+                lead_id=instance.id,
+                sequence=2,
+                delay_hours=72,
+                base_time=base_time.isoformat()
+            )
+            
+            # 3-followup: 7 kun (168 soat)
+            create_next_contacted_followup.delay(
+                lead_id=instance.id,
+                sequence=3,
+                delay_hours=168,
+                base_time=base_time.isoformat()
+            )
         
         # Interested status uchun ko'p bosqichli follow-up
         elif instance.status == 'interested':

@@ -167,60 +167,136 @@ def send_trial_reminder_task():
 
 @shared_task
 def send_followup_reminders_task():
-    """Follow-up eslatmalari yuborish (1 soat oldin)"""
+    """Follow-up eslatmalari yuborish - aloqa qilish kerak vaqtda (ish vaqtlarini tekshirish bilan)"""
     try:
         print(f"[{timezone.now()}] send_followup_reminders_task ishga tushdi")
         now = timezone.now()
-        one_hour_later = now + timedelta(hours=1)
         
-        # 1 soat ichida bajarilishi kerak bo'lgan follow-up'lar
+        # Bugun bajarilishi kerak bo'lgan follow-up'lar
+        today = now.date()
+        tomorrow = today + timedelta(days=1)
+        
+        # Bugun va ertaga bajarilishi kerak bo'lgan follow-up'lar
         upcoming_followups = FollowUp.objects.filter(
-            due_date__gte=now,
-            due_date__lte=one_hour_later,
+            due_date__date__gte=today,
+            due_date__date__lt=tomorrow,
             completed=False,
             reminder_sent=False,
-            sales__isnull=False  # Faqat assigned sales bo'lganlar
+            sales__isnull=False
         ).select_related('lead', 'sales')
         
         notifications_sent = 0
         for followup in upcoming_followups:
+            # Aloqa qilish kerak vaqt
+            due_datetime = followup.due_date
+            
+            # Agar hozirgi vaqt due_date ga yetgan bo'lsa va ish vaqtida bo'lsa
+            if now >= due_datetime:
+                # Sotuvchi ish vaqtida ekanligini tekshirish
+                if followup.sales.is_available_for_leads:
+                    if followup.sales and followup.sales.telegram_chat_id:
+                        due_date_str = followup.due_date.strftime('%d.%m.%Y %H:%M')
+                        
+                        # Qancha vaqt o'tganini hisoblash
+                        time_passed = now - due_datetime
+                        minutes_passed = int(time_passed.total_seconds() / 60)
+                        
+                        if minutes_passed < 60:
+                            time_str = f"{minutes_passed} daqiqa oldin"
+                        else:
+                            hours = minutes_passed // 60
+                            mins = minutes_passed % 60
+                            time_str = f"{hours} soat {mins} daqiqa oldin"
+                        
+                        message = (
+                            f"📞 <b>ALOQA QILISH VAQTI KELDI!</b>\n"
+                            f"{'=' * 25}\n\n"
+                            f"👤 <b>Lid:</b> {followup.lead.name}\n"
+                            f"📞 <b>Telefon:</b> <code>{followup.lead.phone}</code>\n\n"
+                            f"⏰ <b>Rejalashtirilgan vaqt:</b> {due_date_str}\n"
+                            f"⏱️ <b>Vaqt:</b> {time_str}\n\n"
+                        )
+                        
+                        if followup.notes:
+                            message += f"📝 <b>Eslatma:</b>\n{followup.notes[:100]}\n\n"
+                        
+                        message += "🔴 <b>DARHOL ALOQA QILING!</b>"
+                        
+                        if send_telegram_notification(
+                            followup.sales.telegram_chat_id,
+                            message
+                        ):
+                            followup.reminder_sent = True
+                            followup.save()
+                            notifications_sent += 1
+                else:
+                    # Agar ish vaqti tashqarisida bo'lsa, keyingi ish vaqtida eslatma yuborish
+                    next_work_time = FollowUpService.calculate_work_hours_due_date(
+                        followup.sales,
+                        now,
+                        timedelta(0)  # Keyingi ish vaqti
+                    )
+                    # Agar keyingi ish vaqti aniq bo'lsa va hali eslatma yuborilmagan bo'lsa
+                    if next_work_time > now and not followup.reminder_sent:
+                        # Keyingi ish vaqtida eslatma yuborish uchun task yaratish
+                        send_followup_reminder_at_time.delay(
+                            followup.id,
+                            next_work_time.isoformat()
+                        )
+        
+        print(f"[{timezone.now()}] send_followup_reminders_task yakunlandi: {notifications_sent} ta notification yuborildi")
+    except Exception as e:
+        print(f"[{timezone.now()}] send_followup_reminders_task xatolik: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+@shared_task
+def send_followup_reminder_at_time(followup_id, reminder_time_iso):
+    """
+    Belgilangan vaqtda follow-up eslatmasi yuborish
+    """
+    try:
+        from datetime import datetime
+        
+        followup = FollowUp.objects.get(id=followup_id)
+        if followup.completed or followup.reminder_sent:
+            return
+        
+        reminder_time = datetime.fromisoformat(reminder_time_iso)
+        if timezone.is_naive(reminder_time):
+            reminder_time = timezone.make_aware(reminder_time)
+        
+        now = timezone.now()
+        
+        # Agar vaqt kelgan bo'lsa va sotuvchi ish vaqtida bo'lsa
+        if now >= reminder_time and followup.sales.is_available_for_leads:
             if followup.sales and followup.sales.telegram_chat_id:
                 due_date_str = followup.due_date.strftime('%d.%m.%Y %H:%M')
-                minutes_left = int((followup.due_date - now).total_seconds() / 60)
-                
-                # Vaqt formatlash
-                if minutes_left >= 60:
-                    hours = minutes_left // 60
-                    mins = minutes_left % 60
-                    time_left = f"{hours} soat {mins} daqiqa"
-                else:
-                    time_left = f"{minutes_left} daqiqa"
                 
                 message = (
-                    f"⏰ <b>FOLLOW-UP ESLATMASI</b>\n"
+                    f"📞 <b>ALOQA QILISH VAQTI!</b>\n"
                     f"{'=' * 25}\n\n"
                     f"👤 <b>Lid:</b> {followup.lead.name}\n"
                     f"📞 <b>Telefon:</b> <code>{followup.lead.phone}</code>\n\n"
-                    f"⏰ <b>Vaqt:</b> {due_date_str}\n"
-                    f"⏱️ <b>Qolgan vaqt:</b> {time_left}\n\n"
+                    f"⏰ <b>Rejalashtirilgan vaqt:</b> {due_date_str}\n\n"
                 )
                 
                 if followup.notes:
                     message += f"📝 <b>Eslatma:</b>\n{followup.notes[:100]}\n\n"
                 
-                message += "⚠️ <b>TEZKOR HARAKAT QILING!</b>"
+                message += "🔴 <b>DARHOL ALOQA QILING!</b>"
                 
                 if send_telegram_notification(
                     followup.sales.telegram_chat_id,
                     message
                 ):
-                    notifications_sent += 1
-                followup.reminder_sent = True
-                followup.save()
-        
-        print(f"[{timezone.now()}] send_followup_reminders_task yakunlandi: {notifications_sent} ta notification yuborildi")
+                    followup.reminder_sent = True
+                    followup.save()
+    except FollowUp.DoesNotExist:
+        pass
     except Exception as e:
-        print(f"[{timezone.now()}] send_followup_reminders_task xatolik: {e}")
+        print(f"send_followup_reminder_at_time xatolik (followup_id={followup_id}): {e}")
         import traceback
         traceback.print_exc()
 
@@ -717,6 +793,57 @@ def send_followup_created_notification(followup_id):
         pass
     except Exception as e:
         print(f"send_followup_created_notification xatolik (followup_id={followup_id}): {e}")
+
+
+@shared_task
+def create_next_contacted_followup(lead_id, sequence, delay_hours, base_time):
+    """
+    Contacted status uchun keyingi follow-up'ni yaratish
+    sequence: Ketma-ketlik raqami (2, 3, ...)
+    delay_hours: Kechikish (soat)
+    base_time: Birinchi follow-up yaratilgan vaqt (ISO format)
+    """
+    try:
+        from datetime import datetime
+        
+        lead = Lead.objects.get(id=lead_id)
+        if not lead.assigned_sales or lead.status != 'contacted':
+            return  # Agar status o'zgargandan bo'lsa, to'xtatish
+        
+        # Base time ni parse qilish
+        if isinstance(base_time, str):
+            base_datetime = datetime.fromisoformat(base_time)
+            if timezone.is_naive(base_datetime):
+                base_datetime = timezone.make_aware(base_datetime)
+        else:
+            base_datetime = base_time
+        
+        delay = timedelta(hours=delay_hours)
+        due_date = FollowUpService.calculate_work_hours_due_date(
+            lead.assigned_sales,
+            base_datetime,
+            delay
+        )
+        
+        notes_map = {
+            2: "Contacted - 3 kundan keyin aloqa (qo'shimcha ma'lumot, bonuslar, chegirmalar)",
+            3: "Contacted - 7 kundan keyin aloqa (yakuniy taklif, qaror qabul qilish)",
+        }
+        
+        followup = FollowUp.objects.create(
+            lead=lead,
+            sales=lead.assigned_sales,
+            due_date=due_date,
+            notes=notes_map.get(sequence, f"Contacted - {delay_hours} soatdan keyin aloqa"),
+            followup_sequence=sequence
+        )
+        send_followup_created_notification.delay(followup.id)
+    except Lead.DoesNotExist:
+        pass
+    except Exception as e:
+        print(f"create_next_contacted_followup xatolik (lead_id={lead_id}, sequence={sequence}): {e}")
+        import traceback
+        traceback.print_exc()
 
 
 @shared_task

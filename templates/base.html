@@ -129,27 +129,13 @@
     </style>
 </head>
 <body class="bg-gray-50">
-    {% block messages %}
-    {% if messages %}
-    <div class="mb-6 space-y-2">
-        {% for message in messages %}
-        <div class="bg-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-50 border-l-4 border-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-400 text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-700 p-4 rounded-md shadow-sm flex items-start" role="alert">
-            <i class="fas fa-{% if message.tags == 'error' %}exclamation-circle{% elif message.tags == 'success' %}check-circle{% else %}info-circle{% endif %} mr-3 mt-0.5"></i>
-            <span class="flex-1">{{ message }}</span>
-            <button onclick="this.parentElement.remove()" class="ml-4 text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-700 hover:text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-900">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-    {% endblock %}
+    {% block messages %}{% endblock %}
 
     {% if user.is_authenticated %}
     <!-- Sidebar -->
-    <aside id="sidebar" class="sidebar sidebar-expanded fixed left-0 top-0 h-full bg-white shadow-lg z-40 overflow-y-auto">
+    <aside id="sidebar" class="sidebar sidebar-expanded fixed left-0 top-0 h-full bg-white shadow-lg z-40 flex flex-col">
         <!-- Sidebar Header -->
-        <div class="flex items-center justify-between h-16 px-4 border-b border-gray-200 bg-indigo-600">
+        <div class="flex items-center justify-between h-16 px-4 border-b border-gray-200 bg-indigo-600 flex-shrink-0">
             <a href="{% url 'dashboard' %}" class="flex items-center space-x-2 flex-1">
                 <i class="fas fa-chart-line text-white text-xl"></i>
                 <span id="sidebar-logo-text" class="text-lg font-bold text-white">CRM</span>
@@ -160,7 +146,7 @@
         </div>
 
         <!-- Sidebar Menu -->
-        <nav class="py-4 pb-32">
+        <nav class="flex-1 overflow-y-auto py-4">
             <!-- Dashboard -->
             <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
                 <i class="fas fa-home w-5 text-center"></i>
@@ -252,7 +238,7 @@
         </nav>
 
         <!-- Sidebar Footer -->
-        <div id="sidebar-footer" class="absolute bottom-0 left-0 right-0 border-t border-gray-200 bg-gray-50 p-4">
+        <div id="sidebar-footer" class="flex-shrink-0 border-t border-gray-200 bg-gray-50 p-4">
             <div class="flex items-center space-x-3 mb-3">
                 <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
                     <i class="fas fa-user text-indigo-600"></i>
@@ -298,20 +284,24 @@
             </div>
         </header>
 
-        <main class="py-6 px-4 sm:px-6 lg:px-8">
-            {% if messages %}
-            <div class="mb-6 space-y-2">
+        <!-- Fixed Messages Container -->
+        {% if messages %}
+        <div id="messages-container" class="fixed top-16 left-0 right-16 z-50 px-4 sm:px-6 lg:px-8 pt-4 pointer-events-none">
+            <div class="max-w-2xl mx-auto space-y-2">
                 {% for message in messages %}
-                <div class="bg-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-50 border-l-4 border-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-400 text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-700 p-4 rounded-md shadow-sm flex items-start" role="alert">
+                <div class="bg-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-50 border-l-4 border-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-400 text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-700 p-4 rounded-md shadow-lg flex items-start pointer-events-auto" role="alert">
                     <i class="fas fa-{% if message.tags == 'error' %}exclamation-circle{% elif message.tags == 'success' %}check-circle{% else %}info-circle{% endif %} mr-3 mt-0.5"></i>
                     <span class="flex-1">{{ message }}</span>
-                    <button onclick="this.parentElement.remove()" class="ml-4 text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-700 hover:text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-900">
+                    <button onclick="this.closest('[role=&quot;alert&quot;]').remove()" class="ml-4 text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-700 hover:text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-900">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
                 {% endfor %}
             </div>
-            {% endif %}
+        </div>
+        {% endif %}
+
+        <main class="py-6 px-4 sm:px-6 lg:px-8">
 
             {% block breadcrumbs %}{% endblock %}
 
@@ -320,20 +310,24 @@
         </main>
     </div>
     {% else %}
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 min-h-screen">
-        {% if messages %}
-        <div class="mb-6 space-y-2">
+    <!-- Fixed Messages Container -->
+    {% if messages %}
+    <div id="messages-container" class="fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 lg:px-8 pt-4 pointer-events-none">
+        <div class="max-w-7xl mx-auto space-y-2">
             {% for message in messages %}
-            <div class="bg-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-50 border-l-4 border-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-400 text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-700 p-4 rounded-md shadow-sm flex items-start" role="alert">
+            <div class="bg-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-50 border-l-4 border-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-400 text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-700 p-4 rounded-md shadow-lg flex items-start pointer-events-auto" role="alert">
                 <i class="fas fa-{% if message.tags == 'error' %}exclamation-circle{% elif message.tags == 'success' %}check-circle{% else %}info-circle{% endif %} mr-3 mt-0.5"></i>
                 <span class="flex-1">{{ message }}</span>
-                <button onclick="this.parentElement.remove()" class="ml-4 text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-700 hover:text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-900">
+                <button onclick="this.closest('[role=&quot;alert&quot;]').remove()" class="ml-4 text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-700 hover:text-{% if message.tags == 'error' %}red{% elif message.tags == 'success' %}green{% else %}blue{% endif %}-900">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             {% endfor %}
         </div>
-        {% endif %}
+    </div>
+    {% endif %}
+
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 min-h-screen">
 
         {% block breadcrumbs_unauthenticated %}{% endblock %}
 
@@ -458,15 +452,20 @@
         
         // Auto-hide success messages after 5 seconds
         document.addEventListener('DOMContentLoaded', function() {
-            const messagesContainer = document.querySelector('.mb-6.space-y-2');
+            const messagesContainer = document.getElementById('messages-container');
             if (messagesContainer) {
-                const successMessages = messagesContainer.querySelectorAll('.bg-green-50[role="alert"], .bg-blue-50[role="alert"], .bg-red-50[role="alert"]');
+                const successMessages = messagesContainer.querySelectorAll('[role="alert"]');
                 successMessages.forEach(function(msg) {
                     setTimeout(function() {
-                        msg.style.transition = 'opacity 0.5s';
+                        msg.style.transition = 'opacity 0.5s, transform 0.5s';
                         msg.style.opacity = '0';
+                        msg.style.transform = 'translateY(-10px)';
                         setTimeout(function() {
                             msg.remove();
+                            // Agar barcha xabarlar o'chirilgan bo'lsa, container'ni ham o'chirish
+                            if (messagesContainer.querySelectorAll('[role="alert"]').length === 0) {
+                                messagesContainer.remove();
+                            }
                         }, 500);
                     }, 5000);
                 });

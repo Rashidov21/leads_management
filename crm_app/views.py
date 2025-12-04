@@ -378,8 +378,53 @@ def followups_today(request):
         if request.user.is_sales and followup.sales != request.user:
             messages.error(request, "Sizda bu follow-upni bajarish huquqi yo'q")
         else:
-            followup.mark_completed()
-            messages.success(request, 'Follow-up bajarildi')
+            # Ish vaqti va ruxsat tekshirish (faqat sales uchun)
+            # Eslatma: request.user ish vaqtida bo'lishi kerak, followup.sales emas
+            if request.user.is_sales:
+                # Aniqroq xabar uchun alohida tekshirish
+                if not request.user.is_active_sales:
+                    messages.error(request, "Siz faol sotuvchi emassiz.")
+                    return redirect('followups_today')
+                
+                # Ruxsat tekshirish
+                from django.apps import apps
+                LeaveRequest = apps.get_model('crm_app', 'LeaveRequest')
+                now = timezone.now()
+                active_leave = LeaveRequest.objects.filter(
+                    sales=request.user,
+                    status='approved',
+                    start_date__lte=now.date(),
+                    end_date__gte=now.date()
+                ).first()
+                
+                is_on_leave = False
+                if active_leave:
+                    if active_leave.start_time and active_leave.end_time:
+                        current_time = now.time()
+                        if active_leave.start_time <= current_time <= active_leave.end_time:
+                            is_on_leave = True
+                    else:
+                        is_on_leave = True
+                
+                if is_on_leave or request.user.is_on_leave:
+                    messages.error(request, "Siz hozir ruxsat olgansiz. Follow-up'ni faqat ish vaqtida bajarilgan deb belgilash mumkin.")
+                    return redirect('followups_today')
+                
+                # Ish vaqti tekshirish
+                if not request.user.is_working_at_time(now):
+                    messages.error(request, "Siz hozir ish vaqtida emassiz. Follow-up'ni faqat ish vaqtida bajarilgan deb belgilash mumkin.")
+                    return redirect('followups_today')
+            
+            try:
+                # check_work_hours=False, chunki biz allaqachon yuqorida tekshirdik
+                followup.mark_completed(check_work_hours=False)
+                messages.success(request, 'Follow-up bajarildi')
+            except Exception as e:
+                from django.core.exceptions import ValidationError
+                if isinstance(e, ValidationError):
+                    messages.error(request, str(e))
+                else:
+                    messages.error(request, f'Xatolik: {str(e)}')
         return redirect('followups_today')
     
     return render(request, 'followups/today.html', {'followups': followups})
@@ -443,8 +488,53 @@ def overdue_followup_complete(request, followup_id):
     if request.user.is_sales and followup.sales != request.user:
         messages.error(request, "Sizda bu follow-upni bajarish huquqi yo'q")
     else:
-        followup.mark_completed()
-        messages.success(request, 'Follow-up bajarildi')
+        # Ish vaqti va ruxsat tekshirish (faqat sales uchun)
+        # Eslatma: request.user ish vaqtida bo'lishi kerak, followup.sales emas
+        if request.user.is_sales:
+            # Aniqroq xabar uchun alohida tekshirish
+            if not request.user.is_active_sales:
+                messages.error(request, "Siz faol sotuvchi emassiz.")
+                return redirect('overdue_followups_list')
+            
+            # Ruxsat tekshirish
+            from django.apps import apps
+            LeaveRequest = apps.get_model('crm_app', 'LeaveRequest')
+            now = timezone.now()
+            active_leave = LeaveRequest.objects.filter(
+                sales=request.user,
+                status='approved',
+                start_date__lte=now.date(),
+                end_date__gte=now.date()
+            ).first()
+            
+            is_on_leave = False
+            if active_leave:
+                if active_leave.start_time and active_leave.end_time:
+                    current_time = now.time()
+                    if active_leave.start_time <= current_time <= active_leave.end_time:
+                        is_on_leave = True
+                else:
+                    is_on_leave = True
+            
+            if is_on_leave or request.user.is_on_leave:
+                messages.error(request, "Siz hozir ruxsat olgansiz. Follow-up'ni faqat ish vaqtida bajarilgan deb belgilash mumkin.")
+                return redirect('overdue_followups_list')
+            
+            # Ish vaqti tekshirish
+            if not request.user.is_working_at_time(now):
+                messages.error(request, "Siz hozir ish vaqtida emassiz. Follow-up'ni faqat ish vaqtida bajarilgan deb belgilash mumkin.")
+                return redirect('overdue_followups_list')
+        
+        try:
+            # check_work_hours=False, chunki biz allaqachon yuqorida tekshirdik
+            followup.mark_completed(check_work_hours=False)
+            messages.success(request, 'Follow-up bajarildi')
+        except Exception as e:
+            from django.core.exceptions import ValidationError
+            if isinstance(e, ValidationError):
+                messages.error(request, str(e))
+            else:
+                messages.error(request, f'Xatolik: {str(e)}')
     
     return redirect('overdue_followups_list')
 
@@ -507,12 +597,20 @@ def bulk_complete_overdue(request):
             messages.error(request, "Hech qanday follow-up tanlanmagan")
         else:
             count = 0
+            skipped = 0
             for followup_id in followup_ids:
                 followup = get_object_or_404(FollowUp, pk=followup_id)
-                followup.mark_completed()
-                count += 1
+                # Admin/Manager uchun ish vaqti tekshirilmaydi
+                try:
+                    followup.mark_completed(check_work_hours=False)
+                    count += 1
+                except Exception as e:
+                    skipped += 1
             
-            messages.success(request, f'{count} ta follow-up bajarilgan deb belgilandi')
+            if count > 0:
+                messages.success(request, f'{count} ta follow-up bajarilgan deb belgilandi')
+            if skipped > 0:
+                messages.warning(request, f'{skipped} ta follow-up o\'tkazib yuborildi')
     
     return redirect('overdue_followups_list')
 
