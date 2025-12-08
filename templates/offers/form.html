@@ -31,8 +31,10 @@
             </div>
             <div>
                 <label class="form-label">Kanallar (vergul bilan)</label>
-                {{ form.channels }}
-                <p class="text-xs text-gray-500 mt-1">{{ form.fields.channels.help_text }}</p>
+                {{ form.channel }}
+                {% if form.fields.channel.help_text %}
+                <p class="text-xs text-gray-500 mt-1">{{ form.fields.channel.help_text }}</p>
+                {% endif %}
             </div>
             <div>
                 <label class="form-label">Amal qilish boshlanishi</label>

@@ -462,14 +462,37 @@ class OfferForm(forms.ModelForm):
             'channel', 'audience', 'priority'
         ]
         widgets = {
-            'title': forms.TextInput(attrs={'class': 'form-input'}),
-            'description': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 4}),
-            'offer_type': forms.Select(attrs={'class': 'form-select'}),
-            'course': forms.Select(attrs={'class': 'form-select'}),
-            'valid_from': forms.DateInput(attrs={'class': 'form-input', 'type': 'date'}),
-            'valid_until': forms.DateInput(attrs={'class': 'form-input', 'type': 'date'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
-            'audience': forms.Select(attrs={'class': 'form-select'}),
-            'priority': forms.Select(attrs={'class': 'form-select'}),
-            'channel': forms.Select(attrs={'class': 'form-select'}),
+            'title': forms.TextInput(attrs={
+                'class': 'form-input w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 placeholder:text-gray-400'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-textarea w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 resize-y min-h-[120px] placeholder:text-gray-400',
+                'rows': 4,
+            }),
+            'offer_type': forms.Select(attrs={
+                'class': 'form-select w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 appearance-none bg-no-repeat bg-right-2.5 bg-[length:1.5em_1.5em]'
+            }),
+            'course': forms.Select(attrs={
+                'class': 'form-select w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 appearance-none bg-no-repeat bg-right-2.5 bg-[length:1.5em_1.5em]'
+            }),
+            'valid_from': forms.DateInput(attrs={
+                'class': 'form-input w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200',
+                'type': 'date'
+            }),
+            'valid_until': forms.DateInput(attrs={
+                'class': 'form-input w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200',
+                'type': 'date'
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'class': 'form-checkbox h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded transition-all duration-200 cursor-pointer'
+            }),
+            'audience': forms.Select(attrs={
+                'class': 'form-select w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 appearance-none bg-no-repeat bg-right-2.5 bg-[length:1.5em_1.5em]'
+            }),
+            'priority': forms.Select(attrs={
+                'class': 'form-select w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 appearance-none bg-no-repeat bg-right-2.5 bg-[length:1.5em_1.5em]'
+            }),
+            'channel': forms.Select(attrs={
+                'class': 'form-select w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 appearance-none bg-no-repeat bg-right-2.5 bg-[length:1.5em_1.5em]'
+            }),
         }

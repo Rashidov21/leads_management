@@ -15,6 +15,7 @@ urlpatterns = [
     path('leads/<int:pk>/', views.lead_detail, name='lead_detail'),
     path('leads/<int:pk>/assign/', views.lead_assign, name='lead_assign'),
     path('leads/import/', views.excel_import, name='excel_import'),
+    path('leads/table/', views.leads_table, name='leads_table'),
     
     # Follow-ups
     path('followups/today/', views.followups_today, name='followups_today'),

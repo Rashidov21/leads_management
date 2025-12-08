@@ -26,9 +26,9 @@
         </div>
     </div>
     
-    {% if messages %}
+    {% if inbox_messages %}
     <div class="space-y-4">
-        {% for message in messages %}
+        {% for message in inbox_messages %}
         <a href="{% url 'sales_message_detail' message.pk %}" class="block bg-white shadow-lg rounded-xl p-6 border-2 {% if message.id not in read_message_ids %}border-blue-500 bg-blue-50{% else %}border-gray-200 hover:border-indigo-300{% endif %} transition-all">
             <div class="flex items-start justify-between">
                 <div class="flex-1">

@@ -4,6 +4,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q, Count, Sum, F
 from django.utils import timezone
+from django.http import HttpResponse
+import csv
+from io import BytesIO
+from openpyxl import Workbook
 from django.views.decorators.csrf import csrf_exempt
 from datetime import date, timedelta
 from .models import (
@@ -194,6 +198,82 @@ def leads_list(request):
         'total_leads': queryset.count(),
     }
     return render(request, 'leads/list.html', context)
+
+
+@login_required
+@role_required('admin', 'sales_manager', 'sales')
+def leads_table(request):
+    """Lidlar jadvali (filtr + CSV eksport)"""
+    leads = Lead.objects.select_related('assigned_sales', 'interested_course').all()
+
+    status = request.GET.get('status') or ''
+    source = request.GET.get('source') or ''
+    sales_id = request.GET.get('sales') or ''
+    course_id = request.GET.get('course') or ''
+    date_from = request.GET.get('date_from') or ''
+    date_to = request.GET.get('date_to') or ''
+
+    # Sales o'z lidlarini ko'radi
+    if request.user.is_sales:
+        leads = leads.filter(assigned_sales=request.user)
+
+    if status:
+        leads = leads.filter(status=status)
+    if source:
+        leads = leads.filter(source=source)
+    if sales_id:
+        leads = leads.filter(assigned_sales_id=sales_id)
+    if course_id:
+        leads = leads.filter(interested_course_id=course_id)
+    if date_from:
+        leads = leads.filter(created_at__date__gte=date_from)
+    if date_to:
+        leads = leads.filter(created_at__date__lte=date_to)
+
+    # Export Excel
+    if request.GET.get('export') == 'excel':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Leads"
+        headers = ['Ism', 'Telefon', "Qo'shimcha telefon", 'Status', 'Manba', 'Kurs', 'Sotuvchi', 'Yaratilgan']
+        ws.append(headers)
+        for lead in leads:
+            ws.append([
+                lead.name,
+                lead.phone,
+                getattr(lead, 'secondary_phone', '') or '',
+                lead.get_status_display(),
+                lead.get_source_display(),
+                lead.interested_course.name if lead.interested_course else '',
+                lead.assigned_sales.username if lead.assigned_sales else '',
+                timezone.localtime(lead.created_at).strftime('%d.%m.%Y %H:%M'),
+            ])
+
+        bio = BytesIO()
+        wb.save(bio)
+        bio.seek(0)
+        filename = f"leads_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        response = HttpResponse(
+            bio.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+    context = {
+        'leads': leads.order_by('-created_at'),
+        'status_filter': status,
+        'source_filter': source,
+        'sales_filter': sales_id,
+        'course_filter': course_id,
+        'date_from': date_from,
+        'date_to': date_to,
+        'sales_list': User.objects.filter(role='sales', is_active_sales=True),
+        'course_list': Course.objects.filter(is_active=True),
+        'statuses': Lead.STATUS_CHOICES,
+        'sources': Lead.SOURCE_CHOICES,
+    }
+    return render(request, 'leads/table.html', context)
 
 
 @login_required
@@ -1596,7 +1676,7 @@ def sales_message_inbox(request):
     unread_count = received_messages.exclude(id__in=read_message_ids).count()
     
     return render(request, 'messages/inbox.html', {
-        'messages': received_messages,
+        'inbox_messages': received_messages,
         'unread_count': unread_count,
         'read_message_ids': read_message_ids,
     })

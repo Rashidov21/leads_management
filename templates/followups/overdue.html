@@ -130,9 +130,8 @@
             <div class="flex flex-wrap gap-2">
                 <form method="POST" action="{% url 'bulk_reschedule_overdue' %}" class="inline" id="bulk-reschedule-form">
                     {% csrf_token %}
-                    <input type="hidden" name="followup_ids" id="reschedule-ids" value="">
                     <div class="flex items-center gap-2">
-                        <input type="number" name="hours_ahead" value="2" min="1" max="24" class="w-20 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        <input type="number" name="hours_ahead" id="hours-ahead" value="2" min="1" max="24" class="w-20 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
                         <button type="button" onclick="bulkAction('reschedule')" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-md hover:shadow-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                             <i class="fas fa-calendar-alt"></i>Qayta rejalashtirish
                         </button>
@@ -283,6 +282,31 @@
     </div>
 </div>
 
+<!-- Reschedule Confirm Modal -->
+<div id="reschedule-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black bg-opacity-50"></div>
+    <div class="relative max-w-md mx-auto mt-24 bg-white rounded-xl shadow-2xl border border-gray-200 p-6">
+        <div class="flex items-start justify-between mb-4">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">Qayta rejalashtirishni tasdiqlang</h3>
+                <p class="text-sm text-gray-600">Tanlangan overdue vazifalar yangi vaqtda bajariladi.</p>
+            </div>
+            <button onclick="closeRescheduleModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="space-y-3">
+            <div class="text-sm text-gray-800">Tanlangan vazifalar: <span id="reschedule-count" class="font-semibold">0</span> ta</div>
+            <div class="text-sm text-gray-800">Kechiktirish: <span id="reschedule-hours" class="font-semibold">2</span> soat</div>
+            <p class="text-xs text-gray-500">Yangi vaqt sotuvchining ish vaqti va ruxsatlari hisobga olinib belgilash servisida qayta hisoblanadi.</p>
+        </div>
+        <div class="flex justify-end gap-3 mt-6">
+            <button type="button" onclick="closeRescheduleModal()" class="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">Bekor qilish</button>
+            <button type="button" onclick="confirmRescheduleSubmit()" class="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow">Tasdiqlash</button>
+        </div>
+    </div>
+</div>
+
 <script>
 function selectAll() {
     const selectAllCheckbox = document.getElementById('select-all');
@@ -300,6 +324,8 @@ function selectAll() {
     }
 }
 
+let rescheduleIds = [];
+
 function bulkAction(action) {
     const checkboxes = document.querySelectorAll('.followup-checkbox:checked');
     const ids = Array.from(checkboxes).map(cb => cb.value);
@@ -309,52 +335,61 @@ function bulkAction(action) {
         return;
     }
     
-    let formId, confirmMessage;
-    
     switch(action) {
         case 'reschedule':
-            formId = 'bulk-reschedule-form';
-            confirmMessage = ids.length + ' ta follow-up qayta rejalashtirilsinmi?';
-            document.getElementById('reschedule-ids').value = ids.join(',');
-            break;
+            rescheduleIds = ids;
+            const hours = document.getElementById('hours-ahead').value || 2;
+            document.getElementById('reschedule-count').textContent = ids.length;
+            document.getElementById('reschedule-hours').textContent = hours;
+            document.getElementById('reschedule-modal').classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+            return;
         case 'reassign':
-            formId = 'bulk-reassign-form';
             const salesSelect = document.querySelector('#bulk-reassign-form select[name="new_sales_id"]');
             if (!salesSelect.value) {
                 alert('Iltimos, sotuvchi tanlang!');
                 return;
             }
-            confirmMessage = ids.length + ' ta follow-up ' + salesSelect.options[salesSelect.selectedIndex].text + ' ga o\'tkazilsinmi?';
-            document.getElementById('reassign-ids').value = ids.join(',');
-            break;
+            if (confirm(ids.length + ' ta follow-up ' + salesSelect.options[salesSelect.selectedIndex].text + ' ga o\'tkazilsinmi?')) {
+                submitIds('bulk-reassign-form', ids);
+            }
+            return;
         case 'complete':
-            formId = 'bulk-complete-form';
-            confirmMessage = ids.length + ' ta follow-up bajarilgan deb belgilansinmi?';
-            document.getElementById('complete-ids').value = ids.join(',');
-            break;
+            if (confirm(ids.length + ' ta follow-up bajarilgan deb belgilansinmi?')) {
+                submitIds('bulk-complete-form', ids);
+            }
+            return;
     }
-    
-    if (confirm(confirmMessage)) {
-        // Create hidden inputs for each ID
-        const form = document.getElementById(formId);
-        const existingInput = form.querySelector('input[name="followup_ids"]');
-        
-        // Remove old inputs
-        form.querySelectorAll('input[name="followup_ids"]').forEach(input => {
-            if (input.type === 'hidden') input.remove();
-        });
-        
-        // Add new inputs
-        ids.forEach(id => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'followup_ids';
-            input.value = id;
-            form.appendChild(input);
-        });
-        
-        form.submit();
+}
+
+function closeRescheduleModal() {
+    document.getElementById('reschedule-modal').classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+}
+
+function confirmRescheduleSubmit() {
+    if (!rescheduleIds.length) {
+        closeRescheduleModal();
+        return;
     }
+    submitIds('bulk-reschedule-form', rescheduleIds);
+    closeRescheduleModal();
+}
+
+function submitIds(formId, ids) {
+    const form = document.getElementById(formId);
+    // Clean old hidden inputs
+    form.querySelectorAll('input[name="followup_ids"]').forEach(input => {
+        if (input.type === 'hidden') input.remove();
+    });
+    ids.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'followup_ids';
+        input.value = id;
+        form.appendChild(input);
+    });
+    form.submit();
 }
 </script>
 {% endblock %}

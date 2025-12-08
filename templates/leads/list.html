@@ -22,15 +22,18 @@
             <p class="mt-1 text-sm text-gray-500">Barcha lidlar ro'yxati va boshqaruvi</p>
         </div>
         <div class="flex space-x-3">
-            <button id="fullscreen-toggle" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out" title="To'liq ekran rejimi">
-                <i class="fas fa-expand"></i>To'liq Ekran
-            </button>
-            <a href="{% url 'excel_import' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
-                <i class="fas fa-file-excel"></i>Excel Import
-            </a>
-            <a href="{% url 'lead_create' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-indigo-700/30">
+            <a href="{% url 'lead_create' %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-indigo-700/30">
                 <i class="fas fa-plus"></i>Yangi Lid
             </a>
+            <a href="{% url 'excel_import' %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
+                <i class="fas fa-file-excel"></i>Excel Import
+            </a>
+            <a href="{% url 'leads_table' %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
+                <i class="fas fa-list"></i>Lidlar ro'yxati
+            </a>
+            <button id="fullscreen-toggle" class="inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out" title="To'liq ekran rejimi">
+                <i class="fas fa-expand"></i>To'liq Ekran
+            </button>
         </div>
     </div>
     
