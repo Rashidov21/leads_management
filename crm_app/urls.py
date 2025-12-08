@@ -5,6 +5,9 @@ urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
+
+    # Public landing
+    path('landing/', views.landing_page, name='landing'),
     
     # Leads
     path('leads/', views.leads_list, name='leads_list'),
@@ -54,6 +57,7 @@ urlpatterns = [
     path('users/managers/create/', views.manager_create, name='manager_create'),
     path('users/managers/<int:pk>/edit/', views.manager_edit, name='manager_edit'),
     path('users/managers/<int:pk>/delete/', views.manager_delete, name='manager_delete'),
+    path('users/me/', views.manager_self_edit, name='manager_self_edit'),
     
     # Analytics
     path('analytics/', views.analytics, name='analytics'),
@@ -77,4 +81,10 @@ urlpatterns = [
     # Sales Messages (Sales)
     path('messages/inbox/', views.sales_message_inbox, name='sales_message_inbox'),
     path('messages/<int:pk>/', views.sales_message_detail, name='sales_message_detail'),
+
+    # Offers
+    path('offers/', views.offers_list, name='offers_list'),
+    path('offers/create/', views.offer_create, name='offer_create'),
+    path('offers/<int:pk>/edit/', views.offer_edit, name='offer_edit'),
+    path('offers/<int:pk>/delete/', views.offer_delete, name='offer_delete'),
 ]

@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-xl mx-auto">
+    <div class="bg-white shadow rounded-lg p-6 border border-red-100">
+        <h1 class="text-xl font-semibold text-gray-800 mb-2">Taklifni o'chirish</h1>
+        <p class="text-sm text-gray-600 mb-4">Haqiqatan ham "{{ offer.title }}" taklifini o'chirmoqchimisiz?</p>
+        <form method="post" class="flex justify-end space-x-3">
+            {% csrf_token %}
+            <a href="{% url 'offers_list' %}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">Bekor qilish</a>
+            <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg shadow hover:bg-red-700 transition">O'chirish</button>
+        </form>
+    </div>
+{% endblock %}
+

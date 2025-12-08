@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}CRM Tizimi{% endblock %}</title>
+    <link rel="icon" href="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f4ca.png" sizes="72x72">
+    <link rel="icon" href="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f4ca.svg" type="image/svg+xml">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -143,7 +145,7 @@
             <button id="sidebar-toggle" class="text-white hover:text-gray-200 transition-colors" title="Yig'ish/Kengaytirish">
                 <i class="fas fa-bars"></i>
             </button>
-        </div>
+                    </div>
 
         <!-- Sidebar Menu -->
         <nav class="flex-1 overflow-y-auto py-4">
@@ -151,44 +153,44 @@
             <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
                 <i class="fas fa-home w-5 text-center"></i>
                 <span id="menu-dashboard" class="ml-3 font-medium">Dashboard</span>
-            </a>
+                        </a>
 
             <!-- Lidlar -->
             <a href="{% url 'leads_list' %}" class="{% if 'lead' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
                 <i class="fas fa-users w-5 text-center"></i>
                 <span id="menu-leads" class="ml-3 font-medium">Lidlar</span>
-            </a>
+                        </a>
 
             <!-- Admin Section -->
-            {% if user.is_admin %}
+                        {% if user.is_admin %}
             <div class="px-4 py-2 mt-2">
                 <p id="menu-admin-label" class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Boshqaruv</p>
             </div>
             <a href="{% url 'courses_list' %}" class="{% if 'course' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
                 <i class="fas fa-book w-5 text-center"></i>
                 <span id="menu-courses" class="ml-3 font-medium">Kurslar</span>
-            </a>
+                        </a>
             <a href="{% url 'rooms_list' %}" class="{% if 'room' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
                 <i class="fas fa-door-open w-5 text-center"></i>
                 <span id="menu-rooms" class="ml-3 font-medium">Xonalar</span>
-            </a>
+                        </a>
             <a href="{% url 'groups_list' %}" class="{% if 'group' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
                 <i class="fas fa-layer-group w-5 text-center"></i>
                 <span id="menu-groups" class="ml-3 font-medium">Guruhlar</span>
-            </a>
-            {% endif %}
+                        </a>
+                        {% endif %}
 
             <!-- Manager Section -->
-            {% if user.is_admin or user.is_sales_manager %}
+                        {% if user.is_admin or user.is_sales_manager %}
             <div class="px-4 py-2 mt-2">
                 <p id="menu-manager-label" class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Menejment</p>
             </div>
             <a href="{% url 'sales_list' %}" class="{% if 'sales' in request.resolver_match.url_name and 'manager' not in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
                 <i class="fas fa-user-tie w-5 text-center"></i>
                 <span id="menu-sales" class="ml-3 font-medium">Sotuvchilar</span>
-            </a>
-            {% endif %}
-
+                        </a>
+                        {% endif %}
+   
             <!-- Follow-ups -->
             <div class="px-4 py-2 mt-2">
                 <p id="menu-tasks-label" class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Vazifalar</p>
@@ -200,45 +202,65 @@
             <a href="{% url 'overdue_followups_list' %}" class="{% if 'overdue' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
                 <i class="fas fa-exclamation-triangle w-5 text-center"></i>
                 <span id="menu-overdue" class="ml-3 font-medium">Overdue</span>
-            </a>
+                        </a>
 
             <!-- Sales Section -->
-            {% if user.is_sales %}
+                        {% if user.is_sales %}
             <div class="px-4 py-2 mt-2">
                 <p id="menu-sales-section-label" class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Mening</p>
             </div>
             <a href="{% url 'sales_kpi' %}" class="{% if 'sales_kpi' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
                 <i class="fas fa-chart-line w-5 text-center"></i>
                 <span id="menu-kpi" class="ml-3 font-medium">KPI'larim</span>
+                        </a>
+            <a href="{% url 'offers_list' %}" class="{% if 'offer' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
+                <i class="fas fa-gift w-5 text-center"></i>
+                <span id="menu-offers-sales" class="ml-3 font-medium">Takliflar</span>
             </a>
             <a href="{% url 'leave_request_list' %}" class="{% if 'leave' in request.resolver_match.url_name and 'sales_kpi' not in request.resolver_match.url_name and 'pending' not in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
                 <i class="fas fa-calendar-times w-5 text-center"></i>
                 <span id="menu-leaves" class="ml-3 font-medium">Ruxsatlar</span>
-            </a>
-            {% endif %}
+                        </a>
+                        {% endif %}
 
             <!-- Manager/Admin Section -->
-            {% if user.is_admin or user.is_sales_manager %}
+                        {% if user.is_admin or user.is_sales_manager %}
             <div class="px-4 py-2 mt-2">
                 <p id="menu-admin-tasks-label" class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Boshqaruv</p>
             </div>
             <a href="{% url 'leave_request_pending_list' %}" class="{% if 'leave' in request.resolver_match.url_name and 'pending' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
                 <i class="fas fa-clock w-5 text-center"></i>
                 <span id="menu-pending-leaves" class="ml-3 font-medium">So'rovlar</span>
-            </a>
+                        </a>
             <a href="{% url 'sales_message_list' %}" class="{% if 'message' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
                 <i class="fas fa-envelope w-5 text-center"></i>
                 <span id="menu-messages" class="ml-3 font-medium">Xabarlar</span>
+                        </a>
+            <a href="{% url 'offers_list' %}" class="{% if 'offer' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
+                <i class="fas fa-gift w-5 text-center"></i>
+                <span id="menu-offers" class="ml-3 font-medium">Takliflar</span>
             </a>
             <a href="{% url 'analytics' %}" class="{% if 'analytics' in request.resolver_match.url_name %}bg-indigo-50 text-indigo-700 border-r-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %} flex items-center px-4 py-3 transition-colors duration-200 group">
                 <i class="fas fa-chart-bar w-5 text-center"></i>
                 <span id="menu-analytics" class="ml-3 font-medium">Analitika</span>
-            </a>
-            {% endif %}
+                        </a>
+                        {% endif %}
         </nav>
 
         <!-- Sidebar Footer -->
         <div id="sidebar-footer" class="flex-shrink-0 border-t border-gray-200 bg-gray-50 p-4">
+            {% if user.is_sales_manager %}
+            <a href="{% url 'manager_self_edit' %}" class="flex items-center space-x-3 mb-3 hover:bg-indigo-50 p-2 rounded-lg transition">
+                <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-user text-indigo-600"></i>
+                </div>
+                <div id="sidebar-user-info" class="flex-1 min-w-0">
+                    <div class="font-medium text-gray-700 text-sm truncate">{{ user.username }}</div>
+                    <div class="text-xs text-gray-500 truncate">{{ user.get_role_display }}</div>
+                    <div class="text-[11px] text-indigo-600">Profilni tahrirlash</div>
+                </div>
+            </a>
+            {% else %}
             <div class="flex items-center space-x-3 mb-3">
                 <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
                     <i class="fas fa-user text-indigo-600"></i>
@@ -248,6 +270,7 @@
                     <div class="text-xs text-gray-500 truncate">{{ user.get_role_display }}</div>
                 </div>
             </div>
+            {% endif %}
             <a href="{% url 'logout' %}" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200">
                 <i class="fas fa-sign-out-alt w-5 text-center"></i>
                 <span id="menu-logout" class="ml-3 font-medium">Chiqish</span>
@@ -299,7 +322,7 @@
                 {% endfor %}
             </div>
         </div>
-        {% endif %}
+    {% endif %}
 
         <main class="py-6 px-4 sm:px-6 lg:px-8">
 
@@ -311,7 +334,7 @@
     </div>
     {% else %}
     <!-- Fixed Messages Container -->
-    {% if messages %}
+        {% if messages %}
     <div id="messages-container" class="fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 lg:px-8 pt-4 pointer-events-none">
         <div class="max-w-7xl mx-auto space-y-2">
             {% for message in messages %}
@@ -324,8 +347,8 @@
             </div>
             {% endfor %}
         </div>
-    </div>
-    {% endif %}
+        </div>
+        {% endif %}
 
     <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 min-h-screen">
 

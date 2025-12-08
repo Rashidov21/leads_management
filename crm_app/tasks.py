@@ -2,8 +2,8 @@ from celery import shared_task
 from django.utils import timezone
 from django.conf import settings
 from datetime import timedelta
-from .models import Lead, FollowUp, TrialLesson, Reactivation
-from .services import FollowUpService, KPIService, ReactivationService
+from .models import Lead, FollowUp, TrialLesson, Reactivation, Offer, User
+from .services import FollowUpService, KPIService, ReactivationService, OfferService
 from .telegram_bot import send_telegram_notification
 
 
@@ -57,19 +57,14 @@ def check_overdue_followups_task():
             # Sotuvchiga xabar (faqat birinchi marta)
             if followup.sales and followup.sales.telegram_chat_id:
                 due_date_str = followup.due_date.strftime('%d.%m.%Y %H:%M')
+                note = f"📝 {followup.notes[:100]}" if followup.notes else ""
                 message = (
-                    f"⚠️ <b>OVERDUE FOLLOW-UP!</b>\n"
-                    f"{'=' * 25}\n\n"
-                    f"👤 <b>Lid:</b> {followup.lead.name}\n"
-                    f"📞 <b>Telefon:</b> <code>{followup.lead.phone}</code>\n\n"
-                    f"⏰ <b>Vaqt:</b> {due_date_str}\n"
-                    f"❌ <b>Vaqt o'tib ketdi!</b>\n\n"
+                    f"⚠️ OVERDUE FOLLOW-UP\n"
+                    f"👤 {followup.lead.name} | 📞 {followup.lead.phone}\n"
+                    f"⏰ Reja: {due_date_str}\n"
+                    f"{note}\n"
+                    f"🔴 Darhol qo'ng'iroq qiling"
                 )
-                
-                if followup.notes:
-                    message += f"📝 <b>Eslatma:</b>\n{followup.notes[:100]}\n\n"
-                
-                message += "🔴 <b>DARHOL ALOQA QILING!</b>"
                 
                 if send_telegram_notification(
                     followup.sales.telegram_chat_id,
@@ -137,17 +132,12 @@ def send_trial_reminder_task():
                     time_str = f"{hours_left} soat {minutes_left} daqiqa" if hours_left > 0 else f"{minutes_left} daqiqa"
                     
                     message = (
-                        f"🔔 <b>SINOV ESLATMASI</b>\n"
-                        f"{'=' * 25}\n\n"
-                        f"👤 <b>Lid:</b> {trial.lead.name}\n"
-                        f"📞 <b>Telefon:</b> <code>{trial.lead.phone}</code>\n\n"
-                        f"📅 <b>Sinov vaqti:</b>\n"
-                        f"📆 {trial.date.strftime('%d.%m.%Y')}\n"
-                        f"🕐 {trial.time.strftime('%H:%M')}\n\n"
-                        f"⏱️ <b>Qolgan vaqt:</b> {time_str}\n\n"
-                        f"👥 <b>Guruh:</b> {trial.group.name if trial.group else 'N/A'}\n"
-                        f"🏢 <b>Xona:</b> {trial.room.name if trial.room else 'N/A'}\n\n"
-                        f"💡 <b>Eslatma:</b> Sinovdan oldin lid bilan aloqa qiling!"
+                        f"🔔 Sinov eslatmasi\n"
+                        f"👤 {trial.lead.name} | 📞 {trial.lead.phone}\n"
+                        f"📆 {trial.date.strftime('%d.%m.%Y')} 🕐 {trial.time.strftime('%H:%M')}\n"
+                        f"⏱️ Qolgan vaqt: {time_str}\n"
+                        f"👥 Guruh: {trial.group.name if trial.group else 'N/A'} | 🏢 Xona: {trial.room.name if trial.room else 'N/A'}\n"
+                        f"💡 Sinovdan oldin bog'laning"
                     )
                     
                     if send_telegram_notification(
@@ -208,19 +198,15 @@ def send_followup_reminders_task():
                             mins = minutes_passed % 60
                             time_str = f"{hours} soat {mins} daqiqa oldin"
                         
+                        note = f"📝 {followup.notes[:100]}" if followup.notes else ""
                         message = (
-                            f"📞 <b>ALOQA QILISH VAQTI KELDI!</b>\n"
-                            f"{'=' * 25}\n\n"
-                            f"👤 <b>Lid:</b> {followup.lead.name}\n"
-                            f"📞 <b>Telefon:</b> <code>{followup.lead.phone}</code>\n\n"
-                            f"⏰ <b>Rejalashtirilgan vaqt:</b> {due_date_str}\n"
-                            f"⏱️ <b>Vaqt:</b> {time_str}\n\n"
+                            f"📞 Aloqa vaqti keldi\n"
+                            f"👤 {followup.lead.name} | 📞 {followup.lead.phone}\n"
+                            f"⏰ Reja: {due_date_str}\n"
+                            f"⏱️ {time_str}\n"
+                            f"{note}\n"
+                            f"🔴 Darhol qo'ng'iroq qiling"
                         )
-                        
-                        if followup.notes:
-                            message += f"📝 <b>Eslatma:</b>\n{followup.notes[:100]}\n\n"
-                        
-                        message += "🔴 <b>DARHOL ALOQA QILING!</b>"
                         
                         if send_telegram_notification(
                             followup.sales.telegram_chat_id,
@@ -287,10 +273,7 @@ def send_followup_reminder_at_time(followup_id, reminder_time_iso):
                 
                 message += "🔴 <b>DARHOL ALOQA QILING!</b>"
                 
-                if send_telegram_notification(
-                    followup.sales.telegram_chat_id,
-                    message
-                ):
+                if send_telegram_notification(followup.sales.telegram_chat_id,message):
                     followup.reminder_sent = True
                     followup.save()
     except FollowUp.DoesNotExist:
@@ -644,16 +627,12 @@ def send_new_lead_notification(lead_id):
                 course_info = "📚 Kurs tanlanmagan"
             
             message = (
-                f"🆕 <b>YANGI LID</b>\n"
-                f"{'=' * 25}\n\n"
-                f"👤 <b>Ism:</b> {lead.name}\n"
-                f"📞 <b>Telefon:</b> <code>{lead.phone}</code>\n"
+                f"🆕 Yangi lid\n"
+                f"👤 {lead.name} | 📞 {lead.phone}\n"
                 f"{course_info}\n"
-                f"📊 <b>Manba:</b> {lead.get_source_display()}\n"
-                f"🏷️ <b>Status:</b> {lead.get_status_display()}\n"
-                f"⏰ <b>Vaqt:</b> {lead.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
-                f"⚠️ <b>DARHOL ALOQA QILISH KERAK!</b>\n"
-                f"⏱️ 5 daqiqada follow-up yaratiladi"
+                f"📊 Manba: {lead.get_source_display()} | Status: {lead.get_status_display()}\n"
+                f"⏰ {lead.created_at.strftime('%d.%m.%Y %H:%M')}\n"
+                f"⚠️ Darhol bog'laning (5 daqiqada follow-up yaratiladi)"
             )
             
             send_telegram_notification(
@@ -701,22 +680,15 @@ def send_status_change_notification(lead_id, old_status, new_status):
             
             action_message = status_messages.get(new_status, "")
             
+            course_info = f"📚 Kurs: {lead.interested_course.name}" if lead.interested_course else ""
+            next_step = f"💬 Keyingi qadam: {action_message}" if action_message else ""
             message = (
-                f"🔄 <b>STATUS O'ZGARDI</b>\n"
-                f"{'=' * 25}\n\n"
-                f"👤 <b>Lid:</b> {lead.name}\n"
-                f"📞 <b>Telefon:</b> <code>{lead.phone}</code>\n\n"
-                f"📊 <b>Status o'zgarishi:</b>\n"
-                f"{old_emoji} {old_status_display}\n"
-                f"➡️\n"
-                f"{new_emoji} <b>{new_status_display}</b>\n\n"
+                f"🔄 Status o'zgardi\n"
+                f"👤 {lead.name} | 📞 {lead.phone}\n"
+                f"{old_emoji} {old_status_display} → {new_emoji} {new_status_display}\n"
+                f"{course_info}\n"
+                f"{next_step}"
             )
-            
-            if lead.interested_course:
-                message += f"📚 <b>Kurs:</b> {lead.interested_course.name}\n\n"
-            
-            if action_message:
-                message += f"💬 <b>Keyingi qadam:</b>\n{action_message}"
             
             send_telegram_notification(
                 lead.assigned_sales.telegram_chat_id,
@@ -765,25 +737,17 @@ def send_followup_created_notification(followup_id):
                 emoji = "📋"
                 priority = "🟢 ODDIY"
             
+            notes_part = f"📝 {followup.notes}" if followup.notes else ""
+            course_part = f"📚 Kurs: {followup.lead.interested_course.name}" if followup.lead.interested_course else ""
             message = (
-                f"{emoji} <b>YANGI FOLLOW-UP</b>\n"
-                f"{'=' * 25}\n\n"
-                f"👤 <b>Lid:</b> {followup.lead.name}\n"
-                f"📞 <b>Telefon:</b> <code>{followup.lead.phone}</code>\n\n"
-                f"⏰ <b>Bajarilishi kerak:</b>\n"
-                f"📅 {due_date_str}\n"
-                f"🕐 {due_time_str}\n\n"
-                f"⏱️ <b>Qolgan vaqt:</b> {time_left_str}\n"
-                f"🎯 <b>Prioritet:</b> {priority}\n\n"
+                f"{emoji} Yangi follow-up\n"
+                f"👤 {followup.lead.name} | 📞 {followup.lead.phone}\n"
+                f"⏰ {due_date_str} {due_time_str} | ⏱️ {time_left_str}\n"
+                f"🎯 Prioritet: {priority}\n"
+                f"{notes_part}\n"
+                f"{course_part}\n"
+                f"💡 1 soat oldin eslatma yuboriladi"
             )
-            
-            if followup.notes:
-                message += f"📝 <b>Eslatma:</b>\n{followup.notes}\n\n"
-            
-            if followup.lead.interested_course:
-                message += f"📚 <b>Kurs:</b> {followup.lead.interested_course.name}\n\n"
-            
-            message += "💡 <b>Eslatma:</b> 1 soat oldin sizga eslatma yuboriladi."
             
             send_telegram_notification(
                 followup.sales.telegram_chat_id,
@@ -877,14 +841,12 @@ def send_reactivation_notification(reactivation_id):
             )
             
             message = (
-                f"{reactivation_info['emoji']} <b>REAKTIVATSIYA</b>\n"
-                f"{'=' * 25}\n\n"
-                f"👤 <b>Lid:</b> {lead.name}\n"
-                f"📞 <b>Telefon:</b> <code>{lead.phone}</code>\n"
-                f"📚 <b>Kurs:</b> {lead.interested_course.name if lead.interested_course else 'N/A'}\n\n"
-                f"📅 <b>Kunlar:</b> {reactivation.days_since_lost} kun o'tdi\n"
-                f"💬 <b>Tavsiya:</b> {reactivation_info['message']}\n\n"
-                f"⚠️ <b>Lid bilan qayta aloqa qilish kerak!</b>"
+                f"{reactivation_info['emoji']} Reaktivatsiya\n"
+                f"👤 {lead.name} | 📞 {lead.phone}\n"
+                f"📚 {lead.interested_course.name if lead.interested_course else 'Kurs tanlanmagan'}\n"
+                f"📅 {reactivation.days_since_lost} kun bo'ldi\n"
+                f"💬 Tavsiya: {reactivation_info['message']}\n"
+                f"⚠️ Lid bilan qayta aloqa qiling"
             )
             
             send_telegram_notification(
@@ -895,4 +857,81 @@ def send_reactivation_notification(reactivation_id):
         pass
     except Exception as e:
         print(f"send_reactivation_notification xatolik (reactivation_id={reactivation_id}): {e}")
+
+
+@shared_task
+def expire_offers_task():
+    """Muddatidan o'tgan takliflarni avtomatik o'chirish"""
+    today = timezone.now().date()
+    expired = Offer.objects.filter(
+        is_active=True,
+        valid_until__lt=today
+    )
+    count = expired.update(is_active=False)
+    if count:
+        print(f"[offers] {count} ta taklif muddati tugagani uchun o'chirildi")
+
+
+@shared_task
+def send_daily_sales_summary_task():
+    """
+    Har ish kuni oxirida (kechqurun) sotuv statistikalarini admin/sales_manager guruhlariga yuborish.
+    Guruh ID admin/sales_manager profilinga kiritiladi (telegram_group_id).
+    """
+    today = timezone.localdate()
+    sales_users = User.objects.filter(role='sales', is_active_sales=True)
+
+    # KPI'larni hisoblash va agregat
+    per_sales_lines = []
+    totals = {
+        'contacts': 0,
+        'followups': 0,
+        'trials': 0,
+        'sales': 0,
+        'overdue': 0,
+    }
+
+    for sales in sales_users:
+        kpi = KPIService.calculate_daily_kpi(sales, today)
+        totals['contacts'] += kpi.daily_contacts
+        totals['followups'] += kpi.daily_followups
+        totals['trials'] += kpi.trials_registered
+        totals['sales'] += kpi.trials_to_sales
+        totals['overdue'] += kpi.overdue_count
+
+        line = (
+            f"• {sales.username}: "
+            f"aloqa {kpi.daily_contacts}, fu {kpi.daily_followups}, "
+            f"trial {kpi.trials_registered}, sotuv {kpi.trials_to_sales}, "
+            f"overdue {kpi.overdue_count}"
+        )
+        per_sales_lines.append(line)
+
+    # Guruhlar ro'yxati (takrorlanmasin)
+    group_ids = set(
+        User.objects.filter(
+            role__in=['admin', 'sales_manager'],
+            telegram_group_id__isnull=False
+        ).values_list('telegram_group_id', flat=True)
+    )
+
+    if not group_ids:
+        print("[daily summary] Hech qaysi guruh ID topilmadi.")
+        return
+
+    header = f"📊 Kunlik sotuv hisobot ({today.strftime('%d.%m.%Y')})"
+    totals_line = (
+        f"Jami: aloqa {totals['contacts']}, fu {totals['followups']}, "
+        f"trial {totals['trials']}, sotuv {totals['sales']}, overdue {totals['overdue']}"
+    )
+    body = "\n".join(per_sales_lines) if per_sales_lines else "Ma'lumot topilmadi."
+    message = f"{header}\n{totals_line}\n\n{body}"
+
+    sent = 0
+    for gid in group_ids:
+        if gid:
+            if send_telegram_notification(gid, message):
+                sent += 1
+
+    print(f"[daily summary] {sent} ta guruhga yuborildi.")
 

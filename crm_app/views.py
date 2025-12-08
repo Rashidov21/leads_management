@@ -4,21 +4,22 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q, Count, Sum, F
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from datetime import date, timedelta
 from .models import (
     Lead, Course, Group, Room, FollowUp, TrialLesson, 
-    KPI, User, Reactivation, LeaveRequest, SalesMessage, SalesMessageRead
+    KPI, User, Reactivation, LeaveRequest, SalesMessage, SalesMessageRead, Offer
 )
 from .forms import (
     LeadForm, LeadStatusForm, TrialLessonForm, TrialResultForm,
     FollowUpForm, ExcelImportForm, UserCreateForm, UserEditForm,
     CourseForm, RoomForm, GroupForm, LeaveRequestForm,
-    LeaveRequestApprovalForm, SalesAbsenceForm, SalesMessageForm
+    LeaveRequestApprovalForm, SalesAbsenceForm, SalesMessageForm, OfferForm
 )
 from .decorators import role_required, admin_required, manager_or_admin_required
 from .services import (
     LeadDistributionService, FollowUpService, GroupService,
-    KPIService, ReactivationService
+    KPIService, ReactivationService, OfferService
 )
 try:
     import pandas as pd
@@ -50,6 +51,49 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect('login')
+
+
+def landing_page(request):
+    """Marketing landing: loyiha haqida ma'lumot va buyurtma CTA"""
+    from django.urls import reverse
+    from .telegram_bot import send_telegram_notification
+    canonical_url = request.build_absolute_uri(reverse('landing'))
+    success = False
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        notes = request.POST.get('notes', '').strip()
+
+        if not name or not phone:
+            messages.error(request, "Ism va telefon raqam majburiy.")
+        else:
+            msg = (
+                "🛒 Yangi buyurtma (landing)\n"
+                f"👤 {name}\n"
+                f"📞 {phone}\n"
+                f"📝 {notes or '—'}"
+            )
+            # Admin/Sales manager chat yoki guruhga yuborish
+            recipients = list(User.objects.filter(role__in=['admin', 'sales_manager']))
+            sent = 0
+            for u in recipients:
+                # Agar guruh ID bo'lsa, o'sha guruhga, aks holda shaxsiy chatga
+                target = u.telegram_group_id or u.telegram_chat_id
+                if target:
+                    if send_telegram_notification(target, msg):
+                        sent += 1
+            success = sent > 0
+            if success:
+                messages.success(request, "So'rov yuborildi. Tez orada bog'lanamiz.")
+            else:
+                messages.warning(request, "So'rov qabul qilindi, lekin Telegram yuborilmadi (kontaktlar sozlanmagan).")
+
+    context = {
+        'canonical_url': canonical_url,
+        'success': success,
+    }
+    return render(request, 'landing.html', context)
 
 @login_required
 def dashboard(request):
@@ -371,6 +415,7 @@ def followups_today(request):
     followups = FollowUpService.get_today_followups(
         sales=request.user if request.user.is_sales else None
     )
+    active_offers = OfferService.active_offers(channel='followup')
     
     if request.method == 'POST':
         followup_id = request.POST.get('followup_id')
@@ -415,19 +460,22 @@ def followups_today(request):
                     messages.error(request, "Siz hozir ish vaqtida emassiz. Follow-up'ni faqat ish vaqtida bajarilgan deb belgilash mumkin.")
                     return redirect('followups_today')
             
-            try:
-                # check_work_hours=False, chunki biz allaqachon yuqorida tekshirdik
-                followup.mark_completed(check_work_hours=False)
-                messages.success(request, 'Follow-up bajarildi')
-            except Exception as e:
-                from django.core.exceptions import ValidationError
-                if isinstance(e, ValidationError):
-                    messages.error(request, str(e))
-                else:
-                    messages.error(request, f'Xatolik: {str(e)}')
+        try:
+            # check_work_hours=False, chunki biz allaqachon yuqorida tekshirdik
+            followup.mark_completed(check_work_hours=False)
+            messages.success(request, 'Follow-up bajarildi')
+        except Exception as e:
+            from django.core.exceptions import ValidationError
+            if isinstance(e, ValidationError):
+                messages.error(request, str(e))
+            else:
+                messages.error(request, f'Xatolik: {str(e)}')
         return redirect('followups_today')
     
-    return render(request, 'followups/today.html', {'followups': followups})
+    return render(request, 'followups/today.html', {
+        'followups': followups,
+        'active_offers': active_offers,
+    })
 
 
 @login_required
@@ -435,12 +483,13 @@ def followups_today(request):
 def overdue_followups_list(request):
     """Overdue follow-up'lar ro'yxati"""
     sales = request.user if request.user.is_sales else None
+    active_offers = OfferService.active_offers(channel='followup')
     
     # Filterlar
     sales_filter = request.GET.get('sales')
     age_filter = request.GET.get('age')  # <1h, 1-6h, 6-24h, >24h
     
-    overdue = FollowUpService.get_overdue_followups_prioritized(sales)
+    overdue = FollowUpService.get_overdue_followups_prioritized(sales).filter(completed=False)
     
     if sales_filter and (request.user.is_admin or request.user.is_sales_manager):
         overdue = overdue.filter(sales_id=sales_filter)
@@ -474,6 +523,7 @@ def overdue_followups_list(request):
         'sales_list': sales_list,
         'current_sales_filter': sales_filter,
         'current_age_filter': age_filter,
+        'active_offers': active_offers,
     }
     
     return render(request, 'followups/overdue.html', context)
@@ -981,6 +1031,25 @@ def manager_edit(request, pk):
     return render(request, 'users/manager_edit.html', {'form': form, 'manager': manager})
 
 
+@login_required
+@role_required('sales_manager')
+def manager_self_edit(request):
+    """Sales manager o'z profilini tahrirlashi"""
+    manager = request.user
+    if request.method == 'POST':
+        form = UserEditForm(request.POST, instance=manager)
+        if form.is_valid():
+            mgr = form.save(commit=False)
+            mgr.role = 'sales_manager'  # rol o'zgarmasin
+            mgr.save()
+            messages.success(request, 'Profil yangilandi')
+            return redirect('dashboard')
+    else:
+        form = UserEditForm(instance=manager)
+        form.fields['role'].widget.attrs['disabled'] = True
+    return render(request, 'users/manager_edit.html', {'form': form, 'manager': manager})
+
+
 # Sales Manager yoki Admin uchun - Sotuvchi o'chirish
 @login_required
 @manager_or_admin_required
@@ -1011,6 +1080,85 @@ def manager_delete(request, pk):
     return render(request, 'users/manager_delete.html', {'manager': manager})
 
 
+# ============ OFFERS ============
+
+@login_required
+def offers_list(request):
+    """Takliflar ro'yxati:
+    - Sales: faqat faol va amaldagi takliflar
+    - Admin/Manager: barcha takliflar, filter va CRUD tugmalari
+    """
+    channel = request.GET.get('channel') or 'all'
+    audience = request.GET.get('audience') or 'all'
+    course_id = request.GET.get('course')
+    course = Course.objects.filter(id=course_id).first() if course_id else None
+
+    if request.user.is_admin or request.user.is_sales_manager:
+        offers = OfferService.active_offers(
+            channel=channel,
+            audience=audience,
+            course=course
+        ) if request.GET else Offer.objects.all().order_by('-priority', '-created_at')
+    else:
+        offers = OfferService.active_offers(
+            channel=channel,
+            audience=audience,
+            course=course
+        )
+
+    context = {
+        'offers': offers,
+        'is_admin_or_manager': request.user.is_admin or request.user.is_sales_manager,
+        'channel': channel,
+        'audience': audience,
+        'course_id': course_id,
+        'courses': Course.objects.all(),
+    }
+    return render(request, 'offers/list.html', context)
+
+
+@login_required
+@manager_or_admin_required
+def offer_create(request):
+    if request.method == 'POST':
+        form = OfferForm(request.POST)
+        if form.is_valid():
+            offer = form.save(commit=False)
+            offer.created_by = request.user
+            offer.save()
+            messages.success(request, 'Taklif yaratildi')
+            return redirect('offers_list')
+    else:
+        form = OfferForm()
+    return render(request, 'offers/form.html', {'form': form, 'title': 'Taklif yaratish'})
+
+
+@login_required
+@manager_or_admin_required
+def offer_edit(request, pk):
+    offer = get_object_or_404(Offer, pk=pk)
+    if request.method == 'POST':
+        form = OfferForm(request.POST, instance=offer)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Taklif yangilandi')
+            return redirect('offers_list')
+    else:
+        form = OfferForm(instance=offer)
+    return render(request, 'offers/form.html', {'form': form, 'title': 'Taklif tahrirlash', 'offer': offer})
+
+
+@login_required
+@manager_or_admin_required
+def offer_delete(request, pk):
+    offer = get_object_or_404(Offer, pk=pk)
+    if request.method == 'POST':
+        offer.delete()
+        messages.success(request, 'Taklif o\'chirildi')
+        return redirect('offers_list')
+    return render(request, 'offers/delete.html', {'offer': offer})
+
+
 # ============ ANALYTICS ============
 
 @login_required
@@ -1030,11 +1178,11 @@ def analytics(request):
     
     if leads_stats is None:
         leads_stats = {
-            'total': Lead.objects.count(),
-            'new_today': Lead.objects.filter(created_at__date=today).count(),
-            'by_status': dict(Lead.objects.values('status').annotate(count=Count('id')).values_list('status', 'count')),
-            'by_source': dict(Lead.objects.values('source').annotate(count=Count('id')).values_list('source', 'count')),
-        }
+        'total': Lead.objects.count(),
+        'new_today': Lead.objects.filter(created_at__date=today).count(),
+        'by_status': dict(Lead.objects.values('status').annotate(count=Count('id')).values_list('status', 'count')),
+        'by_source': dict(Lead.objects.values('source').annotate(count=Count('id')).values_list('source', 'count')),
+    }
         # Cache for 1 hour
         cache.set(cache_key, leads_stats, 3600)
     

@@ -1,12 +1,12 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from .models import Lead, Course, Group, TrialLesson, User, FollowUp, Room, LeaveRequest, SalesMessage
+from .models import Lead, Course, Group, TrialLesson, User, FollowUp, Room, LeaveRequest, SalesMessage, Offer
 
 
 class LeadForm(forms.ModelForm):
     class Meta:
         model = Lead
-        fields = ['name', 'phone', 'interested_course', 'source', 'notes']
+        fields = ['name', 'phone', 'secondary_phone', 'interested_course', 'source', 'notes']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-input w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 placeholder:text-gray-400',
@@ -15,6 +15,11 @@ class LeadForm(forms.ModelForm):
             'phone': forms.TextInput(attrs={
                 'class': 'form-input w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 placeholder:text-gray-400',
                 'placeholder': '+998901234567',
+                'type': 'tel'
+            }),
+            'secondary_phone': forms.TextInput(attrs={
+                'class': 'form-input w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 placeholder:text-gray-400',
+                'placeholder': 'Qo\'shimcha raqam (ixtiyoriy)',
                 'type': 'tel'
             }),
             'interested_course': forms.Select(attrs={
@@ -139,6 +144,14 @@ class UserCreateForm(UserCreationForm):
             'placeholder': 'Telegram chat ID'
         })
     )
+    telegram_group_id = forms.CharField(
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-input w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 placeholder:text-gray-400',
+            'placeholder': 'Telegram guruh ID (statistika uchun)'
+        })
+    )
     is_active_sales = forms.BooleanField(
         required=False,
         initial=True,
@@ -149,7 +162,7 @@ class UserCreateForm(UserCreationForm):
     
     class Meta:
         model = User
-        fields = ['username', 'email', 'first_name', 'last_name', 'role', 'phone', 'telegram_chat_id', 'is_active_sales', 'password1', 'password2']
+        fields = ['username', 'email', 'first_name', 'last_name', 'role', 'phone', 'telegram_chat_id', 'telegram_group_id', 'is_active_sales', 'password1', 'password2']
         widgets = {
             'username': forms.TextInput(attrs={
                 'class': 'form-input w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 placeholder:text-gray-400'
@@ -176,7 +189,7 @@ class UserCreateForm(UserCreationForm):
 class UserEditForm(forms.ModelForm):
     class Meta:
         model = User
-        fields = ['username', 'email', 'first_name', 'last_name', 'role', 'phone', 'telegram_chat_id', 'is_active_sales', 'is_active',
+        fields = ['username', 'email', 'first_name', 'last_name', 'role', 'phone', 'telegram_chat_id', 'telegram_group_id', 'is_active_sales', 'is_active',
                   'work_start_time', 'work_end_time', 'work_monday', 'work_tuesday', 'work_wednesday', 
                   'work_thursday', 'work_friday', 'work_saturday', 'work_sunday']
         widgets = {
@@ -201,6 +214,9 @@ class UserEditForm(forms.ModelForm):
                 'type': 'tel'
             }),
             'telegram_chat_id': forms.TextInput(attrs={
+                'class': 'form-input w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 placeholder:text-gray-400'
+            }),
+            'telegram_group_id': forms.TextInput(attrs={
                 'class': 'form-input w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 placeholder:text-gray-400'
             }),
             'is_active_sales': forms.CheckboxInput(attrs={
@@ -435,3 +451,25 @@ class SalesMessageForm(forms.ModelForm):
             is_active_sales=True
         ).order_by('username')
         self.fields['recipients'].label = "Qabul qiluvchilar"
+
+
+class OfferForm(forms.ModelForm):
+    class Meta:
+        model = Offer
+        fields = [
+            'title', 'description', 'offer_type', 'course',
+            'valid_from', 'valid_until', 'is_active',
+            'channel', 'audience', 'priority'
+        ]
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-input'}),
+            'description': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 4}),
+            'offer_type': forms.Select(attrs={'class': 'form-select'}),
+            'course': forms.Select(attrs={'class': 'form-select'}),
+            'valid_from': forms.DateInput(attrs={'class': 'form-input', 'type': 'date'}),
+            'valid_until': forms.DateInput(attrs={'class': 'form-input', 'type': 'date'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'audience': forms.Select(attrs={'class': 'form-select'}),
+            'priority': forms.Select(attrs={'class': 'form-select'}),
+            'channel': forms.Select(attrs={'class': 'form-select'}),
+        }

@@ -190,6 +190,14 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'crm_app.tasks.check_expired_leaves_task',
         'schedule': crontab(minute='*/60'),  # Har soatda
     },
+    'expire-offers-daily': {
+        'task': 'crm_app.tasks.expire_offers_task',
+        'schedule': crontab(hour=2, minute=0),  # Har kuni 02:00 da
+    },
+    'daily-sales-summary': {
+        'task': 'crm_app.tasks.send_daily_sales_summary_task',
+        'schedule': crontab(hour=18, minute=0),  # Har ish kuni oxiri (20:00)
+    },
 }
 
 # Telegram Bot

@@ -14,6 +14,7 @@ class User(AbstractUser):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='sales')
     phone = models.CharField(max_length=20, blank=True)
     telegram_chat_id = models.CharField(max_length=100, blank=True, null=True)
+    telegram_group_id = models.CharField(max_length=100, blank=True, null=True, help_text="Telegram guruh ID (statistika yuborish uchun)")
     is_active_sales = models.BooleanField(default=True)
     is_on_leave = models.BooleanField(default=False, help_text="Ishdan ruxsat olgan")
     is_absent = models.BooleanField(default=False, help_text="Manager tomonidan ishda emasligi belgilangan")
@@ -232,6 +233,7 @@ class Lead(models.Model):
     
     name = models.CharField(max_length=200)
     phone = models.CharField(max_length=20)
+    secondary_phone = models.CharField(max_length=20, blank=True, null=True, help_text="Qo'shimcha telefon (ota-ona yoki qo'shimcha raqam)")
     interested_course = models.ForeignKey(Course, on_delete=models.SET_NULL, null=True, blank=True)
     source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='form')
     assigned_sales = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
@@ -519,4 +521,132 @@ class SalesMessageRead(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.message.subject}"
+
+
+class Offer(models.Model):
+    """Chegirma/bonus/paket takliflari (admin va sales manager boshqaradi)"""
+    OFFER_TYPES = [
+        ('discount', 'Chegirma'),
+        ('bonus', 'Bonus'),
+        ('bundle', 'Paket'),
+        ('other', 'Boshqa'),
+    ]
+    CHANNEL_CHOICES = [
+        ('reactivation', 'Reaktivatsiya'),
+        ('followup', 'Follow-up'),
+        ('trial', 'Sinov'),
+        ('general', 'Umumiy'),
+    ]
+    AUDIENCE_CHOICES = [
+        ('new', 'Yangi'),
+        ('lost', "Yo'qotilgan"),
+        ('reactivation', 'Qayta aloqa'),
+        ('trial', 'Sinov'),
+        ('any', 'Barchasi'),
+    ]
+    PRIORITY_CHOICES = [
+        ('urgent', 'Shoshilinch'),
+        ('high', 'Yuqori'),
+        ('normal', 'Oddiy'),
+        ('low', 'Past'),
+    ]
+
+    title = models.CharField(max_length=200)
+    description = models.TextField(help_text="Bonus va qo'shimcha taklif matni")
+    offer_type = models.CharField(max_length=20, choices=OFFER_TYPES, default='discount')
+    course = models.ForeignKey(Course, on_delete=models.SET_NULL, null=True, blank=True, help_text="Muayyan kursga bog'lash (ixtiyoriy)")
+    valid_from = models.DateField(null=True, blank=True)
+    valid_until = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    channel = models.CharField(max_length=50, default='general', help_text="Kanal: reactivation / followup / trial / general")
+    audience = models.CharField(max_length=20, choices=AUDIENCE_CHOICES, default='any')
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='normal')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_offers')
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-priority', '-created_at']
+        indexes = [
+            models.Index(fields=['is_active', 'valid_until'], name='offer_active_valid_idx'),
+            models.Index(fields=['audience', 'is_active'], name='offer_audience_active_idx'),
+        ]
+
+    def __str__(self):
+        return self.title
+
+    def is_valid_today(self):
+        today = timezone.now().date()
+        if self.valid_from and today < self.valid_from:
+            return False
+        if self.valid_until and today > self.valid_until:
+            return False
+        return self.is_active
+
+
+class Offer(models.Model):
+    """Chegirmalar/bonuslar/takliflarni boshqarish"""
+    OFFER_TYPE_CHOICES = [
+        ('discount', 'Chegirma'),
+        ('bonus', 'Bonus'),
+        ('package', 'Paket'),
+        ('other', 'Boshqa'),
+    ]
+    PRIORITY_CHOICES = [
+        ('urgent', 'Shoshilinch'),
+        ('high', 'Yuqori'),
+        ('normal', 'Oddiy'),
+        ('low', 'Past'),
+    ]
+    CHANNEL_CHOICES = [
+        ('all', 'Barcha'),
+        ('followup', 'Follow-up'),
+        ('reactivation', 'Reaktivatsiya'),
+        ('trial', 'Sinov'),
+        ('general', 'Umumiy'),
+    ]
+    AUDIENCE_CHOICES = [
+        ('all', 'Barchaga'),
+        ('new', 'Yangi lid'),
+        ('lost', "Yo'qotilgan lid"),
+        ('reactivation', 'Reaktivatsiya lid'),
+        ('trial', 'Sinovga yozilgan'),
+    ]
+
+    title = models.CharField(max_length=200)
+    description = models.TextField(help_text="Bonus, chegirma yoki qo'shimcha taklif tafsilotlari")
+    offer_type = models.CharField(max_length=20, choices=OFFER_TYPE_CHOICES, default='discount')
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='normal')
+    channel = models.CharField(max_length=20, choices=CHANNEL_CHOICES, default='all')
+    audience = models.CharField(max_length=20, choices=AUDIENCE_CHOICES, default='all')
+    course = models.ForeignKey(Course, on_delete=models.SET_NULL, null=True, blank=True, help_text="Muayyan kurs uchun bo'lsa tanlang")
+    valid_from = models.DateField(null=True, blank=True)
+    valid_until = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_offers')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-priority', '-created_at']
+        indexes = [
+            models.Index(fields=['is_active', 'valid_until'], name='offer_active_until_idx'),
+            models.Index(fields=['priority'], name='offer_priority_idx'),
+            models.Index(fields=['channel', 'audience'], name='offer_channel_audience_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.title} ({self.get_offer_type_display()})"
+
+    @property
+    def is_valid_now(self):
+        """Bugun uchun amal qilayotganini tekshirish"""
+        today = timezone.now().date()
+        if not self.is_active:
+            return False
+        if self.valid_from and today < self.valid_from:
+            return False
+        if self.valid_until and today > self.valid_until:
+            return False
+        return True
 

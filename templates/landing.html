@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM Leads Management — Sotuvni avtomatlashtirish</title>
+    <meta name="description" content="Lidlar, follow-up, sinov darslari, Telegram eslatmalar va analitika bilan to'liq CRM. Sotuv jarayonini tezlashtiring va konversiyani oshiring.">
+    <meta name="keywords" content="CRM, lead management, follow-up, sinov darsi, sotuv, Telegram, analitika">
+    <link rel="canonical" href="{{ canonical_url }}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="CRM Leads Management — Sotuvni avtomatlashtirish">
+    <meta property="og:description" content="Lidlar, follow-up, sinov darslari, Telegram eslatmalar va analitika bilan to'liq CRM.">
+    <meta property="og:url" content="{{ canonical_url }}">
+    <meta property="og:site_name" content="CRM Leads Management">
+    <meta property="og:image" content="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f4ca.svg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="CRM Leads Management — Sotuvni avtomatlashtirish">
+    <meta name="twitter:description" content="Lidlar, follow-up, sinov darslari, Telegram eslatmalar va analitika bilan to'liq CRM.">
+    <meta name="twitter:image" content="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f4ca.svg">
+
+    <!-- Favicon -->
+    <link rel="icon" href="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f4ca.png" sizes="72x72">
+    <link rel="icon" href="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f4ca.svg" type="image/svg+xml">
+
+    <!-- Flaticon UIcons -->
+    <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-regular-rounded/css/uicons-regular-rounded.css">
+
+    <!-- Minimal styling (no Tailwind dependency) -->
+    <style>
+        :root { color-scheme: light; }
+        body { margin:0; font-family: 'Inter', system-ui, -apple-system, sans-serif; background: radial-gradient(circle at 20% 20%, rgba(79,70,229,0.15), transparent 25%), radial-gradient(circle at 80% 0%, rgba(16,185,129,0.12), transparent 22%), #0f172a; color:#e2e8f0; }
+        a { color: inherit; text-decoration: none; }
+        .hero { max-width: 1200px; margin: 0 auto; padding: 72px 16px 40px; display: grid; gap: 28px; align-items: center; }
+        .hero h1 { font-size: 38px; line-height: 1.15; margin: 0 0 14px; color: #f8fafc; }
+        .hero p { font-size: 17px; color: #cbd5e1; margin: 0 0 20px; }
+        .pill { display: inline-flex; align-items: center; gap: 8px; background: rgba(79,70,229,0.18); color:#c7d2fe; padding: 8px 14px; border-radius: 9999px; font-weight:600; font-size:13px; border:1px solid rgba(255,255,255,0.05); }
+        .cta { display:flex; gap:12px; flex-wrap: wrap; }
+        .btn-primary { background:linear-gradient(135deg,#4f46e5,#6366f1); color:#fff; padding:13px 22px; border-radius:12px; font-weight:700; border:1px solid transparent; transition:transform .15s ease, box-shadow .15s ease; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow:0 12px 28px rgba(79,70,229,0.35); }
+        .btn-ghost { background:rgba(255,255,255,0.06); color:#e2e8f0; padding:12px 18px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); }
+        .grid { display:grid; gap:16px; }
+        .features { max-width: 1200px; margin: 0 auto; padding: 0 16px 56px; }
+        .card { background: #0b1220; border:1px solid rgba(255,255,255,0.05); border-radius:18px; padding:20px; box-shadow: 0 18px 50px rgba(0,0,0,0.35); }
+        .card h3 { margin: 0 0 8px; color:#e2e8f0; }
+        .card p { margin: 0; color:#cbd5e1; font-size:14px; }
+        .icon { width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center; border-radius:11px; background: rgba(79,70,229,0.16); color:#a5b4fc; margin-bottom:12px; font-size:18px; }
+        .list { list-style:none; padding:0; margin:0; display:grid; gap:10px; }
+        .list li { display:flex; gap:8px; align-items:flex-start; color:#cbd5e1; font-size:14px; }
+        .badge { display:inline-flex; align-items:center; gap:6px; background: rgba(34,197,94,0.12); color:#bbf7d0; padding:6px 10px; border-radius:10px; font-size:13px; font-weight:600; }
+        .stat-bar { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.04); padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.04); }
+        .stat-bar strong { color:#e2e8f0; }
+        footer { text-align:center; color:#94a3b8; font-size:13px; padding:32px 16px 48px; }
+        .toast { max-width: 1100px; margin: 0 auto 12px; padding: 12px 16px; background: rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.35); color:#bbf7d0; border-radius:12px; }
+        @media (min-width: 768px) { .hero { grid-template-columns: 1.05fr .95fr; } }
+    </style>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "CRM Leads Management",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "description": "Lidlarni boshqarish, follow-up, sinov darslari, Telegram eslatmalar, analitika va sotuv avtomatlashtirish.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+</head>
+<body>
+    <!-- HERO -->
+    <section class="hero">
+        <div>
+            <div class="pill"><i class="fi fi-rr-bolt"></i> CRM Leads Management</div>
+            <h1>Sotuv tunnelini avtomatlashtiring va konversiyani oshiring</h1>
+            <p>Lidlarni adolatli taqsimlash, ish vaqti bo‘yicha follow-up, sinov darsi eslatmalari, Telegram bildirishnomalar va to‘liq analitika — hammasi bitta tizimda.</p>
+            <div class="cta">
+                <a class="btn-primary" href="#order-form">Demo / buyurtma</a>
+                <a class="btn-ghost" href="https://t.me" target="_blank" rel="noopener">Telegram orqali bog'lanish</a>
+            </div>
+            <div style="margin-top:14px;">
+                <span class="badge"><i class="fi fi-rr-check"></i>Ish vaqti + ruxsat nazorati</span>
+                <span class="badge" style="background:rgba(59,130,246,0.12); color:#bfdbfe;"><i class="fi fi-rr-chart-histogram"></i> KPI va analitika</span>
+            </div>
+            <div style="margin-top:16px; display:grid; gap:10px; max-width:520px;">
+                <div class="stat-bar"><i class="fi fi-rr-rocket-lunch"></i> <strong>5 daqiqada</strong> — yangi lid uchun follow-up</div>
+                <div class="stat-bar"><i class="fi fi-rr-alarm-clock"></i> <strong>8-10 soat & 2 soat</strong> — sinov eslatmalari</div>
+                <div class="stat-bar"><i class="fi fi-rr-shield-check"></i> <strong>Ish vaqti</strong> & ruxsat nazorati</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="icon"><i class="fi fi-rr-dashboard"></i></div>
+            <h3>Nega aynan biz?</h3>
+            <ul class="list">
+                <li><i class="fi fi-rr-phone-call"></i> Avto follow-up ish vaqti cheklovi bilan</li>
+                <li><i class="fi fi-rr-alarm-clock"></i> Sinov darsi eslatmalari (8–10 soat va 2 soat oldin)</li>
+                <li><i class="fi fi-rr-user-add"></i> Adolatli lead taqsimlash faqat faol sotuvchilarga</li>
+                <li><i class="fi fi-rr-telegram"></i> Telegram bildirishnomalar: follow-up, sinov, overdue</li>
+                <li><i class="fi fi-rr-analytics"></i> KPI, overdue, konversiya, xonalar bandligi</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section class="features">
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
+            <div class="card">
+                <div class="icon"><i class="fi fi-rr-users"></i></div>
+                <h3>Lid jarayoni</h3>
+                <p>Yangi lid → aloqa → sinov → sotuv. 5 daqiqada follow-up, statusga qarab avtomatik vazifalar.</p>
+            </div>
+            <div class="card">
+                <div class="icon"><i class="fi fi-rr-time-check"></i></div>
+                <h3>Ish vaqti nazorati</h3>
+                <p>Sotuvchi faqat ish vaqtida bajarilgan deb belgilaydi; ruxsat va “absent” holatlari hisobga olinadi.</p>
+            </div>
+            <div class="card">
+                <div class="icon"><i class="fi fi-rr-bell"></i></div>
+                <h3>Eslatmalar</h3>
+                <p>Follow-up va sinov eslatmalari ish vaqtiga mos tarzda, Telegram orqali yuboriladi.</p>
+            </div>
+            <div class="card">
+                <div class="icon"><i class="fi fi-rr-chart-pie-alt"></i></div>
+                <h3>Analitika</h3>
+                <p>KPI, overdue, konversiya, xonalar/guruhlar to'lishi, reaktivatsiya statistikasi.</p>
+            </div>
+            <div class="card">
+                <div class="icon"><i class="fi fi-rr-gift"></i></div>
+                <h3>Takliflar moduli</h3>
+                <p>Chegirma/bonuslarni yaratish, follow-up/reaktivatsiya/trial jarayonida sotuvchiga kontekstual ko‘rsatish.</p>
+            </div>
+            <div class="card">
+                <div class="icon"><i class="fi fi-rr-shield-check"></i></div>
+                <h3>Role-based</h3>
+                <p>Admin / Sales Manager / Sales rollari, xavfsiz kirish va boshqaruv.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRICING -->
+    <section class="features" style="padding-top:0;">
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
+            <div class="card" style="border:1px solid rgba(255,255,255,0.06);">
+                <div class="icon"><i class="fi fi-rr-star"></i></div>
+                <h3>Start (Demo)</h3>
+                <p style="margin:0 0 10px;">Sinov uchun tayyor. Kichik jamoalar.</p>
+                <ul class="list">
+                    <li><i class="fi fi-rr-check"></i> Lead + follow-up jarayoni</li>
+                    <li><i class="fi fi-rr-check"></i> Sinov eslatmalari (Telegram)</li>
+                    <li><i class="fi fi-rr-check"></i> Adolatli taqsimlash</li>
+                </ul>
+                <div style="margin-top:12px; font-weight:700; font-size:20px;">Bepul demo</div>
+            </div>
+            <div class="card" style="border:1px solid rgba(79,70,229,0.45); box-shadow:0 18px 50px rgba(79,70,229,0.25);">
+                <div class="icon" style="background: rgba(79,70,229,0.2); color:#c7d2fe;"><i class="fi fi-rr-crown"></i></div>
+                <h3>Pro (To‘liq versiya)</h3>
+                <p style="margin:0 0 10px;">O‘sayotgan jamoalar uchun to‘liq avtomatizatsiya.</p>
+                <ul class="list">
+                    <li><i class="fi fi-rr-check"></i> Ish vaqti/ruxsat nazorati</li>
+                    <li><i class="fi fi-rr-check"></i> Telegram guruh bildirishnomalari</li>
+                    <li><i class="fi fi-rr-check"></i> Takliflar moduli (chegirmalar/bonuslar)</li>
+                    <li><i class="fi fi-rr-check"></i> Analitika va KPI paneli</li>
+                </ul>
+                <div style="margin-top:12px; font-weight:700; font-size:20px;">Narx: so‘rov asosida</div>
+            </div>
+            <div class="card" style="border:1px solid rgba(34,197,94,0.35);">
+                <div class="icon" style="background: rgba(34,197,94,0.15); color:#bbf7d0;"><i class="fi fi-rr-settings"></i></div>
+                <h3>Enterprise</h3>
+                <p style="margin:0 0 10px;">Kengaytirilgan integratsiya va maxsus sozlash.</p>
+                <ul class="list">
+                    <li><i class="fi fi-rr-check"></i> Maxsus integratsiyalar</li>
+                    <li><i class="fi fi-rr-check"></i> Kengaytirilgan monitoring</li>
+                    <li><i class="fi fi-rr-check"></i> Qo‘llab-quvvatlash SLA</li>
+                </ul>
+                <div style="margin-top:12px; font-weight:700; font-size:20px;">Narx: so‘rov asosida</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CONTACT & ORDER -->
+    <section class="features" style="padding-top:0;">
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px; align-items: stretch;">
+            <!-- Contact info -->
+            <div class="card" style="background: linear-gradient(145deg, rgba(79,70,229,0.18), rgba(15,23,42,0.95)); border:1px solid rgba(79,70,229,0.25); display:grid; gap:14px;">
+                <div class="icon" style="background: rgba(255,255,255,0.08); color:#c7d2fe;"><i class="fi fi-rr-headset"></i></div>
+                <h3 style="margin:0 0 4px; color:#e2e8f0;">Bog‘lanish</h3>
+                <p style="margin:0; color:#cbd5e1;">Savollar, demo yoki to‘liq versiya uchun biz bilan aloqa qiling.</p>
+                <div class="grid" style="gap:10px;">
+                    <div class="stat-bar" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08);"><i class="fi fi-rr-briefcase"></i> Geeks Soft</div>
+                    <div class="stat-bar" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08);"><i class="fi fi-rr-globe"></i> <a href="https://geeks-soft.uz" target="_blank" rel="noopener">geeks-soft.uz</a></div>
+                    <div class="stat-bar" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08);"><i class="fi fi-rr-phone-call"></i> <a href="tel:+998939113123">+998 93 911 31 23</a></div>
+                    <div class="stat-bar" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08);"><i class="fi fi-rr-envelope"></i> <a href="mailto:geeksandijan@gmail.com">geeksandijan@gmail.com</a></div>
+                    <div class="stat-bar" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08);"><i class="fi fi-rr-telegram"></i> <a href="https://t.me/geeks_support" target="_blank" rel="noopener">@geeks_support</a></div>
+                    <div class="stat-bar" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08);"><i class="fi fi-rr-instagram"></i> <a href="https://www.instagram.com/geeks.soft" target="_blank" rel="noopener">geeks.soft</a></div>
+                </div>
+                <div style="display:flex; gap:10px; flex-wrap: wrap; margin-top:4px;">
+                    <a class="btn-ghost" href="https://t.me/geeks_support" target="_blank" rel="noopener" style="border:1px solid rgba(255,255,255,0.15);">Telegram</a>
+                    <a class="btn-ghost" href="tel:+998939113123" style="border:1px solid rgba(255,255,255,0.15);">Qo‘ng‘iroq qilish</a>
+                </div>
+            </div>
+
+            <!-- Order form -->
+            <div class="card" id="order-form" style="border:1px solid rgba(34,197,94,0.25); position: relative;">
+                <div class="icon" style="background: rgba(34,197,94,0.12); color:#4ade80;"><i class="fi fi-rr-send"></i></div>
+                <h3 style="margin:0 0 6px; color:#e2e8f0;">Buyurtma / Demo so'rovi</h3>
+                <p style="color:#cbd5e1; margin:0 0 14px;">Kontaktlaringizni qoldiring, tezda bog'lanamiz.</p>
+                {% if messages %}
+                <div class="toast">
+                    {% for message in messages %}
+                        {{ message }}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <form method="post" class="grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
+                    {% csrf_token %}
+                    <div class="grid" style="gap:6px;">
+                        <label style="font-size:13px; color:#cbd5e1;">Ism</label>
+                        <input name="name" required class="form-input" style="background:#0b1220; border:1px solid rgba(255,255,255,0.08); color:#e2e8f0; border-radius:10px; padding:10px 12px;" placeholder="Ismingiz">
+                    </div>
+                    <div class="grid" style="gap:6px;">
+                        <label style="font-size:13px; color:#cbd5e1;">Telefon</label>
+                        <input name="phone" required class="form-input" style="background:#0b1220; border:1px solid rgba(255,255,255,0.08); color:#e2e8f0; border-radius:10px; padding:10px 12px;" placeholder="+998…" type="tel">
+                    </div>
+                    <div class="grid" style="gap:6px; grid-column: 1 / -1;">
+                        <label style="font-size:13px; color:#cbd5e1;">Eslatma (ixtiyoriy)</label>
+                        <textarea name="notes" rows="3" class="form-textarea" style="background:#0b1220; border:1px solid rgba(255,255,255,0.08); color:#e2e8f0; border-radius:10px; padding:10px 12px; resize: vertical;" placeholder="Biznesingiz, talablaringiz yoki savollaringiz..."></textarea>
+                    </div>
+                    <div style="grid-column: 1 / -1; display:flex; justify-content:flex-start; gap:10px; flex-wrap: wrap;">
+                        <button type="submit" class="btn-primary" style="border:none;">Yuborish</button>
+                        {% if success %}
+                            <span class="badge"><i class="fi fi-rr-check"></i> Yuborildi</span>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div style="margin-bottom:8px;">Savollar bormi? <a href="mailto:geeksandijan@gmail.com" style="color:#cbd5e1;">geeksandijan@gmail.com</a></div>
+        <div>© {{ now|date:"Y" }} CRM Leads Management</div>
+    </footer>
+</body>
+</html>
+

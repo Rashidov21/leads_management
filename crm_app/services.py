@@ -1,7 +1,7 @@
 from django.utils import timezone
 from django.db import models
 from datetime import timedelta
-from .models import User, Lead, FollowUp, Group, TrialLesson, KPI, Reactivation
+from .models import User, Lead, FollowUp, Group, TrialLesson, KPI, Reactivation, Offer
 
 
 class LeadDistributionService:
@@ -584,3 +584,55 @@ class ReactivationService:
                 if created:
                     send_reactivation_notification.delay(reactivation.id)
 
+
+class OfferService:
+    """Takliflar (chegirma/bonus) xizmati"""
+
+    @staticmethod
+    def active_offers(channel=None, audience=None, course=None, date=None):
+        """
+        Faol va amaldagi takliflar ro'yxati
+        channel: 'followup', 'reactivation', 'trial', 'general', 'all'
+        audience: 'new', 'lost', 'reactivation', 'trial', 'all'
+        course: Course instance yoki None
+        """
+        today = date or timezone.now().date()
+
+        qs = Offer.objects.filter(is_active=True)
+
+        # Sana bo'yicha filtr
+        qs = qs.filter(
+            models.Q(valid_from__isnull=True) | models.Q(valid_from__lte=today),
+            models.Q(valid_until__isnull=True) | models.Q(valid_until__gte=today),
+        )
+
+        # Kanal bo'yicha filtr
+        if channel and channel != 'all':
+            qs = qs.filter(models.Q(channel='general') | models.Q(channel=channel))
+
+        # Auditoriya bo'yicha filtr
+        if audience and audience != 'all':
+            qs = qs.filter(models.Q(audience='any') | models.Q(audience=audience))
+
+        # Kurs bo'yicha filtr
+        if course:
+            qs = qs.filter(models.Q(course__isnull=True) | models.Q(course=course))
+
+        return qs.order_by('-priority', 'valid_until', '-created_at')
+
+    @staticmethod
+    def active_for_lead(lead, channel=None):
+        """Lead kontekstida mos takliflar"""
+        audience = 'all'
+        if lead:
+            if lead.status in ['lost', 'reactivation']:
+                audience = 'reactivation'
+            elif lead.status == 'trial_registered':
+                audience = 'trial'
+            elif lead.status in ['new', 'contacted', 'interested']:
+                audience = 'new'
+        return OfferService.active_offers(
+            channel=channel or 'all',
+            audience=audience,
+            course=getattr(lead, 'interested_course', None)
+        )
