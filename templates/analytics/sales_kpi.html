@@ -59,9 +59,9 @@
             <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-5 border-l-4 border-yellow-500">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Konversiya</p>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Kunlik konversiya</p>
                         <p class="text-3xl font-bold text-yellow-900">{{ today_kpi.conversion_rate|floatformat:1 }}%</p>
-                        <p class="text-xs text-gray-600 mt-1">{{ today_kpi.trials_to_sales }} ta sotuv</p>
+                        <p class="text-xs text-gray-600 mt-1">Bugun berilganlardan enrolled</p>
                     </div>
                     <i class="fas fa-percentage text-yellow-400 text-3xl"></i>
                 </div>
@@ -171,13 +171,14 @@
                     <i class="fas fa-check-circle text-yellow-400 text-3xl"></i>
                 </div>
             </div>
-            <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-5 border-l-4 border-blue-500">
+            <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-5 border-l-4 border-yellow-500">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">O'rtacha Konversiya</p>
-                        <p class="text-3xl font-bold text-blue-900">{{ monthly_stats.avg_conversion|floatformat:1 }}%</p>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Oylik konversiya</p>
+                        <p class="text-3xl font-bold text-yellow-900">{{ monthly_stats.avg_conversion|floatformat:1 }}%</p>
+                        <p class="text-xs text-gray-600 mt-1">Berilgan: {{ monthly_stats.monthly_assigned }} • Enrolled: {{ monthly_stats.monthly_enrolled }}</p>
                     </div>
-                    <i class="fas fa-percentage text-blue-400 text-3xl"></i>
+                    <i class="fas fa-percentage text-yellow-400 text-3xl"></i>
                 </div>
             </div>
             <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-5 border-l-4 border-gray-500">
