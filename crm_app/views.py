@@ -1470,14 +1470,19 @@ def sales_kpi(request):
         date__lte=today
     ).order_by('-date')
     
+    # Oylik konversiya (berilgan lidlar -> enrolled)
+    monthly_conv = KPIService.calculate_monthly_conversion_rate(sales, today.year, today.month)
+    
     # Oylik yig'indilar
     monthly_stats = {
         'total_contacts': sum(kpi.daily_contacts for kpi in monthly_kpis),
         'total_followups': sum(kpi.daily_followups for kpi in monthly_kpis),
         'total_trials': sum(kpi.trials_registered for kpi in monthly_kpis),
         'total_sales': sum(kpi.trials_to_sales for kpi in monthly_kpis),
-        'avg_conversion': sum(kpi.conversion_rate for kpi in monthly_kpis) / len(monthly_kpis) if monthly_kpis else 0,
+        'avg_conversion': monthly_conv['conversion_rate'],
         'avg_response_time': sum(kpi.response_time_minutes for kpi in monthly_kpis) / len(monthly_kpis) if monthly_kpis else 0,
+        'monthly_assigned': monthly_conv['total_assigned'],
+        'monthly_enrolled': monthly_conv['enrolled'],
     }
     
     # Mening lidlarim statistikasi

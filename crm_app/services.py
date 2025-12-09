@@ -496,12 +496,17 @@ class KPIService:
             enrolled_at__date=date
         ).count()
         
-        # Konversiya
-        total_trials = TrialLesson.objects.filter(
-            lead__assigned_sales=sales,
-            date=date
+        # Kunlik konversiya: shu kunda enrolled bo'lganlar / shu kunda berilgan lidlar
+        total_assigned_today = Lead.objects.filter(
+            assigned_sales=sales,
+            created_at__date=date
         ).count()
-        conversion_rate = (trials_to_sales / total_trials * 100) if total_trials > 0 else 0
+        enrolled_today = Lead.objects.filter(
+            assigned_sales=sales,
+            status='enrolled',
+            enrolled_at__date=date
+        ).count()
+        conversion_rate = (enrolled_today / total_assigned_today * 100) if total_assigned_today > 0 else 0
         
         # Response time (o'rtacha)
         # Soddalashtirilgan - lead yaratilgan vaqt va birinchi follow-up orasidagi vaqt
@@ -539,6 +544,41 @@ class KPIService:
         )
         
         return kpi
+    
+    @staticmethod
+    def calculate_monthly_conversion_rate(sales, year, month):
+        """Oylik konversiya hisoblash: oy davomida enrolled bo'lganlar / oy davomida berilgan lidlar"""
+        from datetime import datetime
+        from calendar import monthrange
+        
+        # Oyning birinchi va oxirgi kuni
+        month_start = datetime(year, month, 1).date()
+        last_day = monthrange(year, month)[1]
+        month_end = datetime(year, month, last_day).date()
+        
+        # Oy davomida berilgan barcha lidlar
+        total_assigned_monthly = Lead.objects.filter(
+            assigned_sales=sales,
+            created_at__date__gte=month_start,
+            created_at__date__lte=month_end
+        ).count()
+        
+        # Oy davomida enrolled bo'lgan lidlar
+        enrolled_monthly = Lead.objects.filter(
+            assigned_sales=sales,
+            status='enrolled',
+            enrolled_at__date__gte=month_start,
+            enrolled_at__date__lte=month_end
+        ).count()
+        
+        # Oylik konversiya
+        monthly_conversion_rate = (enrolled_monthly / total_assigned_monthly * 100) if total_assigned_monthly > 0 else 0
+        
+        return {
+            'total_assigned': total_assigned_monthly,
+            'enrolled': enrolled_monthly,
+            'conversion_rate': monthly_conversion_rate
+        }
 
 
 class ReactivationService:
