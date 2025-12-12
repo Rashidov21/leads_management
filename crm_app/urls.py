@@ -89,3 +89,5 @@ urlpatterns = [
     path('offers/<int:pk>/edit/', views.offer_edit, name='offer_edit'),
     path('offers/<int:pk>/delete/', views.offer_delete, name='offer_delete'),
 ]
+
+# 75.119.156.175

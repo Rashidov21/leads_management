@@ -1,0 +1,16 @@
+[Unit]
+Description=Gunicorn for leads_management
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/root/leads_management
+Environment="DOTENV_PATH=/root/leads_management/.env"
+ExecStart=/root/leads_management/.venv/bin/gunicorn --env DOTENV_PATH=/root/leads_management/.env --workers 3 --bind unix:/root/leads_management/gunicorn.sock crm_project.wsgi:application
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+

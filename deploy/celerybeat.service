@@ -1,0 +1,18 @@
+[Unit]
+Description=Celery Beat for leads_management
+After=network.target redis-server.service
+Requires=redis-server.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/root/leads_management
+Environment="DOTENV_PATH=/root/leads_management/.env"
+ExecStart=/root/leads_management/.venv/bin/celery -A crm_project beat -l info --pidfile=/root/leads_management/celerybeat.pid
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+
