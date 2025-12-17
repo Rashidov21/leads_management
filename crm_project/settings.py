@@ -198,14 +198,20 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'crm_app.tasks.send_daily_sales_summary_task',
         'schedule': crontab(hour=18, minute=0),  # Har ish kuni oxiri (20:00)
     },
+    'import-leads-from-google-sheets': {
+        'task': 'crm_app.tasks.import_leads_from_google_sheets',
+        'schedule': crontab(minute='*/5'),  # Har 5 daqiqada
+    },
 }
 
 # Telegram Bot
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_ADMIN_CHAT_ID = os.getenv('TELEGRAM_ADMIN_CHAT_ID', '')
 
-# Google Sheets
+# Google Sheets Configuration
 GOOGLE_SHEETS_CREDENTIALS = os.getenv('GOOGLE_SHEETS_CREDENTIALS', '')
+GOOGLE_SHEETS_SPREADSHEET_ID = os.getenv('GOOGLE_SHEETS_SPREADSHEET_ID', '')
+GOOGLE_SHEETS_WORKSHEET_NAME = os.getenv('GOOGLE_SHEETS_WORKSHEET_NAME', 'Sheet1')
 
 # Login URLs
 LOGIN_URL = '/login/'

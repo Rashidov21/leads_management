@@ -106,6 +106,7 @@ python manage.py createsuperuser
 ### 1. Lid Boshqaruvi
 - Oddiy forma orqali lid qo'shish
 - Excel import (duplicate checker bilan)
+- **Google Sheets avtomatik import** (har 5 daqiqada, Instagram Ads uchun)
 - Avtomatik lid taqsimlash (faol sotuvchilar orasida teng)
 - Status pipeline (Yangi → Aloqa qilindi → ... → Kursga yozildi)
 
@@ -183,6 +184,47 @@ python manage.py createsuperuser
 7. **Reaktivatsiya:**
    - Har kuni ertalab tekshiriladi
    - 7/14/30 kun reaktivatsiya takliflari
+
+8. **Google Sheets Avtomatik Import:**
+   - Har 5 daqiqada Google Sheets'ni tekshiradi
+   - Yangi lidlarni avtomatik import qiladi
+   - Instagram Ads integratsiyasi uchun ideal
+   - Duplicate checker (telefon raqam bo'yicha)
+   - Telegram notification (import statistikasi)
+
+## Google Sheets Integration
+
+Tizim Instagram Ads va boshqa manbalardan Google Sheets orqali kelgan lidlarni avtomatik import qiladi.
+
+**Setup:**
+1. Google Cloud Console'da Service Account yarating
+2. Google Sheets API'ni yoqing
+3. JSON credentials yarating va `.env` ga qo'shing
+4. Google Sheets'ni Service Account bilan share qiling
+5. Celery Worker va Beat ishga tushiring
+
+**To'liq qo'llanma:** [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md)
+
+**Qisqacha:**
+```bash
+# .env faylga qo'shing
+GOOGLE_SHEETS_CREDENTIALS=google_credentials.json
+GOOGLE_SHEETS_SPREADSHEET_ID=your-spreadsheet-id
+GOOGLE_SHEETS_WORKSHEET_NAME=Sheet1
+```
+
+**Google Sheets format:**
+| name | phone | source | course | secondary_phone |
+|------|-------|--------|--------|-----------------|
+| Ali Valiyev | 998901234567 | instagram | Python | 998907654321 |
+
+**Xususiyatlar:**
+- ✅ Har 5 daqiqada avtomatik tekshirish
+- ✅ Duplicate prevention (telefon bo'yicha)
+- ✅ Avtomatik lid taqsimlash
+- ✅ Telegram notification
+- ✅ Cache mechanism (faqat yangi qatorlar)
+- ✅ Error handling va logging
 
 ## Database Strukturasi
 

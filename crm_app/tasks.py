@@ -935,3 +935,87 @@ def send_daily_sales_summary_task():
 
     print(f"[daily summary] {sent} ta guruhga yuborildi.")
 
+
+@shared_task
+def import_leads_from_google_sheets():
+    """
+    Google Sheets'dan avtomatik ravishda lidlarni import qilish
+    Har 5 daqiqada ishga tushadi
+    """
+    from django.conf import settings
+    from .services import GoogleSheetsService
+    
+    try:
+        print(f"[{timezone.now()}] Google Sheets import task ishga tushdi")
+        
+        # .env fayldan Google Sheets konfiguratsiyasini olish
+        spreadsheet_id = getattr(settings, 'GOOGLE_SHEETS_SPREADSHEET_ID', None)
+        worksheet_name = getattr(settings, 'GOOGLE_SHEETS_WORKSHEET_NAME', 'Sheet1')
+        
+        if not spreadsheet_id:
+            print("GOOGLE_SHEETS_SPREADSHEET_ID sozlanmagan! Task o'tkazib yuborildi.")
+            return {
+                'success': False,
+                'error': 'GOOGLE_SHEETS_SPREADSHEET_ID sozlanmagan'
+            }
+        
+        # Import qilish
+        result = GoogleSheetsService.import_new_leads(
+            spreadsheet_id=spreadsheet_id,
+            worksheet_name=worksheet_name
+        )
+        
+        # Log
+        if result['imported'] > 0:
+            print(f"[{timezone.now()}] Google Sheets: {result['imported']} ta yangi lid import qilindi")
+            
+            # Admin/Manager'larga xabar
+            if result['imported'] > 0:
+                from .telegram_bot import send_telegram_notification
+                
+                # Admin chat
+                if settings.TELEGRAM_ADMIN_CHAT_ID:
+                    message = (
+                        f"📊 <b>Google Sheets Auto-Import</b>\n"
+                        f"{'=' * 30}\n\n"
+                        f"✅ <b>Import qilindi:</b> {result['imported']} ta lid\n"
+                        f"⏭ <b>O'tkazib yuborildi:</b> {result['skipped']} ta\n"
+                    )
+                    
+                    if result['errors']:
+                        message += f"\n⚠️ <b>Xatoliklar:</b> {len(result['errors'])} ta\n"
+                    
+                    send_telegram_notification(
+                        settings.TELEGRAM_ADMIN_CHAT_ID,
+                        message
+                    )
+                
+                # Manager/Admin telegram group'lariga ham yuborish
+                managers = User.objects.filter(role__in=['admin', 'sales_manager'])
+                for manager in managers:
+                    if manager.telegram_group_id:
+                        short_message = (
+                            f"📊 <b>Google Sheets Import</b>\n"
+                            f"✅ {result['imported']} ta yangi lid\n"
+                            f"⏭ {result['skipped']} ta o'tkazib yuborildi"
+                        )
+                        send_telegram_notification(
+                            manager.telegram_group_id,
+                            short_message
+                        )
+        else:
+            print(f"[{timezone.now()}] Google Sheets: Yangi lid topilmadi")
+        
+        if result['errors']:
+            print(f"[{timezone.now()}] Google Sheets xatoliklar: {result['errors']}")
+        
+        return result
+        
+    except Exception as e:
+        print(f"[{timezone.now()}] Google Sheets import xatolik: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'success': False,
+            'error': str(e)
+        }

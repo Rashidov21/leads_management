@@ -676,3 +676,223 @@ class OfferService:
             audience=audience,
             course=getattr(lead, 'interested_course', None)
         )
+
+
+class GoogleSheetsService:
+    """Google Sheets integratsiyasi - Avtomatik lid import"""
+    
+    @staticmethod
+    def get_credentials():
+        """Google Sheets kredensiallarini olish"""
+        import json
+        from google.oauth2.service_account import Credentials
+        from django.conf import settings
+        
+        # .env fayldan credentials JSON'ni olish
+        creds_json = settings.GOOGLE_SHEETS_CREDENTIALS
+        
+        if not creds_json:
+            raise ValueError("GOOGLE_SHEETS_CREDENTIALS sozlanmagan!")
+        
+        # JSON string'ni dict'ga o'tkazish
+        try:
+            creds_dict = json.loads(creds_json)
+        except json.JSONDecodeError:
+            # Agar fayl yo'li bo'lsa
+            with open(creds_json, 'r') as f:
+                creds_dict = json.load(f)
+        
+        # Credentials yaratish
+        SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+        credentials = Credentials.from_service_account_info(
+            creds_dict,
+            scopes=SCOPES
+        )
+        
+        return credentials
+    
+    @staticmethod
+    def connect_to_sheet(spreadsheet_id, worksheet_name='Sheet1'):
+        """Google Sheets'ga ulanish"""
+        import gspread
+        
+        try:
+            credentials = GoogleSheetsService.get_credentials()
+            client = gspread.authorize(credentials)
+            spreadsheet = client.open_by_key(spreadsheet_id)
+            worksheet = spreadsheet.worksheet(worksheet_name)
+            return worksheet
+        except Exception as e:
+            print(f"Google Sheets'ga ulanishda xatolik: {e}")
+            raise
+    
+    @staticmethod
+    def import_new_leads(spreadsheet_id, worksheet_name='Sheet1', 
+                        name_column='name', phone_column='phone', 
+                        source_column='source', interested_course_column='course',
+                        secondary_phone_column='secondary_phone'):
+        """
+        Google Sheets'dan yangi lidlarni import qilish
+        
+        Args:
+            spreadsheet_id: Google Sheets ID (URL'dan)
+            worksheet_name: Sheet nomi (default: 'Sheet1')
+            name_column: Ism ustuni nomi (default: 'name')
+            phone_column: Telefon ustuni nomi (default: 'phone')
+            source_column: Manba ustuni nomi (default: 'source')
+            interested_course_column: Qiziqayotgan kurs ustuni nomi (default: 'course')
+            secondary_phone_column: Qo'shimcha telefon ustuni nomi (default: 'secondary_phone')
+        
+        Returns:
+            dict: {'imported': count, 'skipped': count, 'errors': []}
+        """
+        from django.core.cache import cache
+        
+        result = {
+            'imported': 0,
+            'skipped': 0,
+            'errors': [],
+            'leads': []
+        }
+        
+        try:
+            # Google Sheets'ga ulanish
+            worksheet = GoogleSheetsService.connect_to_sheet(
+                spreadsheet_id, 
+                worksheet_name
+            )
+            
+            # Barcha qatorlarni olish (dictionary formatda)
+            all_records = worksheet.get_all_records()
+            
+            if not all_records:
+                return result
+            
+            # Cache'dan oxirgi import qilingan qator raqamini olish
+            cache_key = f'google_sheets_last_row_{spreadsheet_id}_{worksheet_name}'
+            last_imported_row = cache.get(cache_key, 0)  # 0 = hech narsa import qilinmagan
+            
+            # Faqat yangi qatorlarni import qilish
+            new_records = all_records[last_imported_row:]
+            
+            if not new_records:
+                return result
+            
+            # Har bir yangi qatorni qayta ishlash
+            leads_to_import = []
+            
+            for idx, record in enumerate(new_records, start=last_imported_row + 1):
+                try:
+                    # Ma'lumotlarni olish (case-insensitive)
+                    name = str(record.get(name_column, record.get(name_column.title(), ''))).strip()
+                    phone = str(record.get(phone_column, record.get(phone_column.title(), ''))).strip()
+                    
+                    # Bo'sh yoki noto'g'ri ma'lumotlarni o'tkazib yuborish
+                    if not name or not phone:
+                        result['skipped'] += 1
+                        continue
+                    
+                    # Telefon raqamni tozalash
+                    phone = phone.replace('+', '').replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+                    
+                    # Duplicate tekshirish
+                    if Lead.objects.filter(phone=phone).exists():
+                        result['skipped'] += 1
+                        continue
+                    
+                    # Source
+                    source_value = str(record.get(source_column, record.get(source_column.title(), 'instagram'))).strip().lower()
+                    source_mapping = {
+                        'instagram': 'instagram',
+                        'telegram': 'telegram',
+                        'youtube': 'youtube',
+                        'organic': 'organic',
+                        'form': 'form',
+                        'excel': 'excel',
+                        'google_sheets': 'google_sheets',
+                    }
+                    source = source_mapping.get(source_value, 'google_sheets')
+                    
+                    # Qo'shimcha telefon
+                    secondary_phone = str(record.get(secondary_phone_column, 
+                                         record.get(secondary_phone_column.title(), ''))).strip()
+                    if secondary_phone:
+                        secondary_phone = secondary_phone.replace('+', '').replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+                    
+                    # Interested course
+                    interested_course = None
+                    course_name = str(record.get(interested_course_column, 
+                                     record.get(interested_course_column.title(), ''))).strip()
+                    if course_name:
+                        try:
+                            interested_course = Course.objects.filter(
+                                name__icontains=course_name
+                            ).first()
+                        except:
+                            pass
+                    
+                    # Lead yaratish
+                    lead = Lead(
+                        name=name,
+                        phone=phone,
+                        secondary_phone=secondary_phone if secondary_phone else None,
+                        source=source,
+                        interested_course=interested_course,
+                        notes=f"Google Sheets'dan avtomatik import (row {idx + 1})"
+                    )
+                    leads_to_import.append(lead)
+                    
+                except Exception as e:
+                    result['errors'].append(f"Row {idx + 1}: {str(e)}")
+                    continue
+            
+            # Bulk yaratish va taqsimlash
+            if leads_to_import:
+                # Avval lidlarni saqlash
+                for lead in leads_to_import:
+                    lead.save()
+                
+                # Taqsimlash (notification ichida)
+                from .services import LeadDistributionService
+                LeadDistributionService.distribute_leads(leads_to_import)
+                
+                result['imported'] = len(leads_to_import)
+                result['leads'] = [lead.id for lead in leads_to_import]
+                
+                # Cache'ni yangilash
+                cache.set(
+                    cache_key, 
+                    last_imported_row + len(new_records),
+                    timeout=None  # Hech qachon expire bo'lmaydi
+                )
+            
+        except Exception as e:
+            result['errors'].append(f"Umumiy xatolik: {str(e)}")
+            print(f"Google Sheets import xatolik: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        return result
+    
+    @staticmethod
+    def test_connection(spreadsheet_id, worksheet_name='Sheet1'):
+        """Google Sheets ulanishini test qilish"""
+        try:
+            worksheet = GoogleSheetsService.connect_to_sheet(
+                spreadsheet_id,
+                worksheet_name
+            )
+            row_count = worksheet.row_count
+            col_count = worksheet.col_count
+            
+            return {
+                'success': True,
+                'message': f'Ulanish muvaffaqiyatli! {row_count} qator, {col_count} ustun',
+                'row_count': row_count,
+                'col_count': col_count
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'Xatolik: {str(e)}'
+            }
