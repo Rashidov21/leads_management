@@ -175,15 +175,13 @@ class FollowUpService:
     
     @staticmethod
     def get_today_followups(sales=None):
-        """Bugungi follow-uplarni olish"""
-        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = today_start + timedelta(days=1)
+        """Bugungi va o'tgan barcha bajarilmagan follow-uplarni olish"""
+        today_end = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
         
         queryset = FollowUp.objects.select_related(
             'lead', 'sales', 'lead__assigned_sales', 'lead__interested_course'
         ).filter(
-            due_date__gte=today_start,
-            due_date__lt=today_end,
+            due_date__lte=today_end,  # Bugun yoki undan oldin
             completed=False
         )
         

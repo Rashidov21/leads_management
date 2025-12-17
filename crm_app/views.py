@@ -379,7 +379,7 @@ def lead_assign(request, pk):
 
 
 @login_required
-@role_required('admin', 'sales_manager')
+@role_required('admin', 'sales_manager', 'sales')
 def excel_import(request):
     if request.method == 'POST':
         form = ExcelImportForm(request.POST, request.FILES)
@@ -503,7 +503,7 @@ def excel_import(request):
 
 
 @login_required
-@role_required('admin', 'sales_manager')
+@role_required('admin', 'sales_manager', 'sales')
 def google_sheets_manual_import(request):
     """Google Sheets'dan qo'lda yangi lidlarni import qilish (tugma bosilganda)"""
     from django.conf import settings
