@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}404 - Sahifa Topilmadi{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center px-4 py-12 bg-gradient-to-br from-gray-50 to-indigo-50">
+    <div class="max-w-4xl w-full">
+        <div class="text-center">
+            <!-- 404 Raqami -->
+            <div class="mb-8">
+                <h1 class="text-9xl md:text-[12rem] font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 leading-none animate-pulse">
+                    404
+                </h1>
+            </div>
+            
+            <!-- Icon -->
+            <div class="mb-6">
+                <div class="inline-block p-6 bg-white rounded-full shadow-xl">
+                    <i class="fas fa-search text-6xl text-indigo-600"></i>
+                </div>
+            </div>
+            
+            <!-- Sarlavha -->
+            <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                Sahifa Topilmadi
+            </h2>
+            
+            <!-- Xabar -->
+            <p class="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+                Kechirasiz, siz qidirayotgan sahifa mavjud emas yoki ko'chirilgan. 
+                Iltimos, manzilni tekshiring yoki quyidagi havolalardan foydalaning.
+            </p>
+            
+            <!-- Havolalar Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto mb-8">
+                <!-- Bosh Sahifa -->
+                <a href="{% url 'dashboard' %}" class="group p-6 bg-white rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 border-2 border-transparent hover:border-indigo-500">
+                    <div class="mb-3">
+                        <i class="fas fa-home text-4xl text-indigo-600 group-hover:scale-110 transition-transform duration-300"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Bosh Sahifa</h3>
+                    <p class="text-sm text-gray-600">Dashboard'ga qaytish</p>
+                </a>
+                
+                <!-- Lidlar -->
+                <a href="{% url 'leads_list' %}" class="group p-6 bg-white rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 border-2 border-transparent hover:border-indigo-500">
+                    <div class="mb-3">
+                        <i class="fas fa-users text-4xl text-indigo-600 group-hover:scale-110 transition-transform duration-300"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Lidlar</h3>
+                    <p class="text-sm text-gray-600">Lidlar ro'yxatiga o'tish</p>
+                </a>
+                
+                <!-- Follow-up'lar -->
+                <a href="{% url 'followups_today' %}" class="group p-6 bg-white rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 border-2 border-transparent hover:border-indigo-500">
+                    <div class="mb-3">
+                        <i class="fas fa-tasks text-4xl text-indigo-600 group-hover:scale-110 transition-transform duration-300"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Follow-up'lar</h3>
+                    <p class="text-sm text-gray-600">Bugungi aloqalar</p>
+                </a>
+            </div>
+            
+            <!-- Yordam Xabari -->
+            <div class="bg-indigo-50 border-l-4 border-indigo-400 rounded-lg p-4 max-w-2xl mx-auto mb-6">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-info-circle text-indigo-500 text-xl"></i>
+                    </div>
+                    <div class="ml-3 text-left">
+                        <p class="text-sm text-indigo-800 font-medium">
+                            Yordam kerakmi?
+                        </p>
+                        <p class="mt-1 text-sm text-indigo-700">
+                            Agar muammo davom etsa, admin yoki texnik yordam xizmatiga murojaat qiling.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Orqaga qaytish tugmasi -->
+            <div class="mt-6">
+                <button onclick="history.back()" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-md hover:shadow-xl hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 active:scale-[0.98] transform transition-all duration-200">
+                    <i class="fas fa-arrow-left"></i>
+                    Orqaga Qaytish
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
