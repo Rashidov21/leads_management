@@ -31,16 +31,18 @@ fi
 
 # 3. Virtual environment aktivlashtirish va dependencies
 echo -e "${YELLOW}📦 Dependencies tekshirilmoqda...${NC}"
-if [ -d "venv" ]; then
-    source venv/bin/activate
-elif [ -d "env" ]; then
-    source env/bin/activate
-elif [ -d ".venv" ]; then
-    source .venv/bin/activate
-else
-    echo -e "${RED}❌ Virtual environment topilmadi!${NC}"
+
+# Virtual environment qo'lda aktivlashtirilgan deb hisoblanadi
+# Agar activate qilmagan bo'lsangiz: source /root/.venv/bin/activate
+if [ -z "$VIRTUAL_ENV" ]; then
+    echo -e "${RED}❌ Virtual environment aktivlashtirilmagan!${NC}"
+    echo -e "${YELLOW}Avval virtual env'ni aktivlashtiring:${NC}"
+    echo -e "${YELLOW}  source /root/.venv/bin/activate${NC}"
+    echo -e "${YELLOW}  bash deploy.sh${NC}"
     exit 1
 fi
+
+echo -e "${GREEN}✅ Virtual environment faol: $VIRTUAL_ENV${NC}"
 
 pip install -r requirements.txt --upgrade > /dev/null 2>&1
 echo -e "${GREEN}✅ Dependencies yangilandi${NC}"
