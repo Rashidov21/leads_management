@@ -220,14 +220,14 @@
         </form>
     </div>
     
-    <!-- Follow-ups -->
+    <!-- Qayta Aloqalar -->
     <div class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-100">
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center">
                 <div class="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
                     <i class="fas fa-tasks text-indigo-600"></i>
                 </div>
-                <h2 class="text-xl font-bold text-gray-900">Follow-ups</h2>
+                <h2 class="text-xl font-bold text-gray-900">Qayta Aloqalar</h2>
             </div>
             <span class="text-sm text-gray-500">{{ followups|length }} ta</span>
         </div>
@@ -241,7 +241,7 @@
                             <p class="font-semibold text-gray-900">{{ followup.due_date|date:"d.m.Y H:i" }}</p>
                             {% if followup.is_overdue %}
                             <span class="status-badge bg-red-100 text-red-800">
-                                <i class="fas fa-exclamation-triangle mr-1"></i>Overdue
+                                <i class="fas fa-exclamation-triangle mr-1"></i>Muddati o'tgan
                             </span>
                             {% elif followup.completed %}
                             <span class="status-badge bg-green-100 text-green-800">
@@ -266,11 +266,102 @@
                 <div class="h-16 w-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
                     <i class="fas fa-tasks text-gray-400 text-2xl"></i>
                 </div>
-                <p class="text-gray-500">Follow-up yo'q</p>
+                <p class="text-gray-500">Aloqa yo'q</p>
             </div>
             {% endfor %}
         </div>
     </div>
+    
+    <!-- Takliflar (Offers) Accordion -->
+    {% if active_offers %}
+    <div class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-100">
+        <button type="button" onclick="toggleAccordion('offers')" class="w-full flex items-center justify-between text-left">
+            <div class="flex items-center">
+                <div class="h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                    <i class="fas fa-tag text-purple-600"></i>
+                </div>
+                <h2 class="text-xl font-bold text-gray-900">Takliflar va Chegirmalar</h2>
+                <span class="ml-3 text-sm text-gray-500">({{ active_offers|length }} ta)</span>
+            </div>
+            <i id="offers-icon" class="fas fa-chevron-down text-gray-400 transition-transform duration-200"></i>
+        </button>
+        
+        <div id="offers-content" class="hidden mt-6 space-y-3">
+            {% for offer in active_offers %}
+            <div class="border-2 border-purple-200 rounded-lg p-4 bg-purple-50 hover:shadow-md transition-all">
+                <div class="flex items-start justify-between mb-2">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <h3 class="text-lg font-semibold text-gray-900">{{ offer.title }}</h3>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                {% if offer.priority == 'urgent' %}bg-red-100 text-red-800
+                                {% elif offer.priority == 'high' %}bg-orange-100 text-orange-800
+                                {% elif offer.priority == 'normal' %}bg-blue-100 text-blue-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ offer.get_priority_display }}
+                            </span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                {{ offer.get_offer_type_display }}
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-700 mb-3 whitespace-pre-line">{{ offer.description }}</p>
+                        <div class="flex items-center space-x-4 text-xs text-gray-500">
+                            {% if offer.course %}
+                            <span><i class="fas fa-book mr-1"></i>{{ offer.course.name }}</span>
+                            {% endif %}
+                            {% if offer.valid_from %}
+                            <span><i class="fas fa-calendar-check mr-1"></i>{{ offer.valid_from|date:"d.m.Y" }}</span>
+                            {% endif %}
+                            {% if offer.valid_until %}
+                            <span><i class="fas fa-calendar-times mr-1"></i>{{ offer.valid_until|date:"d.m.Y" }}</span>
+                            {% endif %}
+                            <span><i class="fas fa-users mr-1"></i>{{ offer.get_audience_display }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p class="text-xs text-blue-800">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Bu takliflardan mijoz bilan suhbatlashayotganda foydalaning. Har bir taklifning muddati va shartlarini diqqat bilan o'qing.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Kurs Sotuv Script Accordion -->
+    {% if sales_script %}
+    <div class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-100">
+        <button type="button" onclick="toggleAccordion('script')" class="w-full flex items-center justify-between text-left">
+            <div class="flex items-center">
+                <div class="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                    <i class="fas fa-file-alt text-indigo-600"></i>
+                </div>
+                <h2 class="text-xl font-bold text-gray-900">Sotuv Scripti</h2>
+                {% if sales_script_course_name %}
+                <span class="ml-3 text-sm text-gray-500">({{ sales_script_course_name }})</span>
+                {% endif %}
+            </div>
+            <i id="script-icon" class="fas fa-chevron-down text-gray-400 transition-transform duration-200"></i>
+        </button>
+        
+        <div id="script-content" class="hidden mt-6">
+            <div class="border-2 border-indigo-200 rounded-lg p-4 bg-indigo-50">
+                <div class="prose prose-sm max-w-none">
+                    <div class="text-sm text-gray-800 whitespace-pre-line leading-relaxed">{{ sales_script }}</div>
+                </div>
+            </div>
+            <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p class="text-xs text-yellow-800">
+                    <i class="fas fa-lightbulb mr-1"></i>
+                    Bu script sizga mijoz bilan qanday gaplashishni ko'rsatadi. Script asosida ish olib boring va mijozning ehtiyojiga qarab sozlang.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     
     <!-- Sinov darslari -->
     <div class="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
@@ -368,6 +459,19 @@ function toggleEditForm() {
         leadInfoCard.classList.remove('hidden');
         editToggleBtn.innerHTML = '<i class="fas fa-edit"></i>Tahrirlash';
         editToggleBtn.className = 'inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out';
+    }
+}
+
+function toggleAccordion(accordionName) {
+    const content = document.getElementById(accordionName + '-content');
+    const icon = document.getElementById(accordionName + '-icon');
+    
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        icon.classList.add('rotate-180');
+    } else {
+        content.classList.add('hidden');
+        icon.classList.remove('rotate-180');
     }
 }
 </script>

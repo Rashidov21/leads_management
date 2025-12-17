@@ -29,9 +29,9 @@
     {% if inbox_messages %}
     <div class="space-y-4">
         {% for message in inbox_messages %}
-        <a href="{% url 'sales_message_detail' message.pk %}" class="block bg-white shadow-lg rounded-xl p-6 border-2 {% if message.id not in read_message_ids %}border-blue-500 bg-blue-50{% else %}border-gray-200 hover:border-indigo-300{% endif %} transition-all">
+        <div class="block bg-white shadow-lg rounded-xl p-6 border-2 {% if message.id not in read_message_ids %}border-blue-500 bg-blue-50{% else %}border-gray-200{% endif %} transition-all">
             <div class="flex items-start justify-between">
-                <div class="flex-1">
+                <a href="{% url 'sales_message_detail' message.pk %}" class="flex-1 hover:opacity-80 transition-opacity">
                     <div class="flex items-center space-x-3 mb-3">
                         <h3 class="text-lg font-semibold text-gray-900 {% if message.id not in read_message_ids %}font-bold{% endif %}">
                             {{ message.subject }}
@@ -51,12 +51,17 @@
                         <span class="text-green-600"><i class="fab fa-telegram mr-1"></i>Telegram orqali</span>
                         {% endif %}
                     </div>
-                </div>
-                <div class="ml-4">
+                </a>
+                <div class="ml-4 flex items-center gap-2">
+                    {% if user.is_admin %}
+                    <a href="{% url 'sales_message_delete' message.pk %}" class="inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 rounded-lg shadow-md hover:shadow-xl hover:from-red-700 hover:to-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-red-700/30" onclick="return confirm('Bu xabarni o\'chirmoqchimisiz?')">
+                        <i class="fas fa-trash-alt"></i>
+                    </a>
+                    {% endif %}
                     <i class="fas fa-chevron-right text-gray-400"></i>
                 </div>
             </div>
-        </a>
+        </div>
         {% endfor %}
     </div>
     {% else %}
@@ -68,4 +73,5 @@
     {% endif %}
 </div>
 {% endblock %}
+
 

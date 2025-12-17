@@ -848,11 +848,10 @@ class GoogleSheetsService:
             
             # Bulk yaratish va taqsimlash
             if leads_to_import:
-                # Avval lidlarni saqlash
-                for lead in leads_to_import:
-                    lead.save()
-                
-                # Taqsimlash (notification ichida)
+                # Taqsimlash (ichida save va notification bo'ladi)
+                # MUHIM: Lidlarni avval save qilmaslik! 
+                # distribute_leads ichida assigned_sales bilan birga save qiladi
+                # Bu signal'ni to'g'ri ishlashi uchun zarur
                 from .services import LeadDistributionService
                 LeadDistributionService.distribute_leads(leads_to_import)
                 

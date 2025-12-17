@@ -22,7 +22,7 @@
         </div>
         <div class="flex space-x-3">
             <a href="{% url 'followups_today' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-indigo-700/30">
-                <i class="fas fa-tasks"></i>Follow-ups
+                <i class="fas fa-tasks"></i>Qayta Aloqalar
             </a>
             <a href="{% url 'leads_list' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
                 <i class="fas fa-users"></i>Barcha Lidlar
@@ -79,7 +79,7 @@
             <div class="p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Overdue</p>
+                        <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Muddati O'tgan</p>
                         <p class="mt-2 text-3xl font-bold text-red-600">{{ overdue_followups }}</p>
                     </div>
                     <div class="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
@@ -110,7 +110,7 @@
             <div class="p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Bugungi Follow-ups</p>
+                        <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Bugungi Aloqalar</p>
                         <p class="mt-2 text-3xl font-bold text-blue-600">{{ today_followups }}</p>
                     </div>
                     <div class="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -124,7 +124,7 @@
             <div class="p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Overdue</p>
+                        <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Muddati O'tgan</p>
                         <p class="mt-2 text-3xl font-bold {% if overdue_followups > 0 %}text-red-600{% else %}text-green-600{% endif %}">
                             {{ overdue_followups }}
                         </p>
@@ -146,11 +146,11 @@
             <div class="ml-3">
                 <h3 class="text-sm font-medium text-red-800">Ogohlantirish!</h3>
                 <div class="mt-2 text-sm text-red-700">
-                    <p>Sizda 5+ overdue follow-up bor. Yangi lidlar bloklangan. Iltimos, overdue follow-uplarni bajarib bo'ling.</p>
+                    <p>Sizda 5+ muddati o'tgan aloqa bor. Yangi lidlar bloklangan. Iltimos, muddati o'tgan aloqalarni bajarib bo'ling.</p>
                 </div>
                 <div class="mt-4">
                     <a href="{% url 'followups_today' %}" class="text-sm font-medium text-red-800 hover:text-red-900 underline">
-                        Follow-uplarni ko'rish <i class="fas fa-arrow-right ml-1"></i>
+                        Aloqalarni ko'rish <i class="fas fa-arrow-right ml-1"></i>
                     </a>
                 </div>
             </div>
@@ -159,7 +159,7 @@
     {% endif %}
     {% endif %}
     
-    <!-- Overdue Follow-ups Ro'yxati -->
+    <!-- Muddati O'tgan Aloqalar Ro'yxati -->
     {% if overdue_followups > 0 %}
     <div class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-red-200">
         <div class="flex items-center justify-between mb-6">
@@ -168,8 +168,8 @@
                     <i class="fas fa-exclamation-triangle text-red-600"></i>
                 </div>
                 <div>
-                    <h2 class="text-xl font-bold text-gray-900">Overdue Follow-ups</h2>
-                    <p class="text-sm text-gray-500 mt-1">Vaqti o'tib ketgan follow-up'lar</p>
+                    <h2 class="text-xl font-bold text-gray-900">Muddati O'tgan Aloqalar</h2>
+                    <p class="text-sm text-gray-500 mt-1">Muddati o'tib ketgan aloqalar</p>
                 </div>
             </div>
             <a href="{% url 'overdue_followups_list' %}" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-red-600 via-red-600 to-red-700 rounded-lg shadow-md hover:shadow-xl hover:from-red-700 hover:via-red-700 hover:to-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-red-700/30">
@@ -241,7 +241,7 @@
         {% else %}
         <div class="text-center py-8">
             <i class="fas fa-check-circle text-green-400 text-4xl mb-3"></i>
-            <p class="text-gray-500 text-sm">Overdue follow-up'lar yo'q</p>
+            <p class="text-gray-500 text-sm">Muddati o'tgan aloqalar yo'q</p>
         </div>
         {% endif %}
     </div>
@@ -282,7 +282,7 @@
                     </div>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-900 group-hover:text-indigo-700">Follow-ups</p>
+                    <p class="text-sm font-medium text-gray-900 group-hover:text-indigo-700">Aloqalar</p>
                     <p class="text-xs text-gray-500">Bugungi vazifalar</p>
                 </div>
             </a>

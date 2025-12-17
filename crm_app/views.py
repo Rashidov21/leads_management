@@ -23,7 +23,7 @@ from .forms import (
 from .decorators import role_required, admin_required, manager_or_admin_required
 from .services import (
     LeadDistributionService, FollowUpService, GroupService,
-    KPIService, ReactivationService, OfferService
+    KPIService, ReactivationService, OfferService, GoogleSheetsService
 )
 try:
     import pandas as pd
@@ -305,12 +305,32 @@ def lead_detail(request, pk):
         form = LeadStatusForm(instance=lead)
         edit_form = LeadForm(instance=lead)
     
+    # Faol takliflarni olish
+    from .services import OfferService
+    active_offers = OfferService.active_for_lead(lead, channel='all')
+    
+    # Kurs sotuv scriptini olish
+    sales_script = None
+    sales_script_course_name = None
+    if lead.interested_course:
+        sales_script = lead.interested_course.sales_script
+        sales_script_course_name = lead.interested_course.name
+    else:
+        # Umumiy sotuv scriptini qidirish
+        general_course = Course.objects.filter(name__icontains='umumiy').first()
+        if general_course:
+            sales_script = general_course.sales_script
+            sales_script_course_name = "Umumiy"
+    
     context = {
         'lead': lead,
         'form': form,
         'edit_form': edit_form,
         'followups': lead.followups.select_related('sales').all().order_by('-due_date'),
         'trials': lead.trials.select_related('group', 'group__course', 'room').all().order_by('-date'),
+        'active_offers': active_offers,
+        'sales_script': sales_script,
+        'sales_script_course_name': sales_script_course_name,
     }
     return render(request, 'leads/detail.html', context)
 
@@ -462,19 +482,14 @@ def excel_import(request):
                     messages.error(request, 'Excel fayllarni o\'qish uchun pandas yoki openpyxl kerak')
                     return render(request, 'leads/import.html', {'form': form})
                 
-                # Taqsimlash (distribute_leads ichida allaqachon lead.save() va notification yuboriladi)
+                # Taqsimlash (distribute_leads ichida save va notification yuboriladi)
                 if leads:
-                    # Avval barcha lidlarni saqlash (assigned_sales bo'lmasa ham)
-                    # Bu kerak, chunki distribute_leads ichida lead.save() chaqiriladi
-                    for lead in leads:
-                        if not lead.pk:  # Faqat yangi lidlar
-                            lead.save()
-                    
-                    # Keyin taqsimlash (ichida notification yuboriladi)
-                    # distribute_leads ichida lead.save() chaqiriladi va notification yuboriladi
+                    # MUHIM: Lidlarni avval save qilmaslik! 
+                    # distribute_leads ichida assigned_sales bilan birga save qiladi
+                    # Bu signal'ni to'g'ri ishlashi va follow-up yaratilishi uchun zarur
                     LeadDistributionService.distribute_leads(leads)
                     
-                    messages.success(request, f'{len(leads)} ta lid import qilindi')
+                    messages.success(request, f'{len(leads)} ta lid import qilindi va taqsimlandi')
                 else:
                     messages.warning(request, 'Yangi lid topilmadi')
                 
@@ -485,6 +500,47 @@ def excel_import(request):
         form = ExcelImportForm()
     
     return render(request, 'leads/import.html', {'form': form})
+
+
+@login_required
+@role_required('admin', 'sales_manager')
+def google_sheets_manual_import(request):
+    """Google Sheets'dan qo'lda yangi lidlarni import qilish (tugma bosilganda)"""
+    from django.conf import settings
+    
+    try:
+        # .env dan konfiguratsiyani olish
+        spreadsheet_id = getattr(settings, 'GOOGLE_SHEETS_SPREADSHEET_ID', None)
+        worksheet_name = getattr(settings, 'GOOGLE_SHEETS_WORKSHEET_NAME', 'Sheet1')
+        
+        if not spreadsheet_id:
+            messages.error(request, 'Google Sheets ID sozlanmagan! .env faylda GOOGLE_SHEETS_SPREADSHEET_ID ni sozlang.')
+            return redirect('leads_list')
+        
+        # Import qilish (avtomatik import bilan bir xil logika)
+        result = GoogleSheetsService.import_new_leads(
+            spreadsheet_id=spreadsheet_id,
+            worksheet_name=worksheet_name
+        )
+        
+        # Natijalarni ko'rsatish
+        if result['imported'] > 0:
+            messages.success(request, f"✅ {result['imported']} ta yangi lid muvaffaqiyatli import qilindi!")
+        elif result['skipped'] > 0:
+            messages.info(request, f"ℹ️ Yangi lid topilmadi. {result['skipped']} ta lid allaqachon mavjud.")
+        else:
+            messages.info(request, "ℹ️ Yangi lid topilmadi.")
+        
+        if result['errors']:
+            for error in result['errors'][:3]:  # Faqat birinchi 3 ta xatoni ko'rsatish
+                messages.warning(request, f"⚠️ {error}")
+            if len(result['errors']) > 3:
+                messages.warning(request, f"... va yana {len(result['errors']) - 3} ta xato")
+        
+    except Exception as e:
+        messages.error(request, f'❌ Xatolik yuz berdi: {str(e)}')
+    
+    return redirect('leads_list')
 
 
 # ============ FOLLOW-UP MANAGEMENT ============
@@ -741,6 +797,34 @@ def bulk_complete_overdue(request):
                 messages.success(request, f'{count} ta follow-up bajarilgan deb belgilandi')
             if skipped > 0:
                 messages.warning(request, f'{skipped} ta follow-up o\'tkazib yuborildi')
+    
+    return redirect('overdue_followups_list')
+
+
+@login_required
+@admin_required
+def bulk_delete_overdue(request):
+    """Bir nechta overdue'larni o'chirish (faqat admin)"""
+    if request.method == 'POST':
+        followup_ids = request.POST.getlist('followup_ids')
+        
+        if not followup_ids:
+            messages.error(request, "Hech qanday follow-up tanlanmagan")
+        else:
+            count = 0
+            for followup_id in followup_ids:
+                try:
+                    followup = get_object_or_404(FollowUp, pk=followup_id)
+                    # Mark as completed instead of deleting from database
+                    followup.completed = True
+                    followup.is_overdue = False
+                    followup.save()
+                    count += 1
+                except Exception as e:
+                    pass
+            
+            if count > 0:
+                messages.success(request, f'{count} ta overdue follow-up o\'chirildi (bajarilgan deb belgilandi)')
     
     return redirect('overdue_followups_list')
 
@@ -1705,3 +1789,27 @@ def sales_message_detail(request, pk):
     )
     
     return render(request, 'messages/detail.html', {'message': message})
+
+
+@login_required
+def sales_message_delete(request, pk):
+    """Xabarni o'chirish (admin yoki yuboruvchi)"""
+    message = get_object_or_404(SalesMessage, pk=pk)
+    
+    # Faqat admin yoki yuboruvchi o'chira oladi
+    if not (request.user.is_admin or message.sender == request.user):
+        messages.error(request, "Sizda bu xabarni o'chirish huquqi yo'q")
+        return redirect('sales_message_list')
+    
+    if request.method == 'POST':
+        message_subject = message.subject
+        message.delete()
+        messages.success(request, f'Xabar "{message_subject}" o\'chirildi')
+        
+        # Agar admin bo'lsa, list sahifasiga, aks holda o'z list sahifasiga
+        if request.user.is_admin or request.user.role == 'sales_manager':
+            return redirect('sales_message_list')
+        else:
+            return redirect('sales_message_inbox')
+    
+    return render(request, 'messages/delete_confirm.html', {'message': message})

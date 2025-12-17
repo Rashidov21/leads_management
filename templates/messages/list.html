@@ -35,6 +35,7 @@
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Prioritet</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Telegram</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Yuborilgan</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Amallar</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -67,6 +68,13 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ message.created_at|date:"d.m.Y H:i" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            {% if user.is_admin or message.sender == user %}
+                            <a href="{% url 'sales_message_delete' message.pk %}" class="inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-red-600 to-red-700 rounded-lg shadow-md hover:shadow-xl hover:from-red-700 hover:to-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-red-700/30" onclick="return confirm('Bu xabarni o\'chirmoqchimisiz?')">
+                                <i class="fas fa-trash-alt"></i>O'chirish
+                            </a>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}

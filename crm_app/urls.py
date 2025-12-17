@@ -15,6 +15,7 @@ urlpatterns = [
     path('leads/<int:pk>/', views.lead_detail, name='lead_detail'),
     path('leads/<int:pk>/assign/', views.lead_assign, name='lead_assign'),
     path('leads/import/', views.excel_import, name='excel_import'),
+    path('leads/import/google-sheets/', views.google_sheets_manual_import, name='google_sheets_manual_import'),
     path('leads/table/', views.leads_table, name='leads_table'),
     
     # Follow-ups
@@ -24,6 +25,7 @@ urlpatterns = [
     path('followups/overdue/bulk/reschedule/', views.bulk_reschedule_overdue, name='bulk_reschedule_overdue'),
     path('followups/overdue/bulk/reassign/', views.bulk_reassign_overdue, name='bulk_reassign_overdue'),
     path('followups/overdue/bulk/complete/', views.bulk_complete_overdue, name='bulk_complete_overdue'),
+    path('followups/overdue/bulk/delete/', views.bulk_delete_overdue, name='bulk_delete_overdue'),
     
     # Trials
     path('trials/register/<int:lead_pk>/', views.trial_register, name='trial_register'),
@@ -78,6 +80,7 @@ urlpatterns = [
     # Sales Messages (Manager/Admin)
     path('messages/create/', views.sales_message_create, name='sales_message_create'),
     path('messages/', views.sales_message_list, name='sales_message_list'),
+    path('messages/<int:pk>/delete/', views.sales_message_delete, name='sales_message_delete'),
     
     # Sales Messages (Sales)
     path('messages/inbox/', views.sales_message_inbox, name='sales_message_inbox'),

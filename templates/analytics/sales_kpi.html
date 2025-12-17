@@ -40,7 +40,7 @@
             <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-5 border-l-4 border-purple-500">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Follow-up</p>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Qayta aloqa</p>
                         <p class="text-3xl font-bold text-purple-900">{{ today_kpi.daily_followups }}</p>
                         <p class="text-xs text-gray-600 mt-1">{{ today_kpi.followup_completion_rate|floatformat:1 }}% bajarildi</p>
                     </div>
@@ -73,7 +73,7 @@
                 <p class="text-2xl font-bold text-gray-900">{{ today_kpi.response_time_minutes|floatformat:1 }} daqiqa</p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Overdue</p>
+                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Muddati o'tgan</p>
                 <p class="text-2xl font-bold {% if today_kpi.overdue_count > 0 %}text-red-600{% else %}text-green-600{% endif %}">
                     {{ today_kpi.overdue_count }}
                 </p>
@@ -95,7 +95,7 @@
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sana</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Aloqa</th>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Follow-up</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Qayta aloqa</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sinov</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sotuv</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Konversiya</th>
@@ -147,7 +147,7 @@
             <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-5 border-l-4 border-purple-500">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Jami Follow-up</p>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Jami aloqa</p>
                         <p class="text-3xl font-bold text-purple-900">{{ monthly_stats.total_followups }}</p>
                     </div>
                     <i class="fas fa-tasks text-purple-400 text-3xl"></i>

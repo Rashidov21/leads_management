@@ -28,6 +28,9 @@
             <a href="{% url 'excel_import' %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
                 <i class="fas fa-file-excel"></i>Excel Import
             </a>
+            <a href="{% url 'google_sheets_manual_import' %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-gradient-to-r from-green-600 via-green-600 to-green-700 rounded-lg shadow-sm hover:shadow-md hover:from-green-700 hover:via-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-green-700/30" title="Google Sheets'dan yangi lidlarni import qilish">
+                <i class="fas fa-sync-alt"></i>Google Sheets Import
+            </a>
             <a href="{% url 'leads_table' %}" class="inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
                 <i class="fas fa-list"></i>Lidlar ro'yxati
             </a>
@@ -250,11 +253,11 @@
                                     <span>{{ lead.created_at|date:"d.m.Y" }}</span>
                                 </div>
                                 
-                                <!-- Overdue Follow-ups Indicator -->
+                                <!-- Muddati O'tgan Aloqalar Indikateri -->
                                 {% if lead.has_overdue_followup %}
                                 <div class="flex items-center text-xs text-red-600 font-semibold">
                                     <i class="fas fa-exclamation-triangle text-red-500 mr-2 w-4"></i>
-                                    <span>Overdue follow-up</span>
+                                    <span>Muddati o'tgan aloqa</span>
                                 </div>
                                 {% endif %}
                                 

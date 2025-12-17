@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}Xabarni O'chirish{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="mb-6" aria-label="Breadcrumb">
+    <ol class="flex items-center space-x-2 text-sm text-gray-500">
+        <li><a href="{% url 'dashboard' %}" class="hover:text-gray-700"><i class="fas fa-home"></i></a></li>
+        <li><span class="mx-2">/</span></li>
+        <li><a href="{% url 'sales_message_list' %}" class="hover:text-gray-700">Xabarlar</a></li>
+        <li><span class="mx-2">/</span></li>
+        <li class="text-gray-900 font-medium">O'chirish</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="px-4 py-5 sm:p-6">
+    <div class="max-w-2xl mx-auto">
+        <div class="bg-white shadow-lg rounded-xl p-6 border border-red-200">
+            <div class="flex items-center mb-6">
+                <div class="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center mr-4">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">Xabarni O'chirish</h1>
+                    <p class="text-sm text-gray-500 mt-1">Bu amal bekor qilinmaydi</p>
+                </div>
+            </div>
+            
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <h3 class="text-sm font-semibold text-gray-900 mb-2">Xabar ma'lumotlari:</h3>
+                <div class="space-y-2 text-sm">
+                    <div class="flex items-start">
+                        <span class="font-medium text-gray-700 w-32">Mavzu:</span>
+                        <span class="text-gray-900">{{ message.subject }}</span>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="font-medium text-gray-700 w-32">Xabar:</span>
+                        <span class="text-gray-900">{{ message.message|truncatewords:20 }}</span>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="font-medium text-gray-700 w-32">Yuboruvchi:</span>
+                        <span class="text-gray-900">{{ message.sender.username }}</span>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="font-medium text-gray-700 w-32">Qabul qiluvchilar:</span>
+                        <span class="text-gray-900">{{ message.recipients.count }} ta</span>
+                    </div>
+                    <div class="flex items-start">
+                        <span class="font-medium text-gray-700 w-32">Sana:</span>
+                        <span class="text-gray-900">{{ message.created_at|date:"d.m.Y H:i" }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-circle text-yellow-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-yellow-700">
+                            Xabarni o'chirsangiz, u barcha qabul qiluvchilar uchun ham o'chib ketadi. Bu amalni qaytarib bo'lmaydi.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <form method="POST" class="space-y-4">
+                {% csrf_token %}
+                <div class="flex space-x-3">
+                    <button type="submit" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-red-600 via-red-600 to-red-700 rounded-lg shadow-md hover:shadow-xl hover:from-red-700 hover:via-red-700 hover:to-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-red-700/30">
+                        <i class="fas fa-trash-alt"></i>Ha, O'chirish
+                    </button>
+                    <a href="{% url 'sales_message_list' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
+                        <i class="fas fa-times"></i>Bekor qilish
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
