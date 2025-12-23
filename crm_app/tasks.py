@@ -950,7 +950,7 @@ def import_leads_from_google_sheets():
         
         # .env fayldan Google Sheets konfiguratsiyasini olish
         spreadsheet_id = getattr(settings, 'GOOGLE_SHEETS_SPREADSHEET_ID', None)
-        worksheet_name = getattr(settings, 'GOOGLE_SHEETS_WORKSHEET_NAME', 'Sheet1')
+        worksheets = getattr(settings, 'GOOGLE_SHEETS_WORKSHEETS', [getattr(settings, 'GOOGLE_SHEETS_WORKSHEET_NAME', 'Sheet1')])
         
         if not spreadsheet_id:
             print("GOOGLE_SHEETS_SPREADSHEET_ID sozlanmagan! Task o'tkazib yuborildi.")
@@ -959,57 +959,58 @@ def import_leads_from_google_sheets():
                 'error': 'GOOGLE_SHEETS_SPREADSHEET_ID sozlanmagan'
             }
         
-        # Import qilish
-        result = GoogleSheetsService.import_new_leads(
-            spreadsheet_id=spreadsheet_id,
-            worksheet_name=worksheet_name
-        )
+        summary = {'imported': 0, 'skipped': 0, 'errors': []}
+        
+        for worksheet_name in worksheets:
+            result = GoogleSheetsService.import_new_leads(
+                spreadsheet_id=spreadsheet_id,
+                worksheet_name=worksheet_name
+            )
+            summary['imported'] += result.get('imported', 0)
+            summary['skipped'] += result.get('skipped', 0)
+            summary['errors'].extend([f"{worksheet_name}: {err}" for err in result.get('errors', [])])
         
         # Log
-        if result['imported'] > 0:
-            print(f"[{timezone.now()}] Google Sheets: {result['imported']} ta yangi lid import qilindi")
+        if summary['imported'] > 0:
+            print(f"[{timezone.now()}] Google Sheets: {summary['imported']} ta yangi lid import qilindi (multi-sheet)")
             
             # Admin/Manager'larga xabar
-            if result['imported'] > 0:
-                from .telegram_bot import send_telegram_notification
+            if settings.TELEGRAM_ADMIN_CHAT_ID:
+                message = (
+                    f"📊 <b>Google Sheets Auto-Import</b>\n"
+                    f"{'=' * 30}\n\n"
+                    f"✅ <b>Import qilindi:</b> {summary['imported']} ta lid\n"
+                    f"⏭ <b>O'tkazib yuborildi:</b> {summary['skipped']} ta\n"
+                )
                 
-                # Admin chat
-                if settings.TELEGRAM_ADMIN_CHAT_ID:
-                    message = (
-                        f"📊 <b>Google Sheets Auto-Import</b>\n"
-                        f"{'=' * 30}\n\n"
-                        f"✅ <b>Import qilindi:</b> {result['imported']} ta lid\n"
-                        f"⏭ <b>O'tkazib yuborildi:</b> {result['skipped']} ta\n"
+                if summary['errors']:
+                    message += f"\n⚠️ <b>Xatoliklar:</b> {len(summary['errors'])} ta\n"
+                
+                send_telegram_notification(
+                    settings.TELEGRAM_ADMIN_CHAT_ID,
+                    message
+                )
+            
+            # Manager/Admin telegram group'lariga ham yuborish
+            managers = User.objects.filter(role__in=['admin', 'sales_manager'])
+            for manager in managers:
+                if manager.telegram_group_id:
+                    short_message = (
+                        f"📊 <b>Google Sheets Import</b>\n"
+                        f"✅ {summary['imported']} ta yangi lid\n"
+                        f"⏭ {summary['skipped']} ta o'tkazib yuborildi"
                     )
-                    
-                    if result['errors']:
-                        message += f"\n⚠️ <b>Xatoliklar:</b> {len(result['errors'])} ta\n"
-                    
                     send_telegram_notification(
-                        settings.TELEGRAM_ADMIN_CHAT_ID,
-                        message
+                        manager.telegram_group_id,
+                        short_message
                     )
-                
-                # Manager/Admin telegram group'lariga ham yuborish
-                managers = User.objects.filter(role__in=['admin', 'sales_manager'])
-                for manager in managers:
-                    if manager.telegram_group_id:
-                        short_message = (
-                            f"📊 <b>Google Sheets Import</b>\n"
-                            f"✅ {result['imported']} ta yangi lid\n"
-                            f"⏭ {result['skipped']} ta o'tkazib yuborildi"
-                        )
-                        send_telegram_notification(
-                            manager.telegram_group_id,
-                            short_message
-                        )
         else:
-            print(f"[{timezone.now()}] Google Sheets: Yangi lid topilmadi")
+            print(f"[{timezone.now()}] Google Sheets: Yangi lid topilmadi (multi-sheet)")
         
-        if result['errors']:
-            print(f"[{timezone.now()}] Google Sheets xatoliklar: {result['errors']}")
+        if summary['errors']:
+            print(f"[{timezone.now()}] Google Sheets xatoliklar: {summary['errors']}")
         
-        return result
+        return summary
         
     except Exception as e:
         print(f"[{timezone.now()}] Google Sheets import xatolik: {e}")

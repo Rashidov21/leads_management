@@ -511,31 +511,41 @@ def google_sheets_manual_import(request):
     try:
         # .env dan konfiguratsiyani olish
         spreadsheet_id = getattr(settings, 'GOOGLE_SHEETS_SPREADSHEET_ID', None)
-        worksheet_name = getattr(settings, 'GOOGLE_SHEETS_WORKSHEET_NAME', 'Sheet1')
+        worksheets = getattr(
+            settings,
+            'GOOGLE_SHEETS_WORKSHEETS',
+            [getattr(settings, 'GOOGLE_SHEETS_WORKSHEET_NAME', 'Sheet1')]
+        )
         
         if not spreadsheet_id:
             messages.error(request, 'Google Sheets ID sozlanmagan! .env faylda GOOGLE_SHEETS_SPREADSHEET_ID ni sozlang.')
             return redirect('leads_list')
         
-        # Import qilish (avtomatik import bilan bir xil logika)
-        result = GoogleSheetsService.import_new_leads(
-            spreadsheet_id=spreadsheet_id,
-            worksheet_name=worksheet_name
-        )
+        summary = {'imported': 0, 'skipped': 0, 'errors': []}
+        
+        # Bir nechta worksheetlar bo'yicha import qilish
+        for worksheet_name in worksheets:
+            result = GoogleSheetsService.import_new_leads(
+                spreadsheet_id=spreadsheet_id,
+                worksheet_name=worksheet_name
+            )
+            summary['imported'] += result.get('imported', 0)
+            summary['skipped'] += result.get('skipped', 0)
+            summary['errors'].extend([f"{worksheet_name}: {err}" for err in result.get('errors', [])])
         
         # Natijalarni ko'rsatish
-        if result['imported'] > 0:
-            messages.success(request, f"✅ {result['imported']} ta yangi lid muvaffaqiyatli import qilindi!")
-        elif result['skipped'] > 0:
-            messages.info(request, f"ℹ️ Yangi lid topilmadi. {result['skipped']} ta lid allaqachon mavjud.")
+        if summary['imported'] > 0:
+            messages.success(request, f"✅ {summary['imported']} ta yangi lid muvaffaqiyatli import qilindi!")
+        elif summary['skipped'] > 0:
+            messages.info(request, f"ℹ️ Yangi lid topilmadi. {summary['skipped']} ta lid allaqachon mavjud.")
         else:
             messages.info(request, "ℹ️ Yangi lid topilmadi.")
         
-        if result['errors']:
-            for error in result['errors'][:3]:  # Faqat birinchi 3 ta xatoni ko'rsatish
+        if summary['errors']:
+            for error in summary['errors'][:3]:  # Faqat birinchi 3 ta xatoni ko'rsatish
                 messages.warning(request, f"⚠️ {error}")
-            if len(result['errors']) > 3:
-                messages.warning(request, f"... va yana {len(result['errors']) - 3} ta xato")
+            if len(summary['errors']) > 3:
+                messages.warning(request, f"... va yana {len(summary['errors']) - 3} ta xato")
         
     except Exception as e:
         messages.error(request, f'❌ Xatolik yuz berdi: {str(e)}')

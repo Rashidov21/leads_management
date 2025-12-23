@@ -212,6 +212,11 @@ TELEGRAM_ADMIN_CHAT_ID = os.getenv('TELEGRAM_ADMIN_CHAT_ID', '')
 GOOGLE_SHEETS_CREDENTIALS = os.getenv('GOOGLE_SHEETS_CREDENTIALS', '')
 GOOGLE_SHEETS_SPREADSHEET_ID = os.getenv('GOOGLE_SHEETS_SPREADSHEET_ID', '')
 GOOGLE_SHEETS_WORKSHEET_NAME = os.getenv('GOOGLE_SHEETS_WORKSHEET_NAME', 'Sheet1')
+# Bir nechta worksheetlarni kuzatish uchun ro'yxat (vergul bilan ajratilgan env qiymatini qo'llab-quvvatlaydi)
+GOOGLE_SHEETS_WORKSHEETS = [
+    name.strip() for name in os.getenv('GOOGLE_SHEETS_WORKSHEETS', GOOGLE_SHEETS_WORKSHEET_NAME).split(',')
+    if name.strip()
+]
 
 # Login URLs
 LOGIN_URL = '/login/'
