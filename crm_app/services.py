@@ -1,7 +1,7 @@
 from django.utils import timezone
 from django.db import models
 from datetime import timedelta
-from .models import User, Lead, FollowUp, Group, TrialLesson, KPI, Reactivation, Offer
+from .models import User, Lead, FollowUp, Group, TrialLesson, KPI, Reactivation, Offer,Course
 
 
 class LeadDistributionService:
@@ -836,7 +836,7 @@ class GoogleSheetsService:
                         secondary_phone=secondary_phone if secondary_phone else None,
                         source=source,
                         interested_course=interested_course,
-                        notes=f"Google Sheets'dan avtomatik import (row {idx + 1})"
+                        notes=f"Google Sheets'dan avtomatik import (row {idx + 1}).\nQiziqish bildirgan kursi: {interested_course.name if interested_course else 'Belgilanmagan'}.\nManba: {source}"
                     )
                     leads_to_import.append(lead)
                     
