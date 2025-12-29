@@ -191,12 +191,23 @@ class FollowUpService:
         return queryset.order_by('due_date')
     
     @staticmethod
-    def get_overdue_followups(sales=None):
-        """Overdue follow-uplarni olish"""
+    def get_overdue_followups(sales=None, grace_period_hours=2):
+        """
+        Overdue follow-uplarni olish (grace period bilan)
+        
+        Args:
+            sales: User instance yoki None (barcha sotuvchilar uchun)
+            grace_period_hours: Grace period (soat). Default: 2 soat
+                              Follow-up due_date o'tgandan keyin ham 
+                              grace period davomida overdue hisoblanmaydi
+        """
+        now = timezone.now()
+        grace_threshold = now - timedelta(hours=grace_period_hours)
+        
         queryset = FollowUp.objects.select_related(
             'lead', 'sales', 'lead__assigned_sales', 'lead__interested_course'
         ).filter(
-            due_date__lt=timezone.now(),
+            due_date__lt=grace_threshold,  # Grace period o'tgandan keyin overdue
             completed=False
         )
         
@@ -207,9 +218,24 @@ class FollowUpService:
     
     @staticmethod
     def check_sales_blocked(sales):
-        """Sotuvchi bloklanganligini tekshirish (5+ overdue)"""
+        """
+        Sotuvchi bloklanganligini tekshirish (dinamik threshold)
+        
+        Threshold dinamik: umumiy follow-up yukining 20% dan ko'p bo'lsa
+        yoki minimum 8 ta overdue bo'lsa
+        """
         overdue_count = FollowUpService.get_overdue_followups(sales).count()
-        return overdue_count >= 5
+        
+        # Sotuvchining umumiy follow-up yukini hisoblash
+        total_active_followups = FollowUp.objects.filter(
+            sales=sales,
+            completed=False
+        ).count()
+        
+        # Threshold dinamik: umumiy yukning 20% dan ko'p bo'lsa yoki minimum 8 ta
+        dynamic_threshold = max(8, int(total_active_followups * 0.2))
+        
+        return overdue_count >= dynamic_threshold
     
     @staticmethod
     def get_overdue_followups_prioritized(sales=None):
@@ -352,6 +378,60 @@ class FollowUpService:
             cache.set(cache_key, stats, 300)
         
         return stats
+    
+    @staticmethod
+    def get_sales_overdue_summary(sales):
+        """
+        Sotuvchi uchun overdue xulosa (prioritet bo'yicha)
+        
+        Returns:
+            dict: {
+                'total': int,
+                'by_urgency': {
+                    'critical': int,  # 24+ soat overdue
+                    'high': int,     # 6-24 soat overdue
+                    'medium': int,   # 1-6 soat overdue
+                    'low': int,      # Grace period ichida (1 soatdan kam)
+                },
+                'is_blocked': bool,
+                'threshold': int,    # Dinamik threshold
+            }
+        """
+        overdue = FollowUpService.get_overdue_followups(sales)
+        now = timezone.now()
+        
+        # Grace period threshold (1 soat)
+        grace_threshold = now - timedelta(hours=1)
+        
+        summary = {
+            'total': overdue.count(),
+            'by_urgency': {
+                'critical': overdue.filter(
+                    due_date__lt=now - timedelta(hours=24)
+                ).count(),
+                'high': overdue.filter(
+                    due_date__gte=now - timedelta(hours=24),
+                    due_date__lt=now - timedelta(hours=6)
+                ).count(),
+                'medium': overdue.filter(
+                    due_date__gte=now - timedelta(hours=6),
+                    due_date__lt=grace_threshold
+                ).count(),
+                'low': overdue.filter(
+                    due_date__gte=grace_threshold
+                ).count(),
+            },
+            'is_blocked': FollowUpService.check_sales_blocked(sales),
+        }
+        
+        # Dinamik threshold'ni hisoblash
+        total_active_followups = FollowUp.objects.filter(
+            sales=sales,
+            completed=False
+        ).count()
+        summary['threshold'] = max(8, int(total_active_followups * 0.2))
+        
+        return summary
 
 
 class GroupService:

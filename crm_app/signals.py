@@ -30,22 +30,73 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
     from .services import FollowUpService
     
     if created:
-        # Yangi lid - 5 daqiqada qo'ng'iroq
+        # Yangi lid - dinamik delay (15-30 daqiqa, lidlar soniga qarab)
         # Agar assigned_sales bo'lsa, follow-up yaratish va notification yuborish
         if instance.assigned_sales:
             base_time = timezone.now()
-            delay = timedelta(minutes=5)
-            # Ish vaqtiga moslashtirish (5 daqiqa juda qisqa, lekin ish vaqti tashqarisida bo'lsa keyingi kun boshlanishiga)
+            
+            # Sotuvchining hozirgi follow-up yukini hisoblash (keyingi 24 soatda)
+            current_followups = FollowUp.objects.filter(
+                sales=instance.assigned_sales,
+                completed=False,
+                due_date__lte=timezone.now() + timedelta(hours=24)
+            ).count()
+            
+            # Bugungi yangi lidlar sonini hisoblash
+            today_new_leads = Lead.objects.filter(
+                assigned_sales=instance.assigned_sales,
+                created_at__date=timezone.now().date(),
+                status='new'
+            ).count()
+            
+            # Dinamik delay: 15-30 daqiqa orasida
+            # Agar bugun ko'p yangi lidlar bo'lsa, delay oshadi
+            if today_new_leads <= 5:
+                # Oddiy holat: 15 daqiqa
+                delay_minutes = 15
+            elif today_new_leads <= 10:
+                # O'rtacha: 20 daqiqa
+                delay_minutes = 20
+            elif today_new_leads <= 20:
+                # Ko'p: 25 daqiqa
+                delay_minutes = 25
+            else:
+                # Juda ko'p: 30 daqiqa (maksimum)
+                delay_minutes = 30
+            
+            # Agar sotuvchining hozirgi follow-up yuki ko'p bo'lsa, delay'ni yanada oshirish
+            if current_followups > 20:
+                delay_minutes = min(30, delay_minutes + 5)
+            elif current_followups > 10:
+                delay_minutes = min(30, delay_minutes + 3)
+            
+            delay = timedelta(minutes=delay_minutes)
+            
+            # Ish vaqtiga moslashtirish
             due_date = FollowUpService.calculate_work_hours_due_date(
                 instance.assigned_sales, 
                 base_time, 
                 delay
             )
+            
+            # Batch import uchun vaqt bo'yicha tarqatish
+            # Agar bugun ko'p yangi lidlar bo'lsa, ularni vaqt bo'yicha tarqatish
+            if today_new_leads > 10:
+                # Har bir lid uchun 5 daqiqa oraliq qo'shish
+                additional_delay = (today_new_leads - 10) * 5
+                delay_minutes = min(30, delay_minutes + additional_delay)
+                delay = timedelta(minutes=delay_minutes)
+                due_date = FollowUpService.calculate_work_hours_due_date(
+                    instance.assigned_sales, 
+                    base_time, 
+                    delay
+                )
+            
             followup = FollowUp.objects.create(
                 lead=instance,
                 sales=instance.assigned_sales,
                 due_date=due_date,
-                notes="Yangi lid - darhol aloqa qilish kerak"
+                notes=f"Yangi lid - darhol aloqa qilish kerak (yuklanish: {current_followups} follow-up, bugungi yangi: {today_new_leads})"
             )
             # Telegram xabarlar
             # Notification faqat bir marta yuborilishi kerak

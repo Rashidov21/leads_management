@@ -100,6 +100,39 @@ def check_overdue_followups_task():
 
 
 @shared_task
+def auto_reschedule_overdue_followups_task():
+    """Overdue follow-up'larni avtomatik qayta rejalashtirish"""
+    try:
+        print(f"[{timezone.now()}] auto_reschedule_overdue_followups_task ishga tushdi")
+        from .services import FollowUpService
+        
+        # Grace period o'tgan overdue'larni olish
+        overdue = FollowUpService.get_overdue_followups()
+        
+        # Faqat 1-6 soat overdue bo'lganlarni avtomatik reschedule qilish
+        now = timezone.now()
+        auto_reschedule_count = 0
+        
+        for followup in overdue:
+            hours_overdue = (now - followup.due_date).total_seconds() / 3600
+            
+            # 1-6 soat overdue bo'lsa, avtomatik reschedule
+            if 1 <= hours_overdue <= 6:
+                # Keyingi ish vaqtiga o'tkazish (2 soatdan keyin)
+                if FollowUpService.auto_reschedule_overdue(followup, hours_ahead=2):
+                    auto_reschedule_count += 1
+                    print(f"Auto-rescheduled follow-up {followup.id} (overdue: {hours_overdue:.1f} hours)")
+        
+        print(f"[{timezone.now()}] auto_reschedule_overdue_followups_task yakunlandi: {auto_reschedule_count} ta follow-up qayta rejalashtirildi")
+        return auto_reschedule_count
+    except Exception as e:
+        print(f"[{timezone.now()}] auto_reschedule_overdue_followups_task xatolik: {e}")
+        import traceback
+        traceback.print_exc()
+        return 0
+
+
+@shared_task
 def send_trial_reminder_task():
     """Sinov oldidan eslatma yuborish (2 soat oldin)"""
     try:

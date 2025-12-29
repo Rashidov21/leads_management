@@ -158,6 +158,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'crm_app.tasks.check_overdue_followups_task',
         'schedule': crontab(minute='*/15'),  # Har 15 daqiqada
     },
+    'auto-reschedule-overdue': {
+        'task': 'crm_app.tasks.auto_reschedule_overdue_followups_task',
+        'schedule': crontab(minute='*/30'),  # Har 30 daqiqada
+    },
     'send-followup-reminders': {
         'task': 'crm_app.tasks.send_followup_reminders_task',
         'schedule': crontab(minute='*/5'),  # Har 5 daqiqada (ish vaqtlarini tekshirish uchun)
