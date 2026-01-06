@@ -107,6 +107,47 @@ class FollowUpForm(forms.ModelForm):
         }
 
 
+class CustomFollowUpForm(forms.Form):
+    """Sotuvchilar uchun custom follow-up yaratish formasi"""
+    due_date = forms.DateTimeField(
+        label='Qayta aloqa vaqti',
+        widget=forms.DateTimeInput(attrs={
+            'class': 'form-input w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200',
+            'type': 'datetime-local'
+        })
+    )
+    notes = forms.CharField(
+        required=False,
+        label='Eslatma',
+        widget=forms.Textarea(attrs={
+            'class': 'form-textarea w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 resize-y min-h-[100px] placeholder:text-gray-400',
+            'rows': 4,
+            'placeholder': 'Qayta aloqa haqida eslatma (ixtiyoriy)...'
+        })
+    )
+    
+    def clean_due_date(self):
+        """Max 3 kun tekshirish"""
+        from django.utils import timezone
+        
+        due_date = self.cleaned_data.get('due_date')
+        if due_date:
+            now = timezone.now()
+            
+            # Hozirgi vaqtdan keyin bo'lishi kerak
+            if due_date <= now:
+                raise forms.ValidationError('Vaqt hozirgi vaqtdan keyin bo\'lishi kerak')
+            
+            # Max 3 kun tekshirish
+            days_diff = (due_date.date() - now.date()).days
+            if days_diff > 3:
+                raise forms.ValidationError('Qayta aloqa muddati 3 kundan oshmasligi kerak')
+            if days_diff < 0:
+                raise forms.ValidationError('Vaqt o\'tgan bo\'lishi mumkin emas')
+        
+        return due_date
+
+
 class ExcelImportForm(forms.Form):
     file = forms.FileField(
         label='Excel fayl',
@@ -451,6 +492,10 @@ class SalesMessageForm(forms.ModelForm):
             is_active_sales=True
         ).order_by('username')
         self.fields['recipients'].label = "Qabul qiluvchilar"
+        # CheckboxSelectMultiple uchun individual checkbox'larni stil qilish
+        self.fields['recipients'].widget.attrs.update({
+            'class': 'space-y-2'
+        })
 
 
 class OfferForm(forms.ModelForm):

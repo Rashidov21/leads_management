@@ -65,6 +65,7 @@ urlpatterns = [
     # Analytics
     path('analytics/', views.analytics, name='analytics'),
     path('analytics/my-kpi/', views.sales_kpi, name='sales_kpi'),
+    path('analytics/export-excel/', views.export_analytics_excel, name='export_analytics_excel'),
     
     # Leave Requests (Sales)
     path('leaves/create/', views.leave_request_create, name='leave_request_create'),
@@ -92,5 +93,3 @@ urlpatterns = [
     path('offers/<int:pk>/edit/', views.offer_edit, name='offer_edit'),
     path('offers/<int:pk>/delete/', views.offer_delete, name='offer_delete'),
 ]
-
-# 75.119.156.175

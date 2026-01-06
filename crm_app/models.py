@@ -524,67 +524,6 @@ class SalesMessageRead(models.Model):
 
 
 class Offer(models.Model):
-    """Chegirma/bonus/paket takliflari (admin va sales manager boshqaradi)"""
-    OFFER_TYPES = [
-        ('discount', 'Chegirma'),
-        ('bonus', 'Bonus'),
-        ('bundle', 'Paket'),
-        ('other', 'Boshqa'),
-    ]
-    CHANNEL_CHOICES = [
-        ('reactivation', 'Reaktivatsiya'),
-        ('followup', 'Follow-up'),
-        ('trial', 'Sinov'),
-        ('general', 'Umumiy'),
-    ]
-    AUDIENCE_CHOICES = [
-        ('new', 'Yangi'),
-        ('lost', "Yo'qotilgan"),
-        ('reactivation', 'Qayta aloqa'),
-        ('trial', 'Sinov'),
-        ('any', 'Barchasi'),
-    ]
-    PRIORITY_CHOICES = [
-        ('urgent', 'Shoshilinch'),
-        ('high', 'Yuqori'),
-        ('normal', 'Oddiy'),
-        ('low', 'Past'),
-    ]
-
-    title = models.CharField(max_length=200)
-    description = models.TextField(help_text="Bonus va qo'shimcha taklif matni")
-    offer_type = models.CharField(max_length=20, choices=OFFER_TYPES, default='discount')
-    course = models.ForeignKey(Course, on_delete=models.SET_NULL, null=True, blank=True, help_text="Muayyan kursga bog'lash (ixtiyoriy)")
-    valid_from = models.DateField(null=True, blank=True)
-    valid_until = models.DateField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
-    channel = models.CharField(max_length=50, default='general', help_text="Kanal: reactivation / followup / trial / general")
-    audience = models.CharField(max_length=20, choices=AUDIENCE_CHOICES, default='any')
-    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='normal')
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_offers')
-    updated_at = models.DateTimeField(auto_now=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-priority', '-created_at']
-        indexes = [
-            models.Index(fields=['is_active', 'valid_until'], name='offer_active_valid_idx'),
-            models.Index(fields=['audience', 'is_active'], name='offer_audience_active_idx'),
-        ]
-
-    def __str__(self):
-        return self.title
-
-    def is_valid_today(self):
-        today = timezone.now().date()
-        if self.valid_from and today < self.valid_from:
-            return False
-        if self.valid_until and today > self.valid_until:
-            return False
-        return self.is_active
-
-
-class Offer(models.Model):
     """Chegirmalar/bonuslar/takliflarni boshqarish"""
     OFFER_TYPE_CHOICES = [
         ('discount', 'Chegirma'),

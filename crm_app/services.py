@@ -72,6 +72,7 @@ class FollowUpService:
         """
         Follow-up vaqtini ish vaqtlariga moslashtirish
         Ruxsat so'rovlarini ham inobatga oladi
+        MUHIM: Agar hisoblangan vaqt o'tgan bo'lsa, keyingi ish vaqtiga o'tkazadi
         
         Args:
             sales: User model instance (sotuvchi)
@@ -79,15 +80,22 @@ class FollowUpService:
             delay: timedelta - kechikish (masalan, timedelta(hours=24))
         
         Returns:
-            datetime - ish vaqtiga moslashtirilgan follow-up vaqti
+            datetime - ish vaqtiga moslashtirilgan follow-up vaqti (hech qachon o'tmagan bo'lmaydi)
         """
+        # Hozirgi vaqt
+        now = timezone.now()
+        
         if not sales or not sales.is_active_sales:
             # Agar sotuvchi yo'q yoki faol emas bo'lsa, oddiy hisoblash
-            return base_time + delay
+            calculated = base_time + delay
+            # Agar o'tgan bo'lsa, hozirgi vaqtga o'tkazish
+            return max(calculated, now)
         
         # Agar ish vaqtlari belgilanmagan bo'lsa, oddiy hisoblash
         if not sales.work_start_time or not sales.work_end_time:
-            return base_time + delay
+            calculated = base_time + delay
+            # Agar o'tgan bo'lsa, hozirgi vaqtga o'tkazish
+            return max(calculated, now)
         
         # Ruxsat so'rovlarini tekshirish funksiyasi
         def is_on_leave_at_time(check_datetime):
@@ -116,6 +124,11 @@ class FollowUpService:
         # Hisoblangan vaqt
         calculated_time = base_time + delay
         
+        # Agar hisoblangan vaqt o'tgan bo'lsa, hozirgi vaqtdan boshlash
+        if calculated_time < now:
+            # Agar delay juda qisqa bo'lsa (masalan, 15 daqiqa), hozirgi vaqtdan boshlash
+            calculated_time = now + delay
+        
         # Ish kunlari
         work_days = {
             0: sales.work_monday,      # Dushanba
@@ -137,16 +150,19 @@ class FollowUpService:
         is_work_hours = sales.work_start_time <= calculated_time_only <= sales.work_end_time
         is_on_leave = is_on_leave_at_time(calculated_time)
         
-        # Agar ish vaqti ichida va ruxsat olmagan bo'lsa
-        if is_work_day and is_work_hours and not is_on_leave:
+        # Agar ish vaqti ichida va ruxsat olmagan bo'lsa va o'tmagan bo'lsa
+        if is_work_day and is_work_hours and not is_on_leave and calculated_time >= now:
             return calculated_time
         
-        # Agar ish vaqti tashqarisida yoki ruxsat olgan bo'lsa, keyingi ish kunini topish
-        # Hisoblangan kundan boshlab keyingi ish kunini topish
+        # Agar ish vaqti tashqarisida yoki ruxsat olgan bo'lsa yoki o'tgan bo'lsa, keyingi ish kunini topish
+        # Hozirgi kundan boshlab keyingi ish kunini topish
         max_days_to_check = 30  # 1 oy tekshirish (ruxsatlar uzoq bo'lishi mumkin)
         
+        # Hozirgi kundan boshlash (o'tgan vaqtlar uchun)
+        start_date = max(calculated_date, now.date())
+        
         for day_offset in range(max_days_to_check):
-            check_date = calculated_date + timedelta(days=day_offset)
+            check_date = start_date + timedelta(days=day_offset)
             check_weekday = check_date.weekday()
             
             # Agar bu ish kuni bo'lsa
@@ -156,22 +172,31 @@ class FollowUpService:
                     timezone.datetime.combine(check_date, sales.work_start_time)
                 )
                 
-                # Agar ruxsat olmagan bo'lsa
-                if not is_on_leave_at_time(work_start_datetime):
-                    if check_date == calculated_date:
-                        # Agar bu kun hisoblangan kun bo'lsa
-                        if calculated_time_only < sales.work_start_time:
-                            # Bugun ish vaqti boshlanishiga o'tkazish
+                # Agar ruxsat olmagan bo'lsa va o'tmagan bo'lsa
+                if not is_on_leave_at_time(work_start_datetime) and work_start_datetime >= now:
+                    # Agar bu bugun bo'lsa va hozirgi vaqt ish vaqti ichida bo'lsa
+                    if check_date == now.date():
+                        current_time = now.time()
+                        if sales.work_start_time <= current_time <= sales.work_end_time:
+                            # Hozirgi vaqtdan keyin eng yaqin vaqtni qaytarish
+                            # Agar delay juda qisqa bo'lsa, hozirgi vaqtga qo'shish
+                            if delay.total_seconds() < 3600:  # 1 soatdan kam
+                                return max(now + delay, now)
+                            else:
+                                # Keyingi ish vaqtiga o'tkazish
+                                continue
+                        elif current_time < sales.work_start_time:
+                            # Ish vaqti boshlanishiga o'tkazish
                             return work_start_datetime
-                        # Agar hisoblangan vaqt ish vaqti tugashidan keyin bo'lsa yoki ish kuni emas bo'lsa
-                        # Keyingi ish kunining boshlanishiga o'tkazish
-                        continue
+                        else:
+                            # Ish vaqti tugagan, keyingi kunga o'tkazish
+                            continue
                     
                     # Keyingi ish kunining boshlanish vaqtini qaytarish
                     return work_start_datetime
         
-        # Agar ish kuni topilmasa, oddiy hisoblangan vaqtni qaytarish
-        return calculated_time
+        # Agar ish kuni topilmasa, hozirgi vaqtga delay qo'shish
+        return max(now + delay, now)
     
     @staticmethod
     def get_today_followups(sales=None):
@@ -586,24 +611,31 @@ class KPIService:
         ).count()
         conversion_rate = (enrolled_today / total_assigned_today * 100) if total_assigned_today > 0 else 0
         
-        # Response time (o'rtacha)
-        # Soddalashtirilgan - lead yaratilgan vaqt va birinchi follow-up orasidagi vaqt
+        # Response time (o'rtacha) - lead yaratilgan vaqt va birinchi aloqa (contacted/interested) orasidagi vaqt
         response_times = []
         leads = Lead.objects.filter(assigned_sales=sales, created_at__date=date)
         for lead in leads:
-            first_followup = FollowUp.objects.filter(lead=lead).order_by('due_date').first()
-            if first_followup:
-                response_time = (first_followup.due_date - lead.created_at).total_seconds() / 60
-                response_times.append(response_time)
+            # Birinchi aloqa vaqtini topish (status contacted yoki interested bo'lgan vaqt)
+            # Lead history yoki updated_at orqali
+            if lead.status in ['contacted', 'interested']:
+                # Agar lead shu kunda contacted yoki interested bo'lgan bo'lsa
+                if lead.updated_at.date() == date:
+                    response_time = (lead.updated_at - lead.created_at).total_seconds() / 60
+                    # Faqat ijobiy response time (kelajakdagi vaqtlar emas)
+                    if response_time >= 0:
+                        response_times.append(response_time)
+            else:
+                # Agar hali contacted bo'lmagan bo'lsa, birinchi follow-up vaqtini olish
+                first_followup = FollowUp.objects.filter(lead=lead).order_by('due_date').first()
+                if first_followup:
+                    response_time = (first_followup.due_date - lead.created_at).total_seconds() / 60
+                    if response_time >= 0:
+                        response_times.append(response_time)
         
         response_time_minutes = sum(response_times) / len(response_times) if response_times else 0
         
-        # Overdue soni
-        overdue_count = FollowUp.objects.filter(
-            sales=sales,
-            is_overdue=True,
-            completed=False
-        ).count()
+        # Overdue soni (faqat shu kundagi overdue'lar, lekin umumiy overdue soni)
+        overdue_count = FollowUpService.get_overdue_followups(sales).count()
         
         # KPI yaratish yoki yangilash
         kpi, created = KPI.objects.update_or_create(
@@ -622,6 +654,454 @@ class KPIService:
         )
         
         return kpi
+    
+    @staticmethod
+    def get_sales_ranking(sales, period='month', metric='conversion_rate'):
+        """
+        Sotuvchi reytingini hisoblash
+        
+        Args:
+            sales: Sotuvchi
+            period: 'day', 'week', 'month'
+            metric: 'conversion_rate', 'daily_contacts', 'trials_to_sales', 'followup_completion_rate'
+        
+        Returns:
+            dict: {
+                'rank': int,
+                'total_sales': int,
+                'position': str,  # 'top', 'middle', 'bottom'
+                'value': float,
+                'average': float,
+                'best': float,
+                'worst': float
+            }
+        """
+        from datetime import datetime, timedelta
+        from django.db.models import Avg, Max, Min
+        
+        today = timezone.now().date()
+        
+        # Period bo'yicha sana oralig'ini aniqlash
+        if period == 'day':
+            start_date = today
+            end_date = today
+        elif period == 'week':
+            start_date = today - timedelta(days=7)
+            end_date = today
+        elif period == 'month':
+            start_date = datetime(today.year, today.month, 1).date()
+            end_date = today
+        else:
+            start_date = today - timedelta(days=30)
+            end_date = today
+        
+        # Barcha faol sotuvchilar
+        all_sales = User.objects.filter(role='sales', is_active_sales=True)
+        
+        # Har bir sotuvchi uchun ko'rsatkichni hisoblash
+        sales_metrics = []
+        for s in all_sales:
+            if period == 'day':
+                kpi = KPI.objects.filter(sales=s, date=start_date).first()
+                if not kpi:
+                    kpi = KPIService.calculate_daily_kpi(s, start_date)
+            else:
+                # Period uchun o'rtacha yoki yig'indi
+                kpis = KPI.objects.filter(sales=s, date__gte=start_date, date__lte=end_date)
+                if not kpis.exists():
+                    # Agar KPI'lar yo'q bo'lsa, hisoblaymiz
+                    current_date = start_date
+                    while current_date <= end_date:
+                        KPIService.calculate_daily_kpi(s, current_date)
+                        current_date += timedelta(days=1)
+                    kpis = KPI.objects.filter(sales=s, date__gte=start_date, date__lte=end_date)
+                
+                if metric == 'conversion_rate':
+                    value = kpis.aggregate(avg=Avg('conversion_rate'))['avg'] or 0
+                elif metric == 'daily_contacts':
+                    value = kpis.aggregate(avg=Avg('daily_contacts'))['avg'] or 0
+                elif metric == 'trials_to_sales':
+                    value = kpis.aggregate(avg=Avg('trials_to_sales'))['avg'] or 0
+                elif metric == 'followup_completion_rate':
+                    value = kpis.aggregate(avg=Avg('followup_completion_rate'))['avg'] or 0
+                else:
+                    value = 0
+                
+                sales_metrics.append({'sales': s, 'value': value})
+                continue
+            
+            # Kunlik KPI uchun
+            if metric == 'conversion_rate':
+                value = kpi.conversion_rate
+            elif metric == 'daily_contacts':
+                value = kpi.daily_contacts
+            elif metric == 'trials_to_sales':
+                value = kpi.trials_to_sales
+            elif metric == 'followup_completion_rate':
+                value = kpi.followup_completion_rate
+            else:
+                value = 0
+            
+            sales_metrics.append({'sales': s, 'value': value})
+        
+        # Qiymat bo'yicha tartiblash (tushuvchi tartibda)
+        sales_metrics.sort(key=lambda x: x['value'], reverse=True)
+        
+        # Sotuvchi o'rni
+        rank = 1
+        current_sales_value = None
+        for idx, item in enumerate(sales_metrics):
+            if item['sales'].id == sales.id:
+                rank = idx + 1
+                current_sales_value = item['value']
+                break
+        
+        # O'rtacha, eng yaxshi, eng yomon
+        if sales_metrics:
+            values = [item['value'] for item in sales_metrics]
+            average = sum(values) / len(values) if values else 0
+            best = max(values) if values else 0
+            worst = min(values) if values else 0
+        else:
+            average = best = worst = 0
+        
+        # Position
+        if rank <= len(sales_metrics) * 0.33:
+            position = 'top'
+        elif rank <= len(sales_metrics) * 0.67:
+            position = 'middle'
+        else:
+            position = 'bottom'
+        
+        return {
+            'rank': rank,
+            'total_sales': len(sales_metrics),
+            'position': position,
+            'value': current_sales_value or 0,
+            'average': average,
+            'best': best,
+            'worst': worst
+        }
+    
+    @staticmethod
+    def get_trend_comparison(sales, days=7, metric='daily_contacts'):
+        """
+        O'sish/pasayish ko'rsatkichlari
+        
+        Args:
+            sales: Sotuvchi
+            days: Necha kunlik taqqoslash
+            metric: Ko'rsatkich nomi
+        
+        Returns:
+            dict: {
+                'current': float,
+                'previous': float,
+                'change': float,  # foizda o'zgarish
+                'trend': str,  # 'up', 'down', 'stable'
+            }
+        """
+        from datetime import timedelta
+        
+        today = timezone.now().date()
+        previous_date = today - timedelta(days=days)
+        
+        # Joriy kunlik KPI
+        current_kpi = KPI.objects.filter(sales=sales, date=today).first()
+        if not current_kpi:
+            current_kpi = KPIService.calculate_daily_kpi(sales, today)
+        
+        # Oldingi kunlik KPI
+        previous_kpi = KPI.objects.filter(sales=sales, date=previous_date).first()
+        if not previous_kpi:
+            previous_kpi = KPIService.calculate_daily_kpi(sales, previous_date)
+        
+        # Ko'rsatkichlarni olish
+        if metric == 'daily_contacts':
+            current_value = current_kpi.daily_contacts
+            previous_value = previous_kpi.daily_contacts
+        elif metric == 'conversion_rate':
+            current_value = current_kpi.conversion_rate
+            previous_value = previous_kpi.conversion_rate
+        elif metric == 'trials_to_sales':
+            current_value = current_kpi.trials_to_sales
+            previous_value = previous_kpi.trials_to_sales
+        elif metric == 'followup_completion_rate':
+            current_value = current_kpi.followup_completion_rate
+            previous_value = previous_kpi.followup_completion_rate
+        else:
+            current_value = previous_value = 0
+        
+        # O'zgarish
+        if previous_value > 0:
+            change = ((current_value - previous_value) / previous_value) * 100
+        elif current_value > 0:
+            change = 100
+        else:
+            change = 0
+        
+        # Trend
+        if abs(change) < 5:
+            trend = 'stable'
+        elif change > 0:
+            trend = 'up'
+        else:
+            trend = 'down'
+        
+        return {
+            'current': current_value,
+            'previous': previous_value,
+            'change': change,
+            'trend': trend
+        }
+    
+    @staticmethod
+    def get_comparison_data(sales, period='month'):
+        """
+        Boshqa sotuvchilar bilan taqqoslash
+        
+        Args:
+            sales: Sotuvchi
+            period: 'day', 'week', 'month'
+        
+        Returns:
+            dict: {
+                'sales_value': dict,  # Sotuvchi ko'rsatkichlari
+                'average': dict,  # O'rtacha ko'rsatkichlar
+                'best': dict,  # Eng yaxshi ko'rsatkichlar
+                'worst': dict,  # Eng yomon ko'rsatkichlar
+            }
+        """
+        from datetime import datetime, timedelta
+        from django.db.models import Avg, Max, Min
+        
+        today = timezone.now().date()
+        
+        # Period bo'yicha sana oralig'ini aniqlash
+        if period == 'day':
+            start_date = today
+            end_date = today
+        elif period == 'week':
+            start_date = today - timedelta(days=7)
+            end_date = today
+        elif period == 'month':
+            start_date = datetime(today.year, today.month, 1).date()
+            end_date = today
+        else:
+            start_date = today - timedelta(days=30)
+            end_date = today
+        
+        # Barcha faol sotuvchilar
+        all_sales = User.objects.filter(role='sales', is_active_sales=True)
+        
+        # Sotuvchi KPI'lari
+        if period == 'day':
+            sales_kpi = KPI.objects.filter(sales=sales, date=start_date).first()
+            if not sales_kpi:
+                sales_kpi = KPIService.calculate_daily_kpi(sales, start_date)
+        else:
+            sales_kpis = KPI.objects.filter(sales=sales, date__gte=start_date, date__lte=end_date)
+            if not sales_kpis.exists():
+                current_date = start_date
+                while current_date <= end_date:
+                    KPIService.calculate_daily_kpi(sales, current_date)
+                    current_date += timedelta(days=1)
+                sales_kpis = KPI.objects.filter(sales=sales, date__gte=start_date, date__lte=end_date)
+            
+            sales_kpi = {
+                'daily_contacts': sales_kpis.aggregate(avg=Avg('daily_contacts'))['avg'] or 0,
+                'conversion_rate': sales_kpis.aggregate(avg=Avg('conversion_rate'))['avg'] or 0,
+                'trials_to_sales': sales_kpis.aggregate(avg=Avg('trials_to_sales'))['avg'] or 0,
+                'followup_completion_rate': sales_kpis.aggregate(avg=Avg('followup_completion_rate'))['avg'] or 0,
+            }
+        
+        # Barcha sotuvchilar uchun KPI'larni olish
+        all_kpis = []
+        for s in all_sales:
+            if period == 'day':
+                kpi = KPI.objects.filter(sales=s, date=start_date).first()
+                if not kpi:
+                    kpi = KPIService.calculate_daily_kpi(s, start_date)
+                all_kpis.append(kpi)
+            else:
+                kpis = KPI.objects.filter(sales=s, date__gte=start_date, date__lte=end_date)
+                if not kpis.exists():
+                    current_date = start_date
+                    while current_date <= end_date:
+                        KPIService.calculate_daily_kpi(s, current_date)
+                        current_date += timedelta(days=1)
+                    kpis = KPI.objects.filter(sales=s, date__gte=start_date, date__lte=end_date)
+                all_kpis.append(kpis)
+        
+        # O'rtacha, eng yaxshi, eng yomon
+        if period == 'day':
+            average = {
+                'daily_contacts': sum(kpi.daily_contacts for kpi in all_kpis) / len(all_kpis) if all_kpis else 0,
+                'conversion_rate': sum(kpi.conversion_rate for kpi in all_kpis) / len(all_kpis) if all_kpis else 0,
+                'trials_to_sales': sum(kpi.trials_to_sales for kpi in all_kpis) / len(all_kpis) if all_kpis else 0,
+                'followup_completion_rate': sum(kpi.followup_completion_rate for kpi in all_kpis) / len(all_kpis) if all_kpis else 0,
+            }
+            best = {
+                'daily_contacts': max((kpi.daily_contacts for kpi in all_kpis), default=0),
+                'conversion_rate': max((kpi.conversion_rate for kpi in all_kpis), default=0),
+                'trials_to_sales': max((kpi.trials_to_sales for kpi in all_kpis), default=0),
+                'followup_completion_rate': max((kpi.followup_completion_rate for kpi in all_kpis), default=0),
+            }
+            worst = {
+                'daily_contacts': min((kpi.daily_contacts for kpi in all_kpis), default=0),
+                'conversion_rate': min((kpi.conversion_rate for kpi in all_kpis), default=0),
+                'trials_to_sales': min((kpi.trials_to_sales for kpi in all_kpis), default=0),
+                'followup_completion_rate': min((kpi.followup_completion_rate for kpi in all_kpis), default=0),
+            }
+        else:
+            # Period uchun o'rtacha
+            all_contacts = []
+            all_conversions = []
+            all_trials = []
+            all_completions = []
+            
+            for kpis in all_kpis:
+                if hasattr(kpis, 'aggregate'):
+                    all_contacts.append(kpis.aggregate(avg=Avg('daily_contacts'))['avg'] or 0)
+                    all_conversions.append(kpis.aggregate(avg=Avg('conversion_rate'))['avg'] or 0)
+                    all_trials.append(kpis.aggregate(avg=Avg('trials_to_sales'))['avg'] or 0)
+                    all_completions.append(kpis.aggregate(avg=Avg('followup_completion_rate'))['avg'] or 0)
+            
+            average = {
+                'daily_contacts': sum(all_contacts) / len(all_contacts) if all_contacts else 0,
+                'conversion_rate': sum(all_conversions) / len(all_conversions) if all_conversions else 0,
+                'trials_to_sales': sum(all_trials) / len(all_trials) if all_trials else 0,
+                'followup_completion_rate': sum(all_completions) / len(all_completions) if all_completions else 0,
+            }
+            best = {
+                'daily_contacts': max(all_contacts) if all_contacts else 0,
+                'conversion_rate': max(all_conversions) if all_conversions else 0,
+                'trials_to_sales': max(all_trials) if all_trials else 0,
+                'followup_completion_rate': max(all_completions) if all_completions else 0,
+            }
+            worst = {
+                'daily_contacts': min(all_contacts) if all_contacts else 0,
+                'conversion_rate': min(all_conversions) if all_conversions else 0,
+                'trials_to_sales': min(all_trials) if all_trials else 0,
+                'followup_completion_rate': min(all_completions) if all_completions else 0,
+            }
+        
+        # Sotuvchi ko'rsatkichlari
+        if period == 'day':
+            sales_value = {
+                'daily_contacts': sales_kpi.daily_contacts,
+                'conversion_rate': sales_kpi.conversion_rate,
+                'trials_to_sales': sales_kpi.trials_to_sales,
+                'followup_completion_rate': sales_kpi.followup_completion_rate,
+            }
+        else:
+            sales_value = sales_kpi
+        
+        return {
+            'sales_value': sales_value,
+            'average': average,
+            'best': best,
+            'worst': worst
+        }
+    
+    @staticmethod
+    def get_weekly_kpi_summary(sales, week_start_date):
+        """
+        Haftalik KPI xulosa
+        
+        Args:
+            sales: Sotuvchi
+            week_start_date: Hafta boshlanish sanasi
+        
+        Returns:
+            dict: Haftalik yig'indilar va o'rtachalar
+        """
+        from datetime import timedelta
+        
+        week_end_date = week_start_date + timedelta(days=6)
+        
+        kpis = KPI.objects.filter(
+            sales=sales,
+            date__gte=week_start_date,
+            date__lte=week_end_date
+        )
+        
+        # Agar KPI'lar yo'q bo'lsa, hisoblaymiz
+        if not kpis.exists():
+            current_date = week_start_date
+            while current_date <= week_end_date:
+                KPIService.calculate_daily_kpi(sales, current_date)
+                current_date += timedelta(days=1)
+            kpis = KPI.objects.filter(
+                sales=sales,
+                date__gte=week_start_date,
+                date__lte=week_end_date
+            )
+        
+        from django.db.models import Sum, Avg
+        
+        return {
+            'total_contacts': kpis.aggregate(sum=Sum('daily_contacts'))['sum'] or 0,
+            'total_followups': kpis.aggregate(sum=Sum('daily_followups'))['sum'] or 0,
+            'avg_completion_rate': kpis.aggregate(avg=Avg('followup_completion_rate'))['avg'] or 0,
+            'total_trials': kpis.aggregate(sum=Sum('trials_registered'))['sum'] or 0,
+            'total_sales': kpis.aggregate(sum=Sum('trials_to_sales'))['sum'] or 0,
+            'avg_conversion_rate': kpis.aggregate(avg=Avg('conversion_rate'))['avg'] or 0,
+            'avg_response_time': kpis.aggregate(avg=Avg('response_time_minutes'))['avg'] or 0,
+            'avg_overdue': kpis.aggregate(avg=Avg('overdue_count'))['avg'] or 0,
+        }
+    
+    @staticmethod
+    def get_accurate_conversion_rate(sales, start_date, end_date):
+        """
+        Aniq konversiya hisoblash
+        
+        Args:
+            sales: Sotuvchi
+            start_date: Boshlanish sanasi
+            end_date: Tugash sanasi
+        
+        Returns:
+            dict: {
+                'total_assigned': int,
+                'enrolled': int,
+                'conversion_rate': float,
+                'by_status': dict  # Status bo'yicha taqsimot
+            }
+        """
+        # Berilgan lidlar
+        total_assigned = Lead.objects.filter(
+            assigned_sales=sales,
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date
+        ).count()
+        
+        # Enrolled lidlar
+        enrolled = Lead.objects.filter(
+            assigned_sales=sales,
+            status='enrolled',
+            enrolled_at__date__gte=start_date,
+            enrolled_at__date__lte=end_date
+        ).count()
+        
+        # Status bo'yicha taqsimot
+        from django.db.models import Count
+        by_status = dict(
+            Lead.objects.filter(
+                assigned_sales=sales,
+                created_at__date__gte=start_date,
+                created_at__date__lte=end_date
+            ).values('status').annotate(count=Count('id')).values_list('status', 'count')
+        )
+        
+        conversion_rate = (enrolled / total_assigned * 100) if total_assigned > 0 else 0
+        
+        return {
+            'total_assigned': total_assigned,
+            'enrolled': enrolled,
+            'conversion_rate': conversion_rate,
+            'by_status': by_status
+        }
     
     @staticmethod
     def calculate_monthly_conversion_rate(sales, year, month):
@@ -730,7 +1210,7 @@ class OfferService:
 
         # Auditoriya bo'yicha filtr
         if audience and audience != 'all':
-            qs = qs.filter(models.Q(audience='any') | models.Q(audience=audience))
+            qs = qs.filter(models.Q(audience='all') | models.Q(audience=audience))
 
         # Kurs bo'yicha filtr
         if course:
@@ -790,19 +1270,30 @@ class GoogleSheetsService:
         return credentials
     
     @staticmethod
-    def connect_to_sheet(spreadsheet_id, worksheet_name='Sheet1'):
-        """Google Sheets'ga ulanish"""
+    def connect_to_sheet(spreadsheet_id, worksheet_name='Sheet1', max_retries=3):
+        """Google Sheets'ga ulanish (retry bilan)"""
         import gspread
+        import time
         
-        try:
-            credentials = GoogleSheetsService.get_credentials()
-            client = gspread.authorize(credentials)
-            spreadsheet = client.open_by_key(spreadsheet_id)
-            worksheet = spreadsheet.worksheet(worksheet_name)
-            return worksheet
-        except Exception as e:
-            print(f"Google Sheets'ga ulanishda xatolik: {e}")
-            raise
+        for attempt in range(max_retries):
+            try:
+                credentials = GoogleSheetsService.get_credentials()
+                client = gspread.authorize(credentials)
+                spreadsheet = client.open_by_key(spreadsheet_id)
+                worksheet = spreadsheet.worksheet(worksheet_name)
+                return worksheet
+            except Exception as e:
+                error_str = str(e).lower()
+                # Network xatolarini tekshirish
+                if any(keyword in error_str for keyword in ['connection', 'network', 'timeout', 'getaddrinfo', 'failed to establish']):
+                    if attempt < max_retries - 1:
+                        wait_time = (attempt + 1) * 2  # Exponential backoff
+                        print(f"Google Sheets'ga ulanishda network xatolik (qayta uriniladi {attempt + 1}/{max_retries}): {e}")
+                        time.sleep(wait_time)
+                        continue
+                # Boshqa xatoliklar
+                print(f"Google Sheets'ga ulanishda xatolik: {e}")
+                raise
     
     @staticmethod
     def import_new_leads(spreadsheet_id, worksheet_name='Sheet1', 

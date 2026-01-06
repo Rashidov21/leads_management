@@ -33,6 +33,16 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
         # Yangi lid - dinamik delay (15-30 daqiqa, lidlar soniga qarab)
         # Agar assigned_sales bo'lsa, follow-up yaratish va notification yuborish
         if instance.assigned_sales:
+            # Allaqachon "Yangi lid" follow-up borligini tekshirish
+            existing = FollowUp.objects.filter(
+                lead=instance,
+                notes__contains="Yangi lid - darhol aloqa qilish kerak",
+                completed=False
+            ).exists()
+            
+            if existing:
+                return  # Agar allaqachon bor bo'lsa, yaratmaymiz
+            
             base_time = timezone.now()
             
             # Sotuvchining hozirgi follow-up yukini hisoblash (keyingi 24 soatda)
@@ -119,6 +129,16 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
         
         # Contacted status uchun ketma-ket follow-up yaratish
         if instance.status == 'contacted':
+            # Allaqachon "Contacted" follow-up'lar borligini tekshirish
+            existing_contacted = FollowUp.objects.filter(
+                lead=instance,
+                notes__contains="Contacted - 24 soatdan keyin aloqa",
+                completed=False
+            ).exists()
+            
+            if existing_contacted:
+                return  # Agar allaqachon bor bo'lsa, yaratmaymiz
+            
             base_time = timezone.now()
             first_delay = timedelta(hours=24)
             
@@ -156,6 +176,16 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
         
         # Interested status uchun ko'p bosqichli follow-up
         elif instance.status == 'interested':
+            # Allaqachon "Interested" follow-up'lar borligini tekshirish
+            existing_interested = FollowUp.objects.filter(
+                lead=instance,
+                notes__startswith="Interested -",
+                completed=False
+            ).exists()
+            
+            if existing_interested:
+                return  # Agar allaqachon bor bo'lsa, yaratmaymiz
+            
             delays = [
                 timedelta(days=1),   # 1-kun: qo'shimcha ma'lumot
                 timedelta(days=3),   # 3-kun: guruhlar bandligi haqida xabar
@@ -245,6 +275,16 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
         
         # Trial Not Attended uchun follow-up
         elif instance.status == 'trial_not_attended':
+            # Allaqachon "Trial Not Attended" follow-up'lar borligini tekshirish
+            existing_trial_not_attended = FollowUp.objects.filter(
+                lead=instance,
+                notes__contains="Sinovga kelmadi",
+                completed=False
+            ).exists()
+            
+            if existing_trial_not_attended:
+                return  # Agar allaqachon bor bo'lsa, yaratmaymiz
+            
             delays = [
                 timedelta(minutes=30),  # 30 daqiqa
                 timedelta(hours=24),    # 24 soat

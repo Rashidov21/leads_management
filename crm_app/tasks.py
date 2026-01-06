@@ -7,8 +7,8 @@ from .services import FollowUpService, KPIService, ReactivationService, OfferSer
 from .telegram_bot import send_telegram_notification
 
 
-@shared_task
-def create_followup_task(lead_id, delay_minutes=5):
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def create_followup_task(self, lead_id, delay_minutes=5):
     """Follow-up yaratish task"""
     try:
         from .services import FollowUpService
@@ -34,11 +34,18 @@ def create_followup_task(lead_id, delay_minutes=5):
         # Notification yuborish (qo'lda yaratilgan follow-up uchun)
         send_followup_created_notification.delay(followup.id)
     except Lead.DoesNotExist:
-        pass
+        print(f"Lead {lead_id} topilmadi")
+        return
+    except Exception as e:
+        print(f"create_followup_task xatolik: {e}")
+        import traceback
+        traceback.print_exc()
+        # Retry qilish
+        raise self.retry(exc=e, countdown=60)
 
 
-@shared_task
-def check_overdue_followups_task():
+@shared_task(bind=True, max_retries=3, default_retry_delay=300)
+def check_overdue_followups_task(self):
     """Overdue follow-uplarni tekshirish va notification yuborish"""
     try:
         print(f"[{timezone.now()}] check_overdue_followups_task ishga tushdi")
@@ -97,10 +104,12 @@ def check_overdue_followups_task():
         print(f"[{timezone.now()}] check_overdue_followups_task xatolik: {e}")
         import traceback
         traceback.print_exc()
+        # Retry qilish
+        raise self.retry(exc=e, countdown=300)
 
 
-@shared_task
-def auto_reschedule_overdue_followups_task():
+@shared_task(bind=True, max_retries=3, default_retry_delay=300)
+def auto_reschedule_overdue_followups_task(self):
     """Overdue follow-up'larni avtomatik qayta rejalashtirish"""
     try:
         print(f"[{timezone.now()}] auto_reschedule_overdue_followups_task ishga tushdi")
@@ -129,11 +138,12 @@ def auto_reschedule_overdue_followups_task():
         print(f"[{timezone.now()}] auto_reschedule_overdue_followups_task xatolik: {e}")
         import traceback
         traceback.print_exc()
-        return 0
+        # Retry qilish
+        raise self.retry(exc=e, countdown=300)
 
 
-@shared_task
-def send_trial_reminder_task():
+@shared_task(bind=True, max_retries=3, default_retry_delay=300)
+def send_trial_reminder_task(self):
     """Sinov oldidan eslatma yuborish (2 soat oldin)"""
     try:
         print(f"[{timezone.now()}] send_trial_reminder_task ishga tushdi")
@@ -186,10 +196,11 @@ def send_trial_reminder_task():
         print(f"[{timezone.now()}] send_trial_reminder_task xatolik: {e}")
         import traceback
         traceback.print_exc()
+        raise self.retry(exc=e, countdown=300)
 
 
-@shared_task
-def send_followup_reminders_task():
+@shared_task(bind=True, max_retries=3, default_retry_delay=300)
+def send_followup_reminders_task(self):
     """Follow-up eslatmalari yuborish - aloqa qilish kerak vaqtda (ish vaqtlarini tekshirish bilan)"""
     try:
         print(f"[{timezone.now()}] send_followup_reminders_task ishga tushdi")
@@ -268,6 +279,7 @@ def send_followup_reminders_task():
         print(f"[{timezone.now()}] send_followup_reminders_task xatolik: {e}")
         import traceback
         traceback.print_exc()
+        raise self.retry(exc=e, countdown=300)
 
 
 @shared_task
@@ -317,8 +329,8 @@ def send_followup_reminder_at_time(followup_id, reminder_time_iso):
         traceback.print_exc()
 
 
-@shared_task
-def send_post_trial_sales_reminder_task():
+@shared_task(bind=True, max_retries=3, default_retry_delay=300)
+def send_post_trial_sales_reminder_task(self):
     """Sinovdan keyin sotuv taklifi eslatmasi"""
     try:
         print(f"[{timezone.now()}] send_post_trial_sales_reminder_task ishga tushdi")
@@ -372,10 +384,11 @@ def send_post_trial_sales_reminder_task():
         print(f"[{timezone.now()}] send_post_trial_sales_reminder_task xatolik: {e}")
         import traceback
         traceback.print_exc()
+        raise self.retry(exc=e, countdown=300)
 
 
-@shared_task
-def calculate_daily_kpi_task():
+@shared_task(bind=True, max_retries=3, default_retry_delay=300)
+def calculate_daily_kpi_task(self):
     """Kunlik KPI hisoblash"""
     try:
         print(f"[{timezone.now()}] calculate_daily_kpi_task ishga tushdi")
@@ -397,10 +410,11 @@ def calculate_daily_kpi_task():
         print(f"[{timezone.now()}] calculate_daily_kpi_task xatolik: {e}")
         import traceback
         traceback.print_exc()
+        raise self.retry(exc=e, countdown=300)
 
 
-@shared_task
-def reactivation_task():
+@shared_task(bind=True, max_retries=3, default_retry_delay=300)
+def reactivation_task(self):
     """Reaktivatsiya tekshirish"""
     try:
         print(f"[{timezone.now()}] reactivation_task ishga tushdi")
@@ -410,6 +424,7 @@ def reactivation_task():
         print(f"[{timezone.now()}] reactivation_task xatolik: {e}")
         import traceback
         traceback.print_exc()
+        raise self.retry(exc=e, countdown=300)
 
 
 @shared_task
@@ -807,6 +822,16 @@ def create_next_contacted_followup(lead_id, sequence, delay_hours, base_time):
         if not lead.assigned_sales or lead.status != 'contacted':
             return  # Agar status o'zgargandan bo'lsa, to'xtatish
         
+        # Allaqachon bu sequence uchun follow-up borligini tekshirish
+        existing = FollowUp.objects.filter(
+            lead=lead,
+            followup_sequence=sequence,
+            completed=False
+        ).exists()
+        
+        if existing:
+            return  # Agar allaqachon bor bo'lsa, yaratmaymiz
+        
         # Base time ni parse qilish
         if isinstance(base_time, str):
             base_datetime = datetime.fromisoformat(base_time)
@@ -969,8 +994,8 @@ def send_daily_sales_summary_task():
     print(f"[daily summary] {sent} ta guruhga yuborildi.")
 
 
-@shared_task
-def import_leads_from_google_sheets():
+@shared_task(bind=True, max_retries=3, default_retry_delay=300)
+def import_leads_from_google_sheets(self):
     """
     Google Sheets'dan avtomatik ravishda lidlarni import qilish
     Har 5 daqiqada ishga tushadi
@@ -1049,6 +1074,10 @@ def import_leads_from_google_sheets():
         print(f"[{timezone.now()}] Google Sheets import xatolik: {e}")
         import traceback
         traceback.print_exc()
+        # Retry qilish (faqat connection xatolari uchun)
+        error_str = str(e).lower()
+        if any(keyword in error_str for keyword in ['connection', 'network', 'timeout', 'getaddrinfo', 'failed to establish']):
+            raise self.retry(exc=e, countdown=300)
         return {
             'success': False,
             'error': str(e)

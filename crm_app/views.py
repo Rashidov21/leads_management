@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login,logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Q, Count, Sum, F
+from django.db.models import Q, Count, Sum, F, Avg
 from django.utils import timezone
 from django.http import HttpResponse
 import csv
@@ -16,7 +16,7 @@ from .models import (
 )
 from .forms import (
     LeadForm, LeadStatusForm, TrialLessonForm, TrialResultForm,
-    FollowUpForm, ExcelImportForm, UserCreateForm, UserEditForm,
+    FollowUpForm, CustomFollowUpForm, ExcelImportForm, UserCreateForm, UserEditForm,
     CourseForm, RoomForm, GroupForm, LeaveRequestForm,
     LeaveRequestApprovalForm, SalesAbsenceForm, SalesMessageForm, OfferForm
 )
@@ -101,10 +101,11 @@ def landing_page(request):
 
 @login_required
 def dashboard(request):
-    context = {}
-    now = timezone.now()
-    
-    if request.user.is_admin or request.user.is_sales_manager:
+    try:
+        context = {}
+        now = timezone.now()
+        
+        if request.user.is_admin or request.user.is_sales_manager:
         # Admin/Manager dashboard
         overdue_followups_queryset = FollowUpService.get_overdue_followups_prioritized()
         
@@ -127,6 +128,30 @@ def dashboard(request):
         sales = request.user
         overdue_followups_queryset = FollowUpService.get_overdue_followups_prioritized(sales)
         
+        # Bugungi KPI
+        today = timezone.now().date()
+        today_kpi = KPIService.calculate_daily_kpi(sales, today)
+        
+        # Oxirgi 7 kunlik KPI
+        from datetime import timedelta
+        last_7_days_kpi = []
+        for i in range(7):
+            date = today - timedelta(days=i)
+            kpi = KPI.objects.filter(sales=sales, date=date).first()
+            if not kpi:
+                kpi = KPIService.calculate_daily_kpi(sales, date)
+            last_7_days_kpi.append({
+                'date': date,
+                'kpi': kpi
+            })
+        
+        # Reyting (conversion_rate bo'yicha)
+        ranking = KPIService.get_sales_ranking(sales, period='month', metric='conversion_rate')
+        
+        # Trend taqqoslash
+        trend_contacts = KPIService.get_trend_comparison(sales, days=7, metric='daily_contacts')
+        trend_conversion = KPIService.get_trend_comparison(sales, days=7, metric='conversion_rate')
+        
         context.update({
             'my_leads': Lead.objects.filter(assigned_sales=sales).count(),
             'today_followups': FollowUpService.get_today_followups(sales).count(),
@@ -135,9 +160,19 @@ def dashboard(request):
                 'lead', 'lead__interested_course'
             )[:10],  # Eng qadimgi 10 tasi
             'is_blocked': FollowUpService.check_sales_blocked(sales),
+            'today_kpi': today_kpi,
+            'last_7_days_kpi': last_7_days_kpi,
+            'ranking': ranking,
+            'trend_contacts': trend_contacts,
+            'trend_conversion': trend_conversion,
         })
-    
-    return render(request, 'dashboard.html', context)
+        
+        return render(request, 'dashboard.html', context)
+    except Exception as e:
+        messages.error(request, f'Dashboard yuklashda xatolik: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return redirect('leads_list')
 
 
 # ============ LEAD MANAGEMENT ============
@@ -145,10 +180,11 @@ def dashboard(request):
 @login_required
 @role_required('admin', 'sales_manager', 'sales')
 def leads_list(request):
-    queryset = Lead.objects.select_related('assigned_sales', 'interested_course').all()
-    
-    if request.user.is_sales:
-        queryset = queryset.filter(assigned_sales=request.user)
+    try:
+        queryset = Lead.objects.select_related('assigned_sales', 'interested_course').all()
+        
+        if request.user.is_sales:
+            queryset = queryset.filter(assigned_sales=request.user)
     
     # Filtrlash
     source_filter = request.GET.get('source')
@@ -197,13 +233,19 @@ def leads_list(request):
         'sources': Lead.SOURCE_CHOICES,
         'total_leads': queryset.count(),
     }
-    return render(request, 'leads/list.html', context)
+        return render(request, 'leads/list.html', context)
+    except Exception as e:
+        messages.error(request, f'Lidlar ro\'yxatini yuklashda xatolik: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return redirect('dashboard')
 
 
 @login_required
 @role_required('admin', 'sales_manager', 'sales')
 def leads_table(request):
     """Lidlar jadvali (filtr + CSV eksport)"""
+    try:
     leads = Lead.objects.select_related('assigned_sales', 'interested_course').all()
 
     status = request.GET.get('status') or ''
@@ -273,18 +315,24 @@ def leads_table(request):
         'statuses': Lead.STATUS_CHOICES,
         'sources': Lead.SOURCE_CHOICES,
     }
-    return render(request, 'leads/table.html', context)
+        return render(request, 'leads/table.html', context)
+    except Exception as e:
+        messages.error(request, f'Lidlar jadvalini yuklashda xatolik: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return redirect('leads_list')
 
 
 @login_required
 @role_required('admin', 'sales_manager', 'sales')
 def lead_detail(request, pk):
-    lead = get_object_or_404(Lead, pk=pk)
-    
-    # Faqat o'z lidlari bilan ishlash
-    if request.user.is_sales and lead.assigned_sales != request.user:
-        messages.error(request, "Sizda bu lidni ko'rish huquqi yo'q")
-        return redirect('leads_list')
+    try:
+        lead = get_object_or_404(Lead, pk=pk)
+        
+        # Faqat o'z lidlari bilan ishlash
+        if request.user.is_sales and lead.assigned_sales != request.user:
+            messages.error(request, "Sizda bu lidni ko'rish huquqi yo'q")
+            return redirect('leads_list')
     
     if request.method == 'POST':
         # Status o'zgartirish
@@ -301,9 +349,64 @@ def lead_detail(request, pk):
                 edit_form.save()
                 messages.success(request, 'Lid ma\'lumotlari yangilandi')
                 return redirect('lead_detail', pk=pk)
+        # Custom follow-up yaratish
+        elif 'create_custom_followup' in request.POST:
+            custom_followup_form = CustomFollowUpForm(request.POST)
+            if custom_followup_form.is_valid():
+                due_datetime = custom_followup_form.cleaned_data['due_date']
+                notes = custom_followup_form.cleaned_data.get('notes', '')
+                
+                # Ish vaqtini tekshirish va moslashtirish
+                sales = request.user
+                now = timezone.now()
+                
+                # Agar ish vaqtlari belgilanmagan bo'lsa, oddiy yaratish
+                if not sales.work_start_time or not sales.work_end_time:
+                    followup = FollowUp.objects.create(
+                        lead=lead,
+                        sales=sales,
+                        due_date=due_datetime,
+                        notes=f"Sotuvchi tomonidan belgilangan: {notes}" if notes else "Sotuvchi tomonidan belgilangan"
+                    )
+                    from .tasks import send_followup_created_notification
+                    send_followup_created_notification.delay(followup.id)
+                    messages.success(request, f'Vazifa yaratildi: {due_datetime.strftime("%d.%m.%Y %H:%M")}')
+                    return redirect('lead_detail', pk=pk)
+                
+                # Ish vaqtini tekshirish
+                due_time = due_datetime.time()
+                if due_time < sales.work_start_time or due_time > sales.work_end_time:
+                    messages.error(request, f'Belgilangan vaqt ({due_time.strftime("%H:%M")}) ish vaqti tashqarisida. Ish vaqti: {sales.work_start_time.strftime("%H:%M")} - {sales.work_end_time.strftime("%H:%M")}')
+                    custom_followup_form = CustomFollowUpForm(request.POST)
+                else:
+                    # Ish vaqtini moslashtirish (ish kunlarini tekshirish)
+                    adjusted_due_date = FollowUpService.calculate_work_hours_due_date(
+                        sales,
+                        now,
+                        due_datetime - now
+                    )
+                    
+                    # Follow-up yaratish
+                    followup = FollowUp.objects.create(
+                        lead=lead,
+                        sales=sales,
+                        due_date=adjusted_due_date,
+                        notes=f"Sotuvchi tomonidan belgilangan: {notes}" if notes else "Sotuvchi tomonidan belgilangan"
+                    )
+                    
+                    # Notification yuborish
+                    from .tasks import send_followup_created_notification
+                    send_followup_created_notification.delay(followup.id)
+                    
+                    messages.success(request, f'Vazifa yaratildi: {adjusted_due_date.strftime("%d.%m.%Y %H:%M")}')
+                    return redirect('lead_detail', pk=pk)
+            else:
+                # Form validation xatolari
+                pass
     else:
         form = LeadStatusForm(instance=lead)
         edit_form = LeadForm(instance=lead)
+        custom_followup_form = CustomFollowUpForm()
     
     # Faol takliflarni olish
     from .services import OfferService
@@ -322,17 +425,27 @@ def lead_detail(request, pk):
             sales_script = general_course.sales_script
             sales_script_course_name = "Umumiy"
     
+    # Custom follow-up form (agar POST bo'lmagan bo'lsa yoki xatolik bo'lsa)
+    if 'custom_followup_form' not in locals():
+        custom_followup_form = CustomFollowUpForm()
+    
     context = {
         'lead': lead,
         'form': form,
         'edit_form': edit_form,
+        'custom_followup_form': custom_followup_form,
         'followups': lead.followups.select_related('sales').all().order_by('-due_date'),
         'trials': lead.trials.select_related('group', 'group__course', 'room').all().order_by('-date'),
         'active_offers': active_offers,
         'sales_script': sales_script,
         'sales_script_course_name': sales_script_course_name,
     }
-    return render(request, 'leads/detail.html', context)
+        return render(request, 'leads/detail.html', context)
+    except Exception as e:
+        messages.error(request, f'Lid ma\'lumotlarini yuklashda xatolik: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return redirect('leads_list')
 
 
 @login_required
@@ -953,53 +1066,71 @@ def trial_result(request, trial_pk):
 @login_required
 @admin_required
 def courses_list(request):
-    courses = Course.objects.all().order_by('-created_at')
+    courses = Course.objects.select_related().all().order_by('-created_at')
     return render(request, 'courses/list.html', {'courses': courses})
 
 
 @login_required
 @admin_required
 def course_create(request):
-    if request.method == 'POST':
-        form = CourseForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Kurs qo\'shildi')
-            return redirect('courses_list')
-    else:
-        form = CourseForm()
-    
-    return render(request, 'courses/create.html', {'form': form})
+    try:
+        if request.method == 'POST':
+            form = CourseForm(request.POST)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Kurs qo\'shildi')
+                return redirect('courses_list')
+        else:
+            form = CourseForm()
+        
+        return render(request, 'courses/create.html', {'form': form})
+    except Exception as e:
+        messages.error(request, f'Xatolik yuz berdi: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return redirect('courses_list')
 
 
 @login_required
 @admin_required
 def course_edit(request, pk):
-    course = get_object_or_404(Course, pk=pk)
-    
-    if request.method == 'POST':
-        form = CourseForm(request.POST, instance=course)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Kurs yangilandi')
-            return redirect('courses_list')
-    else:
-        form = CourseForm(instance=course)
-    
-    return render(request, 'courses/edit.html', {'form': form, 'course': course})
+    try:
+        course = get_object_or_404(Course, pk=pk)
+        
+        if request.method == 'POST':
+            form = CourseForm(request.POST, instance=course)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Kurs yangilandi')
+                return redirect('courses_list')
+        else:
+            form = CourseForm(instance=course)
+        
+        return render(request, 'courses/edit.html', {'form': form, 'course': course})
+    except Exception as e:
+        messages.error(request, f'Xatolik yuz berdi: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return redirect('courses_list')
 
 
 @login_required
 @admin_required
 def course_delete(request, pk):
-    course = get_object_or_404(Course, pk=pk)
-    
-    if request.method == 'POST':
-        course.delete()
-        messages.success(request, 'Kurs o\'chirildi')
+    try:
+        course = get_object_or_404(Course, pk=pk)
+        
+        if request.method == 'POST':
+            course.delete()
+            messages.success(request, 'Kurs o\'chirildi')
+            return redirect('courses_list')
+        
+        return render(request, 'courses/delete.html', {'course': course})
+    except Exception as e:
+        messages.error(request, f'Xatolik yuz berdi: {str(e)}')
+        import traceback
+        traceback.print_exc()
         return redirect('courses_list')
-    
-    return render(request, 'courses/delete.html', {'course': course})
 
 
 # ============ ROOM MANAGEMENT (Admin only) ============
@@ -1007,8 +1138,14 @@ def course_delete(request, pk):
 @login_required
 @admin_required
 def rooms_list(request):
-    rooms = Room.objects.all().order_by('name')
-    return render(request, 'rooms/list.html', {'rooms': rooms})
+    try:
+        rooms = Room.objects.select_related().all().order_by('name')
+        return render(request, 'rooms/list.html', {'rooms': rooms})
+    except Exception as e:
+        messages.error(request, f'Xatolik yuz berdi: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return render(request, 'rooms/list.html', {'rooms': []})
 
 
 @login_required
@@ -1068,46 +1205,64 @@ def groups_list(request):
 @login_required
 @admin_required
 def group_create(request):
-    if request.method == 'POST':
-        form = GroupForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Guruh qo\'shildi')
-            return redirect('groups_list')
-    else:
-        form = GroupForm()
-    
-    return render(request, 'groups/create.html', {'form': form})
+    try:
+        if request.method == 'POST':
+            form = GroupForm(request.POST)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Guruh qo\'shildi')
+                return redirect('groups_list')
+        else:
+            form = GroupForm()
+        
+        return render(request, 'groups/create.html', {'form': form})
+    except Exception as e:
+        messages.error(request, f'Xatolik yuz berdi: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return redirect('groups_list')
 
 
 @login_required
 @admin_required
 def group_edit(request, pk):
-    group = get_object_or_404(Group, pk=pk)
-    
-    if request.method == 'POST':
-        form = GroupForm(request.POST, instance=group)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Guruh yangilandi')
-            return redirect('groups_list')
-    else:
-        form = GroupForm(instance=group)
-    
-    return render(request, 'groups/edit.html', {'form': form, 'group': group})
+    try:
+        group = get_object_or_404(Group, pk=pk)
+        
+        if request.method == 'POST':
+            form = GroupForm(request.POST, instance=group)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Guruh yangilandi')
+                return redirect('groups_list')
+        else:
+            form = GroupForm(instance=group)
+        
+        return render(request, 'groups/edit.html', {'form': form, 'group': group})
+    except Exception as e:
+        messages.error(request, f'Xatolik yuz berdi: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return redirect('groups_list')
 
 
 @login_required
 @admin_required
 def group_delete(request, pk):
-    group = get_object_or_404(Group, pk=pk)
-    
-    if request.method == 'POST':
-        group.delete()
-        messages.success(request, 'Guruh o\'chirildi')
+    try:
+        group = get_object_or_404(Group, pk=pk)
+        
+        if request.method == 'POST':
+            group.delete()
+            messages.success(request, 'Guruh o\'chirildi')
+            return redirect('groups_list')
+        
+        return render(request, 'groups/delete.html', {'group': group})
+    except Exception as e:
+        messages.error(request, f'Xatolik yuz berdi: {str(e)}')
+        import traceback
+        traceback.print_exc()
         return redirect('groups_list')
-    
-    return render(request, 'groups/delete.html', {'group': group})
 
 
 # ============ USER MANAGEMENT ============
@@ -1116,16 +1271,28 @@ def group_delete(request, pk):
 @login_required
 @manager_or_admin_required
 def sales_list(request):
-    sales_users = User.objects.filter(role='sales').order_by('-created_at')
-    return render(request, 'users/sales_list.html', {'sales_users': sales_users})
+    try:
+        sales_users = User.objects.filter(role='sales').select_related().order_by('-created_at')
+        return render(request, 'users/sales_list.html', {'sales_users': sales_users})
+    except Exception as e:
+        messages.error(request, f'Xatolik yuz berdi: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return render(request, 'users/sales_list.html', {'sales_users': []})
 
 
 # Admin uchun Sales Managerlar ro'yxati
 @login_required
 @admin_required
 def managers_list(request):
-    managers = User.objects.filter(role='sales_manager').order_by('-created_at')
-    return render(request, 'users/managers_list.html', {'managers': managers})
+    try:
+        managers = User.objects.filter(role='sales_manager').select_related().order_by('-created_at')
+        return render(request, 'users/managers_list.html', {'managers': managers})
+    except Exception as e:
+        messages.error(request, f'Xatolik yuz berdi: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return render(request, 'users/managers_list.html', {'managers': []})
 
 
 # Sales Manager yoki Admin uchun - Sotuvchi qo'shish
@@ -1184,7 +1351,85 @@ def sales_edit(request, pk):
         if request.user.is_sales_manager:
             form.fields['role'].widget.attrs['disabled'] = True
     
-    return render(request, 'users/sales_edit.html', {'form': form, 'sales': sales})
+    # Follow-up statistikalarini qo'shish
+    from datetime import datetime, timedelta
+    from django.db.models import F
+    
+    today = timezone.now().date()
+    now = timezone.now()
+    
+    # Bugungi follow-up statistikasi
+    today_followups = FollowUp.objects.filter(
+        sales=sales,
+        due_date__date=today
+    )
+    today_stats = {
+        'total': today_followups.count(),
+        'completed': today_followups.filter(completed=True).count(),
+        'pending': today_followups.filter(completed=False, is_overdue=False).count(),
+        'overdue': today_followups.filter(completed=False, is_overdue=True).count(),
+        'completion_rate': (today_followups.filter(completed=True).count() / today_followups.count() * 100) if today_followups.count() > 0 else 0,
+    }
+    
+    # Oylik follow-up statistikasi
+    current_month_start = datetime(today.year, today.month, 1).date()
+    monthly_followups = FollowUp.objects.filter(
+        sales=sales,
+        due_date__date__gte=current_month_start,
+        due_date__date__lte=today
+    )
+    monthly_stats = {
+        'total': monthly_followups.count(),
+        'completed': monthly_followups.filter(completed=True).count(),
+        'pending': monthly_followups.filter(completed=False, is_overdue=False).count(),
+        'overdue': monthly_followups.filter(completed=False, is_overdue=True).count(),
+        'completion_rate': (monthly_followups.filter(completed=True).count() / monthly_followups.count() * 100) if monthly_followups.count() > 0 else 0,
+        'on_time': FollowUp.objects.filter(
+            sales=sales,
+            completed=True,
+            completed_at__lte=F('due_date'),
+            due_date__date__gte=current_month_start,
+            due_date__date__lte=today
+        ).count(),
+        'late': FollowUp.objects.filter(
+            sales=sales,
+            completed=True,
+            completed_at__gt=F('due_date'),
+            due_date__date__gte=current_month_start,
+            due_date__date__lte=today
+        ).count(),
+    }
+    
+    # Overdue statistikasi (prioritet bo'yicha)
+    overdue_summary = FollowUpService.get_sales_overdue_summary(sales)
+    
+    # Oxirgi 7 kunlik follow-up statistikasi
+    last_7_days_stats = []
+    for i in range(7):
+        date = today - timedelta(days=i)
+        day_followups = FollowUp.objects.filter(
+            sales=sales,
+            due_date__date=date
+        )
+        if day_followups.exists():
+            last_7_days_stats.append({
+                'date': date,
+                'total': day_followups.count(),
+                'completed': day_followups.filter(completed=True).count(),
+                'overdue': day_followups.filter(completed=False, is_overdue=True).count(),
+                'completion_rate': (day_followups.filter(completed=True).count() / day_followups.count() * 100) if day_followups.count() > 0 else 0,
+            })
+    
+    context = {
+        'form': form,
+        'sales': sales,
+        'today_stats': today_stats,
+        'monthly_stats': monthly_stats,
+        'overdue_summary': overdue_summary,
+        'last_7_days_stats': last_7_days_stats,
+    }
+    
+    return render(request, 'users/sales_edit.html', context)
 
 
 # Admin uchun - Sales Manager tahrirlash
@@ -1381,6 +1626,18 @@ def analytics(request):
             lead__assigned_sales=sales
         ).select_related('lead', 'group').count()
         
+        # Oylik KPI (o'rtacha)
+        from datetime import datetime
+        current_month_start = datetime(today.year, today.month, 1).date()
+        monthly_kpis = KPI.objects.filter(
+            sales=sales,
+            date__gte=current_month_start,
+            date__lte=today
+        )
+        
+        # Reyting (conversion_rate bo'yicha)
+        ranking = KPIService.get_sales_ranking(sales, period='month', metric='conversion_rate')
+        
         sales_stats.append({
             'sales': sales,
             'kpi': kpi,
@@ -1388,7 +1645,19 @@ def analytics(request):
             'leads_assigned': leads_assigned,  # Jalb qilingan mijozlar
             'sales_count': sales_count,  # Sotuvlar
             'trials_registered': trials_registered,  # Sinovga yozilganlar
+            'monthly_avg_contacts': monthly_kpis.aggregate(avg=Avg('daily_contacts'))['avg'] or 0 if monthly_kpis.exists() else 0,
+            'monthly_avg_conversion': monthly_kpis.aggregate(avg=Avg('conversion_rate'))['avg'] or 0 if monthly_kpis.exists() else 0,
+            'monthly_total_sales': monthly_kpis.aggregate(sum=Sum('trials_to_sales'))['sum'] or 0 if monthly_kpis.exists() else 0,
+            'ranking': ranking,
         })
+    
+    # Reyting bo'yicha tartiblash
+    sales_stats.sort(key=lambda x: x['ranking']['value'] if x['ranking'] else 0, reverse=True)
+    
+    # Reyting raqamlarini qo'shish
+    for idx, stat in enumerate(sales_stats):
+        stat['rank'] = idx + 1
+    
     context['sales_stats'] = sales_stats
     
     # Guruh statistikasi
@@ -1591,15 +1860,206 @@ def sales_kpi(request):
         'lost': my_leads.filter(status='lost').count(),
     }
     
+    # Oxirgi 30 kunlik KPI (batafsil)
+    from datetime import timedelta
+    last_30_days_kpi = []
+    for i in range(30):
+        date = today - timedelta(days=i)
+        kpi = KPI.objects.filter(sales=sales, date=date).first()
+        if not kpi:
+            kpi = KPIService.calculate_daily_kpi(sales, date)
+        last_30_days_kpi.append({
+            'date': date,
+            'kpi': kpi
+        })
+    
+    # O'rtacha, minimum, maksimum
+    if last_30_days_kpi:
+        contacts_values = [day['kpi'].daily_contacts for day in last_30_days_kpi]
+        conversion_values = [day['kpi'].conversion_rate for day in last_30_days_kpi]
+        stats_summary = {
+            'contacts': {
+                'avg': sum(contacts_values) / len(contacts_values) if contacts_values else 0,
+                'min': min(contacts_values) if contacts_values else 0,
+                'max': max(contacts_values) if contacts_values else 0,
+            },
+            'conversion': {
+                'avg': sum(conversion_values) / len(conversion_values) if conversion_values else 0,
+                'min': min(conversion_values) if conversion_values else 0,
+                'max': max(conversion_values) if conversion_values else 0,
+            }
+        }
+    else:
+        stats_summary = {
+            'contacts': {'avg': 0, 'min': 0, 'max': 0},
+            'conversion': {'avg': 0, 'min': 0, 'max': 0}
+        }
+    
+    # Reyting va taqqoslash
+    ranking_conversion = KPIService.get_sales_ranking(sales, period='month', metric='conversion_rate')
+    ranking_contacts = KPIService.get_sales_ranking(sales, period='month', metric='daily_contacts')
+    comparison_data = KPIService.get_comparison_data(sales, period='month')
+    
+    # Haftalik xulosa
+    from datetime import datetime
+    week_start = today - timedelta(days=today.weekday())
+    weekly_summary = KPIService.get_weekly_kpi_summary(sales, week_start)
+    
+    # Follow-up statistikalarini qo'shish
+    from django.db.models import F
+    
+    # Oylik follow-up statistikasi
+    monthly_followups = FollowUp.objects.filter(
+        sales=sales,
+        due_date__date__gte=current_month_start,
+        due_date__date__lte=today
+    )
+    followup_stats = {
+        'total': monthly_followups.count(),
+        'completed': monthly_followups.filter(completed=True).count(),
+        'overdue': monthly_followups.filter(completed=False, is_overdue=True).count(),
+        'on_time': FollowUp.objects.filter(
+            sales=sales,
+            completed=True,
+            completed_at__lte=F('due_date'),
+            due_date__date__gte=current_month_start,
+            due_date__date__lte=today
+        ).count(),
+        'late': FollowUp.objects.filter(
+            sales=sales,
+            completed=True,
+            completed_at__gt=F('due_date'),
+            due_date__date__gte=current_month_start,
+            due_date__date__lte=today
+        ).count(),
+        'completion_rate': (monthly_followups.filter(completed=True).count() / monthly_followups.count() * 100) if monthly_followups.count() > 0 else 0,
+    }
+    
+    # Overdue statistikasi (prioritet bo'yicha)
+    overdue_summary = FollowUpService.get_sales_overdue_summary(sales)
+    
     context = {
         'today_kpi': today_kpi,
         'last_7_days': last_7_days,
+        'last_30_days_kpi': last_30_days_kpi,
+        'stats_summary': stats_summary,
         'monthly_stats': monthly_stats,
         'leads_stats': leads_stats,
         'monthly_kpis': monthly_kpis[:30],  # Oxirgi 30 kunlik
+        'ranking_conversion': ranking_conversion,
+        'ranking_contacts': ranking_contacts,
+        'comparison_data': comparison_data,
+        'weekly_summary': weekly_summary,
+        'followup_stats': followup_stats,
+        'overdue_summary': overdue_summary,
     }
     
     return render(request, 'analytics/sales_kpi.html', context)
+
+
+@login_required
+@manager_or_admin_required
+def export_analytics_excel(request):
+    """Analytics ma'lumotlarini Excel'ga export qilish"""
+    from datetime import datetime
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from django.http import HttpResponse
+    
+    today = timezone.now().date()
+    current_month_start = datetime(today.year, today.month, 1).date()
+    
+    # Workbook yaratish
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Sotuvchilar Reytingi"
+    
+    # Header style
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=12)
+    header_alignment = Alignment(horizontal="center", vertical="center")
+    
+    # Header qatorlar
+    headers = ['Reyting', 'Sotuvchi', 'Jalb Qilingan', 'Aloqa (Kunlik)', 'Aloqa (O\'rtacha)', 
+               'Qayta Aloqa', 'Sinov', 'Sotuv (Kunlik)', 'Sotuv (Oylik)', 
+               'Konversiya (Kunlik)', 'Konversiya (O\'rtacha)', 'Muddati O\'tgan']
+    ws.append(headers)
+    
+    # Header formatlash
+    for col in range(1, len(headers) + 1):
+        cell = ws.cell(row=1, column=col)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = header_alignment
+    
+    # Ma'lumotlar
+    sales_stats = []
+    for sales in User.objects.filter(role='sales', is_active_sales=True):
+        kpi = KPIService.calculate_daily_kpi(sales, today)
+        leads_assigned = Lead.objects.filter(assigned_sales=sales).count()
+        sales_count = Lead.objects.filter(assigned_sales=sales, status='enrolled').count()
+        trials_registered = TrialLesson.objects.filter(lead__assigned_sales=sales).count()
+        overdue = FollowUpService.get_overdue_followups(sales).count()
+        
+        monthly_kpis = KPI.objects.filter(
+            sales=sales,
+            date__gte=current_month_start,
+            date__lte=today
+        )
+        monthly_avg_contacts = monthly_kpis.aggregate(avg=Avg('daily_contacts'))['avg'] or 0 if monthly_kpis.exists() else 0
+        monthly_avg_conversion = monthly_kpis.aggregate(avg=Avg('conversion_rate'))['avg'] or 0 if monthly_kpis.exists() else 0
+        monthly_total_sales = monthly_kpis.aggregate(sum=Sum('trials_to_sales'))['sum'] or 0 if monthly_kpis.exists() else 0
+        
+        ranking = KPIService.get_sales_ranking(sales, period='month', metric='conversion_rate')
+        
+        sales_stats.append({
+            'rank': ranking['rank'],
+            'sales': sales,
+            'kpi': kpi,
+            'leads_assigned': leads_assigned,
+            'sales_count': sales_count,
+            'trials_registered': trials_registered,
+            'overdue': overdue,
+            'monthly_avg_contacts': monthly_avg_contacts,
+            'monthly_avg_conversion': monthly_avg_conversion,
+            'monthly_total_sales': monthly_total_sales,
+        })
+    
+    # Reyting bo'yicha tartiblash
+    sales_stats.sort(key=lambda x: x['rank'])
+    
+    # Ma'lumotlarni qo'shish
+    for stat in sales_stats:
+        row = [
+            stat['rank'],
+            stat['sales'].username,
+            stat['leads_assigned'],
+            stat['kpi'].daily_contacts,
+            round(stat['monthly_avg_contacts'], 1),
+            stat['kpi'].daily_followups,
+            stat['trials_registered'],
+            stat['sales_count'],
+            stat['monthly_total_sales'],
+            round(stat['kpi'].conversion_rate, 1),
+            round(stat['monthly_avg_conversion'], 1),
+            stat['overdue'],
+        ]
+        ws.append(row)
+    
+    # Column width'ni sozlash
+    column_widths = [10, 20, 15, 15, 15, 15, 10, 15, 15, 15, 15, 15]
+    for col, width in enumerate(column_widths, 1):
+        ws.column_dimensions[ws.cell(row=1, column=col).column_letter].width = width
+    
+    # Response yaratish
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    filename = f"analytics_export_{today.strftime('%Y%m%d')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    wb.save(response)
+    return response
 
 
 # ============ LEAVE REQUESTS ============

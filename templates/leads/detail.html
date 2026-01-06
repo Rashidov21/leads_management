@@ -229,7 +229,14 @@
                 </div>
                 <h2 class="text-xl font-bold text-gray-900">Qayta Aloqalar</h2>
             </div>
-            <span class="text-sm text-gray-500">{{ followups|length }} ta</span>
+            <div class="flex items-center space-x-3">
+                <span class="text-sm text-gray-500">{{ followups|length }} ta</span>
+                {% if user.is_sales or user.is_admin or user.is_sales_manager %}
+                <button type="button" onclick="openCustomFollowupModal()" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
+                    <i class="fas fa-plus"></i>Yangi vazifa
+                </button>
+                {% endif %}
+            </div>
         </div>
         <div class="space-y-3">
             {% for followup in followups %}
@@ -443,6 +450,65 @@
     </div>
 </div>
 
+    <!-- Custom Follow-up Modal -->
+    <div id="customFollowupModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-xl">
+                <div class="flex items-center">
+                    <div class="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                        <i class="fas fa-plus text-indigo-600"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900">Yangi vazifa yaratish</h3>
+                </div>
+                <button type="button" onclick="closeCustomFollowupModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <form method="post" id="customFollowupForm" class="p-6">
+                {% csrf_token %}
+                <input type="hidden" name="create_custom_followup" value="1">
+                
+                <div class="space-y-5">
+                    <div>
+                        <label for="{{ custom_followup_form.due_date.id_for_label }}" class="form-label">
+                            Qayta aloqa vaqti <span class="text-red-500">*</span>
+                            <span class="text-xs text-gray-500 ml-2">(max 3 kun)</span>
+                        </label>
+                        {{ custom_followup_form.due_date }}
+                        {% if custom_followup_form.due_date.errors %}
+                            <p class="mt-1 text-sm text-red-600 flex items-center">
+                                <i class="fas fa-exclamation-circle mr-1"></i>{{ custom_followup_form.due_date.errors.0 }}
+                            </p>
+                        {% endif %}
+                        <p class="mt-1 text-xs text-gray-500">Hozirgi vaqtdan keyin va max 3 kun ichida bo'lishi kerak</p>
+                    </div>
+                    
+                    <div>
+                        <label for="{{ custom_followup_form.notes.id_for_label }}" class="form-label">
+                            Eslatma <span class="text-gray-400 text-xs">(ixtiyoriy)</span>
+                        </label>
+                        {{ custom_followup_form.notes }}
+                        {% if custom_followup_form.notes.errors %}
+                            <p class="mt-1 text-sm text-red-600 flex items-center">
+                                <i class="fas fa-exclamation-circle mr-1"></i>{{ custom_followup_form.notes.errors.0 }}
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex space-x-3">
+                    <button type="button" onclick="closeCustomFollowupModal()" class="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
+                        <i class="fas fa-times"></i>Bekor qilish
+                    </button>
+                    <button type="submit" class="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md disabled:hover:from-indigo-600 disabled:hover:via-indigo-600 disabled:hover:to-indigo-700 border border-indigo-700/30">
+                        <i class="fas fa-save"></i>Yaratish
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 <script>
 function toggleEditForm() {
     const editFormCard = document.getElementById('editFormCard');
@@ -474,5 +540,33 @@ function toggleAccordion(accordionName) {
         icon.classList.remove('rotate-180');
     }
 }
+
+function openCustomFollowupModal() {
+    const modal = document.getElementById('customFollowupModal');
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeCustomFollowupModal() {
+    const modal = document.getElementById('customFollowupModal');
+    modal.classList.add('hidden');
+    document.body.style.overflow = 'auto';
+    // Form'ni tozalash
+    document.getElementById('customFollowupForm').reset();
+}
+
+// Modal tashqarisiga bosilganda yopish
+document.getElementById('customFollowupModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeCustomFollowupModal();
+    }
+});
+
+// ESC tugmasi bilan yopish
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeCustomFollowupModal();
+    }
+});
 </script>
 {% endblock %}

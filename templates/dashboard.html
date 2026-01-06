@@ -157,6 +157,167 @@
         </div>
     </div>
     {% endif %}
+    
+    <!-- Bugungi KPI -->
+    {% if today_kpi %}
+    <div class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-100">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center">
+                <div class="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                    <i class="fas fa-chart-line text-indigo-600"></i>
+                </div>
+                <h2 class="text-xl font-bold text-gray-900">Bugungi KPI</h2>
+            </div>
+            <a href="{% url 'sales_kpi' %}" class="text-sm text-indigo-600 hover:text-indigo-800">
+                Batafsil <i class="fas fa-arrow-right ml-1"></i>
+            </a>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border-l-4 border-blue-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Aloqa</p>
+                        <p class="text-2xl font-bold text-blue-900">{{ today_kpi.daily_contacts }}</p>
+                        {% if trend_contacts %}
+                        <p class="text-xs text-gray-600 mt-1">
+                            {% if trend_contacts.trend == 'up' %}
+                                <span class="text-green-600"><i class="fas fa-arrow-up"></i> {{ trend_contacts.change|floatformat:1 }}%</span>
+                            {% elif trend_contacts.trend == 'down' %}
+                                <span class="text-red-600"><i class="fas fa-arrow-down"></i> {{ trend_contacts.change|floatformat:1 }}%</span>
+                            {% else %}
+                                <span class="text-gray-600"><i class="fas fa-minus"></i> {{ trend_contacts.change|floatformat:1 }}%</span>
+                            {% endif %}
+                        </p>
+                        {% endif %}
+                    </div>
+                    <i class="fas fa-phone text-blue-400 text-2xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border-l-4 border-purple-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Qayta aloqa</p>
+                        <p class="text-2xl font-bold text-purple-900">{{ today_kpi.daily_followups }}</p>
+                        <p class="text-xs text-gray-600 mt-1">{{ today_kpi.followup_completion_rate|floatformat:1 }}% bajarildi</p>
+                    </div>
+                    <i class="fas fa-tasks text-purple-400 text-2xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border-l-4 border-green-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Sinov</p>
+                        <p class="text-2xl font-bold text-green-900">{{ today_kpi.trials_registered }}</p>
+                    </div>
+                    <i class="fas fa-graduation-cap text-green-400 text-2xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-4 border-l-4 border-yellow-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Konversiya</p>
+                        <p class="text-2xl font-bold text-yellow-900">{{ today_kpi.conversion_rate|floatformat:1 }}%</p>
+                        {% if trend_conversion %}
+                        <p class="text-xs text-gray-600 mt-1">
+                            {% if trend_conversion.trend == 'up' %}
+                                <span class="text-green-600"><i class="fas fa-arrow-up"></i> {{ trend_conversion.change|floatformat:1 }}%</span>
+                            {% elif trend_conversion.trend == 'down' %}
+                                <span class="text-red-600"><i class="fas fa-arrow-down"></i> {{ trend_conversion.change|floatformat:1 }}%</span>
+                            {% else %}
+                                <span class="text-gray-600"><i class="fas fa-minus"></i> {{ trend_conversion.change|floatformat:1 }}%</span>
+                            {% endif %}
+                        </p>
+                        {% endif %}
+                    </div>
+                    <i class="fas fa-percentage text-yellow-400 text-2xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-gray-50 rounded-lg p-3">
+                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Response Time</p>
+                <p class="text-lg font-bold text-gray-900">{{ today_kpi.response_time_minutes|floatformat:1 }} daqiqa</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3">
+                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Muddati o'tgan</p>
+                <p class="text-lg font-bold {% if today_kpi.overdue_count > 0 %}text-red-600{% else %}text-green-600{% endif %}">
+                    {{ today_kpi.overdue_count }}
+                </p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3">
+                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Reyting</p>
+                <p class="text-lg font-bold text-indigo-600">
+                    {{ ranking.rank }}/{{ ranking.total_sales }}
+                    {% if ranking.position == 'top' %}
+                        <span class="text-green-600 text-sm"><i class="fas fa-trophy"></i></span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Oxirgi 7 kunlik KPI -->
+    {% if last_7_days_kpi %}
+    <div class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-100">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center">
+                <div class="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                    <i class="fas fa-calendar-week text-indigo-600"></i>
+                </div>
+                <h2 class="text-xl font-bold text-gray-900">Oxirgi 7 Kunlik KPI</h2>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sana</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Aloqa</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Qayta aloqa</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sinov</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sotuv</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Konversiya</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for day in last_7_days_kpi %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {{ day.date|date:"d.m.Y" }}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                            {{ day.kpi.daily_contacts }}
+                            {% if not forloop.last %}
+                                {% with prev_day=last_7_days_kpi|slice:forloop.counter0|last %}
+                                    {% if prev_day %}
+                                        {% if day.kpi.daily_contacts > prev_day.kpi.daily_contacts %}
+                                            <span class="text-green-600 ml-1"><i class="fas fa-arrow-up text-xs"></i></span>
+                                        {% elif day.kpi.daily_contacts < prev_day.kpi.daily_contacts %}
+                                            <span class="text-red-600 ml-1"><i class="fas fa-arrow-down text-xs"></i></span>
+                                        {% endif %}
+                                    {% endif %}
+                                {% endwith %}
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                            {{ day.kpi.daily_followups }}
+                            <span class="text-xs text-gray-500">({{ day.kpi.followup_completion_rate|floatformat:0 }}%)</span>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{{ day.kpi.trials_registered }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{{ day.kpi.trials_to_sales }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if day.kpi.conversion_rate >= 50 %}bg-green-100 text-green-800{% elif day.kpi.conversion_rate >= 30 %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ day.kpi.conversion_rate|floatformat:1 }}%
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
     {% endif %}
     
     <!-- Muddati O'tgan Aloqalar Ro'yxati -->
