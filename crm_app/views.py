@@ -351,54 +351,10 @@ def lead_detail(request, pk):
                     return redirect('lead_detail', pk=pk)
             # Custom follow-up yaratish
             elif 'create_custom_followup' in request.POST:
-                # #region agent log
-                import json
-                try:
-                    with open(r'c:\Users\rashi\Documents\GitHub\leads_management\.cursor\debug.log', 'a', encoding='utf-8') as f:
-                        f.write(json.dumps({
-                            'sessionId': 'debug-session',
-                            'runId': 'run1',
-                            'hypothesisId': 'A',
-                            'location': 'views.py:353',
-                            'message': 'Custom follow-up form POST received',
-                            'data': {'lead_id': pk, 'user': request.user.username},
-                            'timestamp': int(timezone.now().timestamp() * 1000)
-                        }) + '\n')
-                except: pass
-                # #endregion
                 custom_followup_form = CustomFollowUpForm(request.POST)
-                # #region agent log
-                try:
-                    with open(r'c:\Users\rashi\Documents\GitHub\leads_management\.cursor\debug.log', 'a', encoding='utf-8') as f:
-                        f.write(json.dumps({
-                            'sessionId': 'debug-session',
-                            'runId': 'run1',
-                            'hypothesisId': 'B',
-                            'location': 'views.py:355',
-                            'message': 'Form validation check',
-                            'data': {'is_valid': custom_followup_form.is_valid(), 'errors': dict(custom_followup_form.errors) if not custom_followup_form.is_valid() else {}},
-                            'timestamp': int(timezone.now().timestamp() * 1000)
-                        }) + '\n')
-                except: pass
-                # #endregion
                 if custom_followup_form.is_valid():
                     due_datetime = custom_followup_form.cleaned_data['due_date']
                     notes = custom_followup_form.cleaned_data.get('notes', '')
-                    
-                    # #region agent log
-                    try:
-                        with open(r'c:\Users\rashi\Documents\GitHub\leads_management\.cursor\debug.log', 'a', encoding='utf-8') as f:
-                            f.write(json.dumps({
-                                'sessionId': 'debug-session',
-                                'runId': 'run1',
-                                'hypothesisId': 'C',
-                                'location': 'views.py:357',
-                                'message': 'Form data extracted',
-                                'data': {'due_datetime': str(due_datetime), 'is_naive': timezone.is_naive(due_datetime) if due_datetime else None},
-                                'timestamp': int(timezone.now().timestamp() * 1000)
-                            }) + '\n')
-                    except: pass
-                    # #endregion
                     
                     # Timezone-aware qilish (agar naive bo'lsa)
                     if due_datetime and timezone.is_naive(due_datetime):
@@ -407,21 +363,6 @@ def lead_detail(request, pk):
                     # Ish vaqtini tekshirish va moslashtirish
                     sales = request.user
                     now = timezone.now()
-                    
-                    # #region agent log
-                    try:
-                        with open(r'c:\Users\rashi\Documents\GitHub\leads_management\.cursor\debug.log', 'a', encoding='utf-8') as f:
-                            f.write(json.dumps({
-                                'sessionId': 'debug-session',
-                                'runId': 'run1',
-                                'hypothesisId': 'D',
-                                'location': 'views.py:364',
-                                'message': 'Work hours check',
-                                'data': {'has_work_hours': bool(sales.work_start_time and sales.work_end_time)},
-                                'timestamp': int(timezone.now().timestamp() * 1000)
-                            }) + '\n')
-                    except: pass
-                    # #endregion
                     
                     # Agar ish vaqtlari belgilanmagan bo'lsa, oddiy yaratish
                     if not sales.work_start_time or not sales.work_end_time:
@@ -445,133 +386,48 @@ def lead_detail(request, pk):
                         # Ish vaqtini tekshirish
                         due_time = due_datetime.time()
                         if due_time < sales.work_start_time or due_time > sales.work_end_time:
-                        messages.error(request, f'Belgilangan vaqt ({due_time.strftime("%H:%M")}) ish vaqti tashqarisida. Ish vaqti: {sales.work_start_time.strftime("%H:%M")} - {sales.work_end_time.strftime("%H:%M")}')
-                        custom_followup_form = CustomFollowUpForm(request.POST)
-                    else:
-                        # Ish vaqtini moslashtirish (ish kunlarini tekshirish)
-                        # Timezone-aware qilish (agar naive bo'lsa)
-                        if timezone.is_naive(due_datetime):
-                            due_datetime = timezone.make_aware(due_datetime)
-                        
-                        # Delay hisoblash (timezone-aware datetime'lar orasida)
-                        delay = due_datetime - now
-                        
-                        # #region agent log
-                        try:
-                            with open(r'c:\Users\rashi\Documents\GitHub\leads_management\.cursor\debug.log', 'a', encoding='utf-8') as f:
-                                f.write(json.dumps({
-                                    'sessionId': 'debug-session',
-                                    'runId': 'run1',
-                                    'hypothesisId': 'F',
-                                    'location': 'views.py:388',
-                                    'message': 'Before calculate_work_hours_due_date',
-                                    'data': {'due_datetime': str(due_datetime), 'now': str(now), 'delay_seconds': delay.total_seconds() if delay else None},
-                                    'timestamp': int(timezone.now().timestamp() * 1000)
-                                }) + '\n')
-                        except: pass
-                        # #endregion
-                        
-                        try:
-                            adjusted_due_date = FollowUpService.calculate_work_hours_due_date(
-                                sales,
-                                now,
-                                delay
-                            )
-                            # #region agent log
-                            try:
-                                with open(r'c:\Users\rashi\Documents\GitHub\leads_management\.cursor\debug.log', 'a', encoding='utf-8') as f:
-                                    f.write(json.dumps({
-                                        'sessionId': 'debug-session',
-                                        'runId': 'run1',
-                                        'hypothesisId': 'F',
-                                        'location': 'views.py:478',
-                                        'message': 'After calculate_work_hours_due_date',
-                                        'data': {'adjusted_due_date': str(adjusted_due_date)},
-                                        'timestamp': int(timezone.now().timestamp() * 1000)
-                                    }) + '\n')
-                            except: pass
-                            # #endregion
+                            messages.error(request, f'Belgilangan vaqt ({due_time.strftime("%H:%M")}) ish vaqti tashqarisida. Ish vaqti: {sales.work_start_time.strftime("%H:%M")} - {sales.work_end_time.strftime("%H:%M")}')
+                            custom_followup_form = CustomFollowUpForm(request.POST)
+                        else:
+                            # Ish vaqtini moslashtirish (ish kunlarini tekshirish)
+                            # Timezone-aware qilish (agar naive bo'lsa)
+                            if timezone.is_naive(due_datetime):
+                                due_datetime = timezone.make_aware(due_datetime)
                             
-                            # #region agent log
+                            # Delay hisoblash (timezone-aware datetime'lar orasida)
+                            delay = due_datetime - now
+                            
                             try:
-                                with open(r'c:\Users\rashi\Documents\GitHub\leads_management\.cursor\debug.log', 'a', encoding='utf-8') as f:
-                                    f.write(json.dumps({
-                                        'sessionId': 'debug-session',
-                                        'runId': 'run1',
-                                        'hypothesisId': 'E',
-                                        'location': 'views.py:490',
-                                        'message': 'Before FollowUp.create',
-                                        'data': {'adjusted_due_date': str(adjusted_due_date), 'lead_id': lead.id, 'sales_id': sales.id},
-                                        'timestamp': int(timezone.now().timestamp() * 1000)
-                                    }) + '\n')
-                            except: pass
-                            # #endregion
-                            try:
-                                followup = FollowUp.objects.create(
-                                    lead=lead,
-                                    sales=sales,
-                                    due_date=adjusted_due_date,
-                                    notes=f"Sotuvchi tomonidan belgilangan: {notes}" if notes else "Sotuvchi tomonidan belgilangan"
+                                adjusted_due_date = FollowUpService.calculate_work_hours_due_date(
+                                    sales,
+                                    now,
+                                    delay
                                 )
-                                # #region agent log
+                                
                                 try:
-                                    with open(r'c:\Users\rashi\Documents\GitHub\leads_management\.cursor\debug.log', 'a', encoding='utf-8') as f:
-                                        f.write(json.dumps({
-                                            'sessionId': 'debug-session',
-                                            'runId': 'run1',
-                                            'hypothesisId': 'E',
-                                            'location': 'views.py:495',
-                                            'message': 'FollowUp created successfully',
-                                            'data': {'followup_id': followup.id},
-                                            'timestamp': int(timezone.now().timestamp() * 1000)
-                                        }) + '\n')
-                                except: pass
-                                # #endregion
-                                
-                                # Notification yuborish
-                                from .tasks import send_followup_created_notification
-                                send_followup_created_notification.delay(followup.id)
-                                
-                                messages.success(request, f'Vazifa yaratildi: {adjusted_due_date.strftime("%d.%m.%Y %H:%M")}')
-                                return redirect('lead_detail', pk=pk)
+                                    followup = FollowUp.objects.create(
+                                        lead=lead,
+                                        sales=sales,
+                                        due_date=adjusted_due_date,
+                                        notes=f"Sotuvchi tomonidan belgilangan: {notes}" if notes else "Sotuvchi tomonidan belgilangan"
+                                    )
+                                    
+                                    # Notification yuborish
+                                    from .tasks import send_followup_created_notification
+                                    send_followup_created_notification.delay(followup.id)
+                                    
+                                    messages.success(request, f'Vazifa yaratildi: {adjusted_due_date.strftime("%d.%m.%Y %H:%M")}')
+                                    return redirect('lead_detail', pk=pk)
+                                except Exception as e:
+                                    messages.error(request, f'Vazifa yaratishda xatolik: {str(e)}')
+                                    import traceback
+                                    traceback.print_exc()
+                                    custom_followup_form = CustomFollowUpForm(request.POST)
                             except Exception as e:
-                                # #region agent log
-                                try:
-                                    with open(r'c:\Users\rashi\Documents\GitHub\leads_management\.cursor\debug.log', 'a', encoding='utf-8') as f:
-                                        f.write(json.dumps({
-                                            'sessionId': 'debug-session',
-                                            'runId': 'run1',
-                                            'hypothesisId': 'E',
-                                            'location': 'views.py:510',
-                                            'message': 'FollowUp.create error',
-                                            'data': {'error': str(e), 'error_type': type(e).__name__},
-                                            'timestamp': int(timezone.now().timestamp() * 1000)
-                                        }) + '\n')
-                                except: pass
-                                # #endregion
-                                messages.error(request, f'Vazifa yaratishda xatolik: {str(e)}')
+                                messages.error(request, f'Ish vaqtini hisoblashda xatolik: {str(e)}')
                                 import traceback
                                 traceback.print_exc()
                                 custom_followup_form = CustomFollowUpForm(request.POST)
-                        except Exception as e:
-                            # #region agent log
-                            try:
-                                with open(r'c:\Users\rashi\Documents\GitHub\leads_management\.cursor\debug.log', 'a', encoding='utf-8') as f:
-                                    f.write(json.dumps({
-                                        'sessionId': 'debug-session',
-                                        'runId': 'run1',
-                                        'hypothesisId': 'F',
-                                        'location': 'views.py:520',
-                                        'message': 'calculate_work_hours_due_date error',
-                                        'data': {'error': str(e), 'error_type': type(e).__name__},
-                                        'timestamp': int(timezone.now().timestamp() * 1000)
-                                    }) + '\n')
-                            except: pass
-                            # #endregion
-                            messages.error(request, f'Ish vaqtini hisoblashda xatolik: {str(e)}')
-                            import traceback
-                            traceback.print_exc()
-                            custom_followup_form = CustomFollowUpForm(request.POST)
                 else:
                     # Form validation xatolari
                     for field, errors in custom_followup_form.errors.items():
