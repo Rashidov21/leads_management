@@ -492,28 +492,6 @@ def lead_detail(request, pk):
                             except: pass
                             # #endregion
                             
-                            # Follow-up yaratish
-                        # #region agent log
-                        try:
-                            with open(r'c:\Users\rashi\Documents\GitHub\leads_management\.cursor\debug.log', 'a', encoding='utf-8') as f:
-                                f.write(json.dumps({
-                                    'sessionId': 'debug-session',
-                                    'runId': 'run1',
-                                    'hypothesisId': 'E',
-                                    'location': 'views.py:390',
-                                    'message': 'Before FollowUp.create',
-                                    'data': {'adjusted_due_date': str(adjusted_due_date), 'lead_id': lead.id, 'sales_id': sales.id},
-                                    'timestamp': int(timezone.now().timestamp() * 1000)
-                                }) + '\n')
-                        except: pass
-                        # #endregion
-                        try:
-                            followup = FollowUp.objects.create(
-                                lead=lead,
-                                sales=sales,
-                                due_date=adjusted_due_date,
-                                notes=f"Sotuvchi tomonidan belgilangan: {notes}" if notes else "Sotuvchi tomonidan belgilangan"
-                            )
                             # #region agent log
                             try:
                                 with open(r'c:\Users\rashi\Documents\GitHub\leads_management\.cursor\debug.log', 'a', encoding='utf-8') as f:
@@ -521,20 +499,60 @@ def lead_detail(request, pk):
                                         'sessionId': 'debug-session',
                                         'runId': 'run1',
                                         'hypothesisId': 'E',
-                                        'location': 'views.py:395',
-                                        'message': 'FollowUp created successfully',
-                                        'data': {'followup_id': followup.id},
+                                        'location': 'views.py:490',
+                                        'message': 'Before FollowUp.create',
+                                        'data': {'adjusted_due_date': str(adjusted_due_date), 'lead_id': lead.id, 'sales_id': sales.id},
                                         'timestamp': int(timezone.now().timestamp() * 1000)
                                     }) + '\n')
                             except: pass
                             # #endregion
-                            
-                            # Notification yuborish
-                            from .tasks import send_followup_created_notification
-                            send_followup_created_notification.delay(followup.id)
-                            
-                            messages.success(request, f'Vazifa yaratildi: {adjusted_due_date.strftime("%d.%m.%Y %H:%M")}')
-                            return redirect('lead_detail', pk=pk)
+                            try:
+                                followup = FollowUp.objects.create(
+                                    lead=lead,
+                                    sales=sales,
+                                    due_date=adjusted_due_date,
+                                    notes=f"Sotuvchi tomonidan belgilangan: {notes}" if notes else "Sotuvchi tomonidan belgilangan"
+                                )
+                                # #region agent log
+                                try:
+                                    with open(r'c:\Users\rashi\Documents\GitHub\leads_management\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                                        f.write(json.dumps({
+                                            'sessionId': 'debug-session',
+                                            'runId': 'run1',
+                                            'hypothesisId': 'E',
+                                            'location': 'views.py:495',
+                                            'message': 'FollowUp created successfully',
+                                            'data': {'followup_id': followup.id},
+                                            'timestamp': int(timezone.now().timestamp() * 1000)
+                                        }) + '\n')
+                                except: pass
+                                # #endregion
+                                
+                                # Notification yuborish
+                                from .tasks import send_followup_created_notification
+                                send_followup_created_notification.delay(followup.id)
+                                
+                                messages.success(request, f'Vazifa yaratildi: {adjusted_due_date.strftime("%d.%m.%Y %H:%M")}')
+                                return redirect('lead_detail', pk=pk)
+                            except Exception as e:
+                                # #region agent log
+                                try:
+                                    with open(r'c:\Users\rashi\Documents\GitHub\leads_management\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                                        f.write(json.dumps({
+                                            'sessionId': 'debug-session',
+                                            'runId': 'run1',
+                                            'hypothesisId': 'E',
+                                            'location': 'views.py:510',
+                                            'message': 'FollowUp.create error',
+                                            'data': {'error': str(e), 'error_type': type(e).__name__},
+                                            'timestamp': int(timezone.now().timestamp() * 1000)
+                                        }) + '\n')
+                                except: pass
+                                # #endregion
+                                messages.error(request, f'Vazifa yaratishda xatolik: {str(e)}')
+                                import traceback
+                                traceback.print_exc()
+                                custom_followup_form = CustomFollowUpForm(request.POST)
                         except Exception as e:
                             # #region agent log
                             try:
@@ -542,17 +560,18 @@ def lead_detail(request, pk):
                                     f.write(json.dumps({
                                         'sessionId': 'debug-session',
                                         'runId': 'run1',
-                                        'hypothesisId': 'E',
-                                        'location': 'views.py:400',
-                                        'message': 'FollowUp.create error',
+                                        'hypothesisId': 'F',
+                                        'location': 'views.py:520',
+                                        'message': 'calculate_work_hours_due_date error',
                                         'data': {'error': str(e), 'error_type': type(e).__name__},
                                         'timestamp': int(timezone.now().timestamp() * 1000)
                                     }) + '\n')
                             except: pass
                             # #endregion
-                            messages.error(request, f'Vazifa yaratishda xatolik: {str(e)}')
+                            messages.error(request, f'Ish vaqtini hisoblashda xatolik: {str(e)}')
                             import traceback
                             traceback.print_exc()
+                            custom_followup_form = CustomFollowUpForm(request.POST)
                 else:
                     # Form validation xatolari
                     for field, errors in custom_followup_form.errors.items():
