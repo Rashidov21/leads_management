@@ -106,10 +106,10 @@ def dashboard(request):
         now = timezone.now()
         
         if request.user.is_admin or request.user.is_sales_manager:
-        # Admin/Manager dashboard
-        overdue_followups_queryset = FollowUpService.get_overdue_followups_prioritized()
-        
-        context.update({
+            # Admin/Manager dashboard
+            overdue_followups_queryset = FollowUpService.get_overdue_followups_prioritized()
+            
+            context.update({
             'total_leads': Lead.objects.count(),
             'new_leads_today': Lead.objects.filter(
                 created_at__date=timezone.now().date(),
@@ -121,51 +121,51 @@ def dashboard(request):
             'overdue_followups_list': overdue_followups_queryset.select_related(
                 'lead', 'sales', 'lead__assigned_sales', 'lead__interested_course'
             )[:10],  # Eng qadimgi 10 tasi
-            'overdue_stats': FollowUpService.get_overdue_statistics(),
-        })
-    else:
-        # Sales dashboard
-        sales = request.user
-        overdue_followups_queryset = FollowUpService.get_overdue_followups_prioritized(sales)
-        
-        # Bugungi KPI
-        today = timezone.now().date()
-        today_kpi = KPIService.calculate_daily_kpi(sales, today)
-        
-        # Oxirgi 7 kunlik KPI
-        from datetime import timedelta
-        last_7_days_kpi = []
-        for i in range(7):
-            date = today - timedelta(days=i)
-            kpi = KPI.objects.filter(sales=sales, date=date).first()
-            if not kpi:
-                kpi = KPIService.calculate_daily_kpi(sales, date)
-            last_7_days_kpi.append({
-                'date': date,
-                'kpi': kpi
+                'overdue_stats': FollowUpService.get_overdue_statistics(),
             })
-        
-        # Reyting (conversion_rate bo'yicha)
-        ranking = KPIService.get_sales_ranking(sales, period='month', metric='conversion_rate')
-        
-        # Trend taqqoslash
-        trend_contacts = KPIService.get_trend_comparison(sales, days=7, metric='daily_contacts')
-        trend_conversion = KPIService.get_trend_comparison(sales, days=7, metric='conversion_rate')
-        
-        context.update({
-            'my_leads': Lead.objects.filter(assigned_sales=sales).count(),
-            'today_followups': FollowUpService.get_today_followups(sales).count(),
-            'overdue_followups': overdue_followups_queryset.count(),
-            'overdue_followups_list': overdue_followups_queryset.select_related(
-                'lead', 'lead__interested_course'
-            )[:10],  # Eng qadimgi 10 tasi
-            'is_blocked': FollowUpService.check_sales_blocked(sales),
-            'today_kpi': today_kpi,
-            'last_7_days_kpi': last_7_days_kpi,
-            'ranking': ranking,
-            'trend_contacts': trend_contacts,
-            'trend_conversion': trend_conversion,
-        })
+        else:
+            # Sales dashboard
+            sales = request.user
+            overdue_followups_queryset = FollowUpService.get_overdue_followups_prioritized(sales)
+            
+            # Bugungi KPI
+            today = timezone.now().date()
+            today_kpi = KPIService.calculate_daily_kpi(sales, today)
+            
+            # Oxirgi 7 kunlik KPI
+            from datetime import timedelta
+            last_7_days_kpi = []
+            for i in range(7):
+                date = today - timedelta(days=i)
+                kpi = KPI.objects.filter(sales=sales, date=date).first()
+                if not kpi:
+                    kpi = KPIService.calculate_daily_kpi(sales, date)
+                last_7_days_kpi.append({
+                    'date': date,
+                    'kpi': kpi
+                })
+            
+            # Reyting (conversion_rate bo'yicha)
+            ranking = KPIService.get_sales_ranking(sales, period='month', metric='conversion_rate')
+            
+            # Trend taqqoslash
+            trend_contacts = KPIService.get_trend_comparison(sales, days=7, metric='daily_contacts')
+            trend_conversion = KPIService.get_trend_comparison(sales, days=7, metric='conversion_rate')
+            
+            context.update({
+                'my_leads': Lead.objects.filter(assigned_sales=sales).count(),
+                'today_followups': FollowUpService.get_today_followups(sales).count(),
+                'overdue_followups': overdue_followups_queryset.count(),
+                'overdue_followups_list': overdue_followups_queryset.select_related(
+                    'lead', 'lead__interested_course'
+                )[:10],  # Eng qadimgi 10 tasi
+                'is_blocked': FollowUpService.check_sales_blocked(sales),
+                'today_kpi': today_kpi,
+                'last_7_days_kpi': last_7_days_kpi,
+                'ranking': ranking,
+                'trend_contacts': trend_contacts,
+                'trend_conversion': trend_conversion,
+            })
         
         return render(request, 'dashboard.html', context)
     except Exception as e:
@@ -185,54 +185,54 @@ def leads_list(request):
         
         if request.user.is_sales:
             queryset = queryset.filter(assigned_sales=request.user)
-    
-    # Filtrlash
-    source_filter = request.GET.get('source')
-    if source_filter:
-        queryset = queryset.filter(source=source_filter)
-    
-    search = request.GET.get('search')
-    if search:
-        queryset = queryset.filter(
-            Q(name__icontains=search) | Q(phone__icontains=search)
-        )
-    
-    # Statuslar bo'yicha guruhlash (Kanban board uchun)
-    now = timezone.now()
-    leads_by_status = {}
-    for status_code, status_name in Lead.STATUS_CHOICES:
-        status_leads = queryset.filter(status=status_code).prefetch_related(
-            'followups',
-            'trials__group__course',
-            'trials__group',
-            'trials__room'
-        ).order_by('-created_at')
-        # Har bir lid uchun overdue follow-up borligini tekshirish
-        for lead in status_leads:
-            lead.has_overdue_followup = lead.followups.filter(
-                completed=False, 
-                due_date__lt=now
-            ).exists()
-            # Eng yaqin sinov darsini topish (natija bo'lmagan yoki kelajakdagi)
-            upcoming_trial = lead.trials.filter(
-                result__in=['', 'attended', 'not_attended']
-            ).order_by('date', 'time').first()
-            if not upcoming_trial:
-                # Agar kelajakdagi bo'lmasa, barcha sinov darslardan eng yaqinini olish
-                upcoming_trial = lead.trials.all().order_by('date', 'time').first()
-            lead.upcoming_trial = upcoming_trial
-        leads_by_status[status_code] = {
-            'name': status_name,
-            'leads': status_leads,
-            'count': status_leads.count()
+        
+        # Filtrlash
+        source_filter = request.GET.get('source')
+        if source_filter:
+            queryset = queryset.filter(source=source_filter)
+        
+        search = request.GET.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) | Q(phone__icontains=search)
+            )
+        
+        # Statuslar bo'yicha guruhlash (Kanban board uchun)
+        now = timezone.now()
+        leads_by_status = {}
+        for status_code, status_name in Lead.STATUS_CHOICES:
+            status_leads = queryset.filter(status=status_code).prefetch_related(
+                'followups',
+                'trials__group__course',
+                'trials__group',
+                'trials__room'
+            ).order_by('-created_at')
+            # Har bir lid uchun overdue follow-up borligini tekshirish
+            for lead in status_leads:
+                lead.has_overdue_followup = lead.followups.filter(
+                    completed=False, 
+                    due_date__lt=now
+                ).exists()
+                # Eng yaqin sinov darsini topish (natija bo'lmagan yoki kelajakdagi)
+                upcoming_trial = lead.trials.filter(
+                    result__in=['', 'attended', 'not_attended']
+                ).order_by('date', 'time').first()
+                if not upcoming_trial:
+                    # Agar kelajakdagi bo'lmasa, barcha sinov darslardan eng yaqinini olish
+                    upcoming_trial = lead.trials.all().order_by('date', 'time').first()
+                lead.upcoming_trial = upcoming_trial
+            leads_by_status[status_code] = {
+                'name': status_name,
+                'leads': status_leads,
+                'count': status_leads.count()
+            }
+        
+        context = {
+            'leads_by_status': leads_by_status,
+            'statuses': Lead.STATUS_CHOICES,
+            'sources': Lead.SOURCE_CHOICES,
+            'total_leads': queryset.count(),
         }
-    
-    context = {
-        'leads_by_status': leads_by_status,
-        'statuses': Lead.STATUS_CHOICES,
-        'sources': Lead.SOURCE_CHOICES,
-        'total_leads': queryset.count(),
-    }
         return render(request, 'leads/list.html', context)
     except Exception as e:
         messages.error(request, f'Lidlar ro\'yxatini yuklashda xatolik: {str(e)}')
@@ -246,75 +246,75 @@ def leads_list(request):
 def leads_table(request):
     """Lidlar jadvali (filtr + CSV eksport)"""
     try:
-    leads = Lead.objects.select_related('assigned_sales', 'interested_course').all()
+        leads = Lead.objects.select_related('assigned_sales', 'interested_course').all()
 
-    status = request.GET.get('status') or ''
-    source = request.GET.get('source') or ''
-    sales_id = request.GET.get('sales') or ''
-    course_id = request.GET.get('course') or ''
-    date_from = request.GET.get('date_from') or ''
-    date_to = request.GET.get('date_to') or ''
+        status = request.GET.get('status') or ''
+        source = request.GET.get('source') or ''
+        sales_id = request.GET.get('sales') or ''
+        course_id = request.GET.get('course') or ''
+        date_from = request.GET.get('date_from') or ''
+        date_to = request.GET.get('date_to') or ''
 
-    # Sales o'z lidlarini ko'radi
-    if request.user.is_sales:
-        leads = leads.filter(assigned_sales=request.user)
+        # Sales o'z lidlarini ko'radi
+        if request.user.is_sales:
+            leads = leads.filter(assigned_sales=request.user)
 
-    if status:
-        leads = leads.filter(status=status)
-    if source:
-        leads = leads.filter(source=source)
-    if sales_id:
-        leads = leads.filter(assigned_sales_id=sales_id)
-    if course_id:
-        leads = leads.filter(interested_course_id=course_id)
-    if date_from:
-        leads = leads.filter(created_at__date__gte=date_from)
-    if date_to:
-        leads = leads.filter(created_at__date__lte=date_to)
+        if status:
+            leads = leads.filter(status=status)
+        if source:
+            leads = leads.filter(source=source)
+        if sales_id:
+            leads = leads.filter(assigned_sales_id=sales_id)
+        if course_id:
+            leads = leads.filter(interested_course_id=course_id)
+        if date_from:
+            leads = leads.filter(created_at__date__gte=date_from)
+        if date_to:
+            leads = leads.filter(created_at__date__lte=date_to)
 
-    # Export Excel
-    if request.GET.get('export') == 'excel':
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Leads"
-        headers = ['Ism', 'Telefon', "Qo'shimcha telefon", 'Status', 'Manba', 'Kurs', 'Sotuvchi', 'Yaratilgan']
-        ws.append(headers)
-        for lead in leads:
-            ws.append([
-                lead.name,
-                lead.phone,
-                getattr(lead, 'secondary_phone', '') or '',
-                lead.get_status_display(),
-                lead.get_source_display(),
-                lead.interested_course.name if lead.interested_course else '',
-                lead.assigned_sales.username if lead.assigned_sales else '',
-                timezone.localtime(lead.created_at).strftime('%d.%m.%Y %H:%M'),
-            ])
+        # Export Excel
+        if request.GET.get('export') == 'excel':
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Leads"
+            headers = ['Ism', 'Telefon', "Qo'shimcha telefon", 'Status', 'Manba', 'Kurs', 'Sotuvchi', 'Yaratilgan']
+            ws.append(headers)
+            for lead in leads:
+                ws.append([
+                    lead.name,
+                    lead.phone,
+                    getattr(lead, 'secondary_phone', '') or '',
+                    lead.get_status_display(),
+                    lead.get_source_display(),
+                    lead.interested_course.name if lead.interested_course else '',
+                    lead.assigned_sales.username if lead.assigned_sales else '',
+                    timezone.localtime(lead.created_at).strftime('%d.%m.%Y %H:%M'),
+                ])
 
-        bio = BytesIO()
-        wb.save(bio)
-        bio.seek(0)
-        filename = f"leads_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-        response = HttpResponse(
-            bio.getvalue(),
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        return response
+            bio = BytesIO()
+            wb.save(bio)
+            bio.seek(0)
+            filename = f"leads_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            response = HttpResponse(
+                bio.getvalue(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
 
-    context = {
-        'leads': leads.order_by('-created_at'),
-        'status_filter': status,
-        'source_filter': source,
-        'sales_filter': sales_id,
-        'course_filter': course_id,
-        'date_from': date_from,
-        'date_to': date_to,
-        'sales_list': User.objects.filter(role='sales', is_active_sales=True),
-        'course_list': Course.objects.filter(is_active=True),
-        'statuses': Lead.STATUS_CHOICES,
-        'sources': Lead.SOURCE_CHOICES,
-    }
+        context = {
+            'leads': leads.order_by('-created_at'),
+            'status_filter': status,
+            'source_filter': source,
+            'sales_filter': sales_id,
+            'course_filter': course_id,
+            'date_from': date_from,
+            'date_to': date_to,
+            'sales_list': User.objects.filter(role='sales', is_active_sales=True),
+            'course_list': Course.objects.filter(is_active=True),
+            'statuses': Lead.STATUS_CHOICES,
+            'sources': Lead.SOURCE_CHOICES,
+        }
         return render(request, 'leads/table.html', context)
     except Exception as e:
         messages.error(request, f'Lidlar jadvalini yuklashda xatolik: {str(e)}')
@@ -333,113 +333,113 @@ def lead_detail(request, pk):
         if request.user.is_sales and lead.assigned_sales != request.user:
             messages.error(request, "Sizda bu lidni ko'rish huquqi yo'q")
             return redirect('leads_list')
-    
-    if request.method == 'POST':
-        # Status o'zgartirish
-        if 'status_form' in request.POST:
-            form = LeadStatusForm(request.POST, instance=lead)
-            if form.is_valid():
-                form.save()
-                messages.success(request, 'Status yangilandi')
-                return redirect('lead_detail', pk=pk)
-        # Lid ma'lumotlarini o'zgartirish
-        elif 'edit_form' in request.POST:
-            edit_form = LeadForm(request.POST, instance=lead)
-            if edit_form.is_valid():
-                edit_form.save()
-                messages.success(request, 'Lid ma\'lumotlari yangilandi')
-                return redirect('lead_detail', pk=pk)
-        # Custom follow-up yaratish
-        elif 'create_custom_followup' in request.POST:
-            custom_followup_form = CustomFollowUpForm(request.POST)
-            if custom_followup_form.is_valid():
-                due_datetime = custom_followup_form.cleaned_data['due_date']
-                notes = custom_followup_form.cleaned_data.get('notes', '')
-                
-                # Ish vaqtini tekshirish va moslashtirish
-                sales = request.user
-                now = timezone.now()
-                
-                # Agar ish vaqtlari belgilanmagan bo'lsa, oddiy yaratish
-                if not sales.work_start_time or not sales.work_end_time:
-                    followup = FollowUp.objects.create(
-                        lead=lead,
-                        sales=sales,
-                        due_date=due_datetime,
-                        notes=f"Sotuvchi tomonidan belgilangan: {notes}" if notes else "Sotuvchi tomonidan belgilangan"
-                    )
-                    from .tasks import send_followup_created_notification
-                    send_followup_created_notification.delay(followup.id)
-                    messages.success(request, f'Vazifa yaratildi: {due_datetime.strftime("%d.%m.%Y %H:%M")}')
+        
+        if request.method == 'POST':
+            # Status o'zgartirish
+            if 'status_form' in request.POST:
+                form = LeadStatusForm(request.POST, instance=lead)
+                if form.is_valid():
+                    form.save()
+                    messages.success(request, 'Status yangilandi')
                     return redirect('lead_detail', pk=pk)
-                
-                # Ish vaqtini tekshirish
-                due_time = due_datetime.time()
-                if due_time < sales.work_start_time or due_time > sales.work_end_time:
-                    messages.error(request, f'Belgilangan vaqt ({due_time.strftime("%H:%M")}) ish vaqti tashqarisida. Ish vaqti: {sales.work_start_time.strftime("%H:%M")} - {sales.work_end_time.strftime("%H:%M")}')
-                    custom_followup_form = CustomFollowUpForm(request.POST)
+            # Lid ma'lumotlarini o'zgartirish
+            elif 'edit_form' in request.POST:
+                edit_form = LeadForm(request.POST, instance=lead)
+                if edit_form.is_valid():
+                    edit_form.save()
+                    messages.success(request, 'Lid ma\'lumotlari yangilandi')
+                    return redirect('lead_detail', pk=pk)
+            # Custom follow-up yaratish
+            elif 'create_custom_followup' in request.POST:
+                custom_followup_form = CustomFollowUpForm(request.POST)
+                if custom_followup_form.is_valid():
+                    due_datetime = custom_followup_form.cleaned_data['due_date']
+                    notes = custom_followup_form.cleaned_data.get('notes', '')
+                    
+                    # Ish vaqtini tekshirish va moslashtirish
+                    sales = request.user
+                    now = timezone.now()
+                    
+                    # Agar ish vaqtlari belgilanmagan bo'lsa, oddiy yaratish
+                    if not sales.work_start_time or not sales.work_end_time:
+                        followup = FollowUp.objects.create(
+                            lead=lead,
+                            sales=sales,
+                            due_date=due_datetime,
+                            notes=f"Sotuvchi tomonidan belgilangan: {notes}" if notes else "Sotuvchi tomonidan belgilangan"
+                        )
+                        from .tasks import send_followup_created_notification
+                        send_followup_created_notification.delay(followup.id)
+                        messages.success(request, f'Vazifa yaratildi: {due_datetime.strftime("%d.%m.%Y %H:%M")}')
+                        return redirect('lead_detail', pk=pk)
+                    
+                    # Ish vaqtini tekshirish
+                    due_time = due_datetime.time()
+                    if due_time < sales.work_start_time or due_time > sales.work_end_time:
+                        messages.error(request, f'Belgilangan vaqt ({due_time.strftime("%H:%M")}) ish vaqti tashqarisida. Ish vaqti: {sales.work_start_time.strftime("%H:%M")} - {sales.work_end_time.strftime("%H:%M")}')
+                        custom_followup_form = CustomFollowUpForm(request.POST)
+                    else:
+                        # Ish vaqtini moslashtirish (ish kunlarini tekshirish)
+                        adjusted_due_date = FollowUpService.calculate_work_hours_due_date(
+                            sales,
+                            now,
+                            due_datetime - now
+                        )
+                        
+                        # Follow-up yaratish
+                        followup = FollowUp.objects.create(
+                            lead=lead,
+                            sales=sales,
+                            due_date=adjusted_due_date,
+                            notes=f"Sotuvchi tomonidan belgilangan: {notes}" if notes else "Sotuvchi tomonidan belgilangan"
+                        )
+                        
+                        # Notification yuborish
+                        from .tasks import send_followup_created_notification
+                        send_followup_created_notification.delay(followup.id)
+                        
+                        messages.success(request, f'Vazifa yaratildi: {adjusted_due_date.strftime("%d.%m.%Y %H:%M")}')
+                        return redirect('lead_detail', pk=pk)
                 else:
-                    # Ish vaqtini moslashtirish (ish kunlarini tekshirish)
-                    adjusted_due_date = FollowUpService.calculate_work_hours_due_date(
-                        sales,
-                        now,
-                        due_datetime - now
-                    )
-                    
-                    # Follow-up yaratish
-                    followup = FollowUp.objects.create(
-                        lead=lead,
-                        sales=sales,
-                        due_date=adjusted_due_date,
-                        notes=f"Sotuvchi tomonidan belgilangan: {notes}" if notes else "Sotuvchi tomonidan belgilangan"
-                    )
-                    
-                    # Notification yuborish
-                    from .tasks import send_followup_created_notification
-                    send_followup_created_notification.delay(followup.id)
-                    
-                    messages.success(request, f'Vazifa yaratildi: {adjusted_due_date.strftime("%d.%m.%Y %H:%M")}')
-                    return redirect('lead_detail', pk=pk)
-            else:
-                # Form validation xatolari
-                pass
-    else:
-        form = LeadStatusForm(instance=lead)
-        edit_form = LeadForm(instance=lead)
-        custom_followup_form = CustomFollowUpForm()
-    
-    # Faol takliflarni olish
-    from .services import OfferService
-    active_offers = OfferService.active_for_lead(lead, channel='all')
-    
-    # Kurs sotuv scriptini olish
-    sales_script = None
-    sales_script_course_name = None
-    if lead.interested_course:
-        sales_script = lead.interested_course.sales_script
-        sales_script_course_name = lead.interested_course.name
-    else:
-        # Umumiy sotuv scriptini qidirish
-        general_course = Course.objects.filter(name__icontains='umumiy').first()
-        if general_course:
-            sales_script = general_course.sales_script
-            sales_script_course_name = "Umumiy"
-    
-    # Custom follow-up form (agar POST bo'lmagan bo'lsa yoki xatolik bo'lsa)
-    if 'custom_followup_form' not in locals():
-        custom_followup_form = CustomFollowUpForm()
-    
-    context = {
-        'lead': lead,
-        'form': form,
-        'edit_form': edit_form,
-        'custom_followup_form': custom_followup_form,
-        'followups': lead.followups.select_related('sales').all().order_by('-due_date'),
-        'trials': lead.trials.select_related('group', 'group__course', 'room').all().order_by('-date'),
-        'active_offers': active_offers,
-        'sales_script': sales_script,
-        'sales_script_course_name': sales_script_course_name,
-    }
+                    # Form validation xatolari
+                    pass
+        else:
+            form = LeadStatusForm(instance=lead)
+            edit_form = LeadForm(instance=lead)
+            custom_followup_form = CustomFollowUpForm()
+        
+        # Faol takliflarni olish
+        from .services import OfferService
+        active_offers = OfferService.active_for_lead(lead, channel='all')
+        
+        # Kurs sotuv scriptini olish
+        sales_script = None
+        sales_script_course_name = None
+        if lead.interested_course:
+            sales_script = lead.interested_course.sales_script
+            sales_script_course_name = lead.interested_course.name
+        else:
+            # Umumiy sotuv scriptini qidirish
+            general_course = Course.objects.filter(name__icontains='umumiy').first()
+            if general_course:
+                sales_script = general_course.sales_script
+                sales_script_course_name = "Umumiy"
+        
+        # Custom follow-up form (agar POST bo'lmagan bo'lsa yoki xatolik bo'lsa)
+        if 'custom_followup_form' not in locals():
+            custom_followup_form = CustomFollowUpForm()
+        
+        context = {
+            'lead': lead,
+            'form': form,
+            'edit_form': edit_form,
+            'custom_followup_form': custom_followup_form,
+            'followups': lead.followups.select_related('sales').all().order_by('-due_date'),
+            'trials': lead.trials.select_related('group', 'group__course', 'room').all().order_by('-date'),
+            'active_offers': active_offers,
+            'sales_script': sales_script,
+            'sales_script_course_name': sales_script_course_name,
+        }
         return render(request, 'leads/detail.html', context)
     except Exception as e:
         messages.error(request, f'Lid ma\'lumotlarini yuklashda xatolik: {str(e)}')
