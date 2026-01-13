@@ -485,7 +485,13 @@ def lead_create(request):
         form = LeadForm(request.POST)
         if form.is_valid():
             lead = form.save(commit=False)
-            if not lead.assigned_sales:
+            # Agar sotuvchi o'zi lid qo'shgan bo'lsa, o'sha sotuvchiga biriktirish
+            if request.user.is_sales and not lead.assigned_sales:
+                lead.assigned_sales = request.user
+                lead.save()
+                from .tasks import send_new_lead_notification
+                send_new_lead_notification.delay(lead.id)
+            elif not lead.assigned_sales:
                 # Avtomatik taqsimlash (ichida notification yuboriladi)
                 LeadDistributionService.distribute_leads([lead])
             else:
