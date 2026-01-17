@@ -146,7 +146,7 @@ class CustomFollowUpForm(forms.Form):
     )
     
     def clean_due_date(self):
-        """Max 3 kun tekshirish"""
+        """Vaqt tekshirish (3 kun cheklovi olib tashlandi)"""
         from django.utils import timezone
         
         due_date = self.cleaned_data.get('due_date')
@@ -157,11 +157,8 @@ class CustomFollowUpForm(forms.Form):
             if due_date <= now:
                 raise forms.ValidationError('Vaqt hozirgi vaqtdan keyin bo\'lishi kerak')
             
-            # Max 3 kun tekshirish
-            days_diff = (due_date.date() - now.date()).days
-            if days_diff > 3:
-                raise forms.ValidationError('Qayta aloqa muddati 3 kundan oshmasligi kerak')
-            if days_diff < 0:
+            # 3 kun cheklovi olib tashlandi - endi istalgan vaqtni belgilash mumkin
+            if (due_date.date() - now.date()).days < 0:
                 raise forms.ValidationError('Vaqt o\'tgan bo\'lishi mumkin emas')
         
         return due_date
