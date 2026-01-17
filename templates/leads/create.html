@@ -70,6 +70,24 @@
                             </p>
                         {% endif %}
                     </div>
+                    {% if form.assigned_sales %}
+                    <div>
+                        <label for="{{ form.assigned_sales.id_for_label }}" class="form-label">
+                            <i class="fas fa-user-tie mr-1 text-gray-400"></i>{{ form.assigned_sales.label }}
+                        </label>
+                        {{ form.assigned_sales }}
+                        {% if form.assigned_sales.help_text %}
+                            <p class="mt-1 text-xs text-gray-500">
+                                <i class="fas fa-info-circle mr-1"></i>{{ form.assigned_sales.help_text }}
+                            </p>
+                        {% endif %}
+                        {% if form.assigned_sales.errors %}
+                            <p class="mt-1 text-sm text-red-600 flex items-center">
+                                <i class="fas fa-exclamation-circle mr-1"></i>{{ form.assigned_sales.errors.0 }}
+                            </p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                     <div>
                         <label for="{{ form.source.id_for_label }}" class="form-label">
                             <i class="fas fa-source-fork mr-1 text-gray-400"></i>Manba

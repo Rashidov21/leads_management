@@ -482,27 +482,32 @@ def lead_detail(request, pk):
 @role_required('admin', 'sales_manager', 'sales')
 def lead_create(request):
     if request.method == 'POST':
-        form = LeadForm(request.POST)
+        form = LeadForm(request.POST, user=request.user)
         if form.is_valid():
             lead = form.save(commit=False)
-            # Agar sotuvchi o'zi lid qo'shgan bo'lsa, o'sha sotuvchiga biriktirish
-            if request.user.is_sales and not lead.assigned_sales:
-                lead.assigned_sales = request.user
+            
+            # Agar sotuvchi o'zi lid qo'shgan bo'lsa
+            if request.user.is_sales:
+                # Agar assigned_sales tanlanmagan bo'lsa, o'ziga biriktirish
+                if not lead.assigned_sales:
+                    lead.assigned_sales = request.user
+                # Agar tanlangan bo'lsa, tanlangan sotuvchiga biriktirish
                 lead.save()
                 from .tasks import send_new_lead_notification
                 send_new_lead_notification.delay(lead.id)
             elif not lead.assigned_sales:
-                # Avtomatik taqsimlash (ichida notification yuboriladi)
+                # Admin/Manager uchun avtomatik taqsimlash
                 LeadDistributionService.distribute_leads([lead])
             else:
                 # Agar qo'lda biriktirilgan bo'lsa, saqlash va notification yuborish
                 lead.save()
                 from .tasks import send_new_lead_notification
                 send_new_lead_notification.delay(lead.id)
+            
             messages.success(request, 'Lid qo\'shildi')
             return redirect('lead_detail', pk=lead.pk)
     else:
-        form = LeadForm()
+        form = LeadForm(user=request.user)
     
     return render(request, 'leads/create.html', {'form': form})
 
@@ -514,10 +519,50 @@ def lead_assign(request, pk):
     
     if request.method == 'POST':
         sales_id = request.POST.get('sales_id')
-        sales = get_object_or_404(User, pk=sales_id, role='sales')
-        lead.assigned_sales = sales
+        new_sales = get_object_or_404(User, pk=sales_id, role='sales')
+        old_sales = lead.assigned_sales  # Eski sotuvchini saqlash
+        
+        # Lidni yangi sotuvchiga biriktirish
+        lead.assigned_sales = new_sales
         lead.save()
-        messages.success(request, f'Lid {sales.username} ga biriktirildi')
+        
+        # Eski sotuvchining bajarilmagan follow-up'larini yangi sotuvchiga o'tkazish
+        pending_count = 0
+        if old_sales:
+            pending_followups = FollowUp.objects.filter(
+                lead=lead,
+                sales=old_sales,
+                completed=False
+            )
+            pending_count = pending_followups.count()
+            
+            # Follow-up'larni yangi sotuvchiga o'tkazish
+            if pending_count > 0:
+                pending_followups.update(sales=new_sales)
+            
+            # Eski sotuvchiga xabar yuborish (agar telegram_chat_id bo'lsa)
+            if old_sales.telegram_chat_id:
+                from .telegram_bot import send_telegram_notification
+                message = (
+                    f"🔔 Lid o'tkazildi\n\n"
+                    f"👤 Lid: {lead.name}\n"
+                    f"📞 Telefon: {lead.phone}\n"
+                    f"➡️ Yangi sotuvchi: {new_sales.username}\n"
+                )
+                if pending_count > 0:
+                    message += f"📋 {pending_count} ta bajarilmagan follow-up yangi sotuvchiga o'tkazildi."
+                else:
+                    message += f"✅ Barcha follow-up'lar bajarilgan edi."
+                
+                send_telegram_notification(old_sales.telegram_chat_id, message)
+        
+        # Yangi sotuvchiga notification yuborish
+        from .tasks import send_new_lead_notification
+        send_new_lead_notification.delay(lead.id)
+        
+        messages.success(request, f'Lid {new_sales.username} ga biriktirildi')
+        if pending_count > 0:
+            messages.info(request, f'{pending_count} ta bajarilmagan follow-up yangi sotuvchiga o\'tkazildi')
         return redirect('lead_detail', pk=pk)
     
     sales_list = User.objects.filter(role='sales', is_active_sales=True)
@@ -562,10 +607,44 @@ def excel_import(request):
                             }
                             source = source_mapping.get(source_value, 'excel')
                         
+                        # Interested course ni qidirish va biriktirish (case-insensitive)
+                        interested_course = None
+                        course_name = None
+                        
+                        # Mumkin bo'lgan ustun nomlari
+                        course_key_variants = ['course', 'kurs', 'interested_course', 'qiziqqan kurs']
+                        row_keys_lower = {str(k).lower().strip(): k for k in row.keys()}
+                        
+                        for variant in course_key_variants:
+                            if variant in row_keys_lower:
+                                found_key = row_keys_lower[variant]
+                                course_name = str(row.get(found_key, '')).strip()
+                                if course_name:
+                                    break
+                        
+                        # Agar variantlardan topilmasa, default ustun nomidan qidirish
+                        if not course_name:
+                            course_name = str(row.get('course', row.get('interested_course', ''))).strip()
+                        
+                        if course_name:
+                            try:
+                                interested_course = Course.objects.filter(
+                                    name__icontains=course_name
+                                ).first()
+                            except:
+                                pass
+                        
+                        # Secondary phone
+                        secondary_phone = str(row.get('secondary_phone', '')).strip()
+                        if secondary_phone:
+                            secondary_phone = secondary_phone.replace('+', '').replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+                        
                         lead = Lead(
                             name=str(row.get('name', '')).strip(),
                             phone=phone,
+                            secondary_phone=secondary_phone if secondary_phone else None,
                             source=source,
+                            interested_course=interested_course,
                         )
                         leads.append(lead)
                 elif load_workbook:
@@ -578,6 +657,8 @@ def excel_import(request):
                     name_col = None
                     phone_col = None
                     source_col = None
+                    course_col = None
+                    secondary_phone_col = None
                     
                     for idx, header in enumerate(headers, 1):
                         header_str = str(header or '').lower()
@@ -587,6 +668,10 @@ def excel_import(request):
                             phone_col = idx
                         if 'source' in header_str:
                             source_col = idx
+                        if 'course' in header_str or 'kurs' in header_str or 'interested_course' in header_str:
+                            course_col = idx
+                        if 'secondary_phone' in header_str or 'qo\'shimcha' in header_str:
+                            secondary_phone_col = idx
                     
                     if not name_col or not phone_col:
                         messages.error(request, 'Excel faylda "name" va "phone" ustunlari topilmadi')
@@ -621,10 +706,31 @@ def excel_import(request):
                                 }
                                 source = source_mapping.get(source_value, 'excel')
                         
+                        # Interested course ni qidirish va biriktirish
+                        interested_course = None
+                        if course_col:
+                            course_name = str(row[course_col - 1].value or '').strip()
+                            if course_name:
+                                try:
+                                    interested_course = Course.objects.filter(
+                                        name__icontains=course_name
+                                    ).first()
+                                except:
+                                    pass
+                        
+                        # Secondary phone
+                        secondary_phone = None
+                        if secondary_phone_col:
+                            secondary_phone = str(row[secondary_phone_col - 1].value or '').strip()
+                            if secondary_phone:
+                                secondary_phone = secondary_phone.replace('+', '').replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+                        
                         lead = Lead(
                             name=name,
                             phone=phone,
+                            secondary_phone=secondary_phone if secondary_phone else None,
                             source=source,
+                            interested_course=interested_course,
                         )
                         leads.append(lead)
                 else:
@@ -1378,7 +1484,10 @@ def sales_edit(request, pk):
     if request.method == 'POST':
         form = UserEditForm(request.POST, instance=sales)
         if form.is_valid():
-            form.save()
+            sales_obj = form.save(commit=False)
+            sales_obj.role = 'sales'  # rol o'zgarmasin
+            sales_obj.save()
+            form.save_m2m()  # ManyToMany ni saqlash (assigned_courses uchun)
             messages.success(request, 'Sotuvchi yangilandi')
             return redirect('sales_list')
     else:

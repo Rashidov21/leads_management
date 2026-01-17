@@ -4,9 +4,19 @@ from .models import Lead, Course, Group, TrialLesson, User, FollowUp, Room, Leav
 
 
 class LeadForm(forms.ModelForm):
+    assigned_sales = forms.ModelChoiceField(
+        queryset=User.objects.filter(role='sales', is_active_sales=True),
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'form-select w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 appearance-none bg-no-repeat bg-right-2.5 bg-[length:1.5em_1.5em]'
+        }),
+        help_text="Sotuvchini tanlang (ixtiyoriy, tanlanmasa o'zingizga birikadi)",
+        label="Sotuvchi"
+    )
+    
     class Meta:
         model = Lead
-        fields = ['name', 'phone', 'secondary_phone', 'interested_course', 'source', 'notes']
+        fields = ['name', 'phone', 'secondary_phone', 'interested_course', 'source', 'notes', 'assigned_sales']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-input w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 placeholder:text-gray-400',
@@ -34,6 +44,15 @@ class LeadForm(forms.ModelForm):
                 'placeholder': 'Qo\'shimcha eslatmalar...'
             }),
         }
+    
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        # Agar foydalanuvchi sales bo'lmasa, assigned_sales maydonini yashirish
+        if not self.user or not self.user.is_sales:
+            if 'assigned_sales' in self.fields:
+                self.fields.pop('assigned_sales')
 
 
 class LeadStatusForm(forms.ModelForm):
@@ -228,11 +247,20 @@ class UserCreateForm(UserCreationForm):
 
 
 class UserEditForm(forms.ModelForm):
+    assigned_courses = forms.ModelMultipleChoiceField(
+        queryset=Course.objects.filter(is_active=True),
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={
+            'class': 'space-y-2 max-h-60 overflow-y-auto p-3 border border-gray-200 rounded-lg bg-gray-50'
+        }),
+        help_text="Qaysi kurs(lar) uchun lidlarga javob beradi (ixtiyoriy, bo'sh bo'lsa barcha kurslar)"
+    )
+    
     class Meta:
         model = User
         fields = ['username', 'email', 'first_name', 'last_name', 'role', 'phone', 'telegram_chat_id', 'telegram_group_id', 'is_active_sales', 'is_active',
                   'work_start_time', 'work_end_time', 'work_monday', 'work_tuesday', 'work_wednesday', 
-                  'work_thursday', 'work_friday', 'work_saturday', 'work_sunday']
+                  'work_thursday', 'work_friday', 'work_saturday', 'work_sunday', 'assigned_courses']
         widgets = {
             'username': forms.TextInput(attrs={
                 'class': 'form-input w-full px-4 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 placeholder:text-gray-400'

@@ -33,6 +33,14 @@ class User(AbstractUser):
     work_saturday = models.BooleanField(default=False, help_text="Shanba ish kuni")
     work_sunday = models.BooleanField(default=False, help_text="Yakshanba ish kuni")
     
+    # Kurslarga biriktirish (Google Sheets import uchun)
+    assigned_courses = models.ManyToManyField(
+        'Course', 
+        related_name='assigned_sales',
+        blank=True,
+        help_text="Qaysi kurs(lar) uchun lidlarga javob beradi (bo'sh bo'lsa barcha kurslar)"
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):

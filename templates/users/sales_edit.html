@@ -197,6 +197,31 @@
                     </div>
                 </div>
                 
+                <!-- Kurslarga biriktirish -->
+                <div class="border-t border-gray-200 pt-6 mt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <i class="fas fa-graduation-cap mr-2 text-indigo-600"></i>Kurslarga Biriktirish
+                    </h3>
+                    <div class="mb-6">
+                        <label for="{{ form.assigned_courses.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                            Qaysi kurs(lar) uchun lidlarga javob beradi
+                        </label>
+                        <div class="text-xs text-gray-500 mb-2">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Agar kurs tanlanmagan bo'lsa, barcha kurslar uchun javob beradi. Google Sheets'dan import qilinganda, kurs bo'yicha lidlar tanlangan kursga biriktirilgan sotuvchilarga tushadi.
+                        </div>
+                        <div class="max-h-60 overflow-y-auto p-3 border border-gray-200 rounded-lg bg-gray-50">
+                            {{ form.assigned_courses }}
+                        </div>
+                        {% if form.assigned_courses.help_text %}
+                            <p class="mt-1 text-xs text-gray-500">{{ form.assigned_courses.help_text }}</p>
+                        {% endif %}
+                        {% if form.assigned_courses.errors %}
+                            <p class="mt-1 text-xs text-red-600">{{ form.assigned_courses.errors }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
                 <div class="flex space-x-4 pt-6 border-t border-gray-200">
                     <button type="submit" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md disabled:hover:from-indigo-600 disabled:hover:via-indigo-600 disabled:hover:to-indigo-700 border border-indigo-700/30">
                         <i class="fas fa-save"></i>Saqlash

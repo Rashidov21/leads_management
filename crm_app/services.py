@@ -9,7 +9,7 @@ class LeadDistributionService:
     
     @staticmethod
     def distribute_leads(leads):
-        """Lidlarni faol va ishda bo'lgan sotuvchilar orasida teng taqsimlash"""
+        """Lidlarni kurs bo'yicha yoki teng taqsimlash"""
         from .tasks import send_new_lead_notification
         
         # Faqat mavjud va ishda bo'lgan sotuvchilarni olish
@@ -19,47 +19,65 @@ class LeadDistributionService:
         if not active_sales:
             return None
         
-        # Har bir sotuvchining lidlari sonini hisoblash
-        sales_lead_counts = {}
-        for sales in active_sales:
-            sales_lead_counts[sales.id] = Lead.objects.filter(
-                assigned_sales=sales,
-                status__in=['new', 'contacted', 'interested', 'trial_registered']
-            ).count()
-        
         # Lidlarni taqsimlash
         for lead in leads:
             # Eski assigned_sales ni saqlash (notification uchun)
             old_assigned_sales_id = lead.assigned_sales_id if lead.pk else None
             was_new_lead = not lead.pk  # Lid yangi ekanligini tekshirish
             
-            if not sales_lead_counts:
-                # Agar barcha sotuvchilar ishda bo'lmasa, eng kam lidga ega bo'lganiga berish
-                active_sales = [sales for sales in User.objects.filter(role='sales', is_active_sales=True)]
-                if active_sales:
-                    min_sales = min(active_sales, key=lambda s: Lead.objects.filter(
-                        assigned_sales=s,
+            assigned_sales = None
+            
+            # Agar lid kursga biriktirilgan bo'lsa, kurs bo'yicha taqsimlash
+            if lead.interested_course:
+                # Ushbu kursga biriktirilgan sotuvchilarni topish
+                course_sales = [
+                    sales for sales in active_sales 
+                    if lead.interested_course in sales.assigned_courses.all()
+                ]
+                
+                if course_sales:
+                    # Kursga biriktirilgan sotuvchilar bor, ular orasida taqsimlash
+                    sales_lead_counts = {}
+                    for sales in course_sales:
+                        sales_lead_counts[sales.id] = Lead.objects.filter(
+                            assigned_sales=sales,
+                            status__in=['new', 'contacted', 'interested', 'trial_registered']
+                        ).count()
+                    
+                    if sales_lead_counts:
+                        min_sales_id = min(sales_lead_counts.items(), key=lambda x: x[1])[0]
+                        assigned_sales = User.objects.get(id=min_sales_id)
+            
+            # Agar kursga biriktirilgan sotuvchi topilmasa yoki kurs belgilanmagan bo'lsa
+            # Oddiy teng taqsimlash
+            if not assigned_sales:
+                sales_lead_counts = {}
+                for sales in active_sales:
+                    sales_lead_counts[sales.id] = Lead.objects.filter(
+                        assigned_sales=sales,
                         status__in=['new', 'contacted', 'interested', 'trial_registered']
-                    ).count())
-                    lead.assigned_sales = min_sales
-                    lead.save()
-                    # Notification yuborish
-                    # Agar lid yangi bo'lsa yoki assigned_sales o'zgarganda notification yuborish
-                    if was_new_lead or (not old_assigned_sales_id or old_assigned_sales_id != min_sales.id):
-                        send_new_lead_notification.delay(lead.id)
-                continue
+                    ).count()
+                
+                if not sales_lead_counts:
+                    # Agar barcha sotuvchilar ishda bo'lmasa, eng kam lidga ega bo'lganiga berish
+                    all_sales = User.objects.filter(role='sales', is_active_sales=True)
+                    if all_sales:
+                        assigned_sales = min(all_sales, key=lambda s: Lead.objects.filter(
+                            assigned_sales=s,
+                            status__in=['new', 'contacted', 'interested', 'trial_registered']
+                        ).count())
+                else:
+                    min_sales_id = min(sales_lead_counts.items(), key=lambda x: x[1])[0]
+                    assigned_sales = User.objects.get(id=min_sales_id)
             
-            # Eng kam lidga ega sotuvchini topish
-            min_sales_id = min(sales_lead_counts.items(), key=lambda x: x[1])[0]
-            lead.assigned_sales_id = min_sales_id
-            lead.save()
-            
-            # Notification yuborish
-            # Agar lid yangi bo'lsa yoki assigned_sales o'zgarganda notification yuborish
-            if was_new_lead or (not old_assigned_sales_id or old_assigned_sales_id != min_sales_id):
-                send_new_lead_notification.delay(lead.id)
-            
-            sales_lead_counts[min_sales_id] += 1
+            # Lidni biriktirish va saqlash
+            if assigned_sales:
+                lead.assigned_sales = assigned_sales
+                lead.save()
+                
+                # Notification yuborish
+                if was_new_lead or (not old_assigned_sales_id or old_assigned_sales_id != assigned_sales.id):
+                    send_new_lead_notification.delay(lead.id)
         
         return len(active_sales)
 
@@ -1388,16 +1406,44 @@ class GoogleSheetsService:
                     if secondary_phone:
                         secondary_phone = secondary_phone.replace('+', '').replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
                     
-                    # Interested course
+                    # Interested course - case-insensitive qidirish
                     interested_course = None
-                    course_name = str(record.get(interested_course_column, 
-                                     record.get(interested_course_column.title(), ''))).strip()
+                    course_name = None
+                    
+                    # Barcha ustun nomlarini case-insensitive qilish
+                    record_keys_lower = {str(k).lower().strip(): k for k in record.keys()}
+                    
+                    # Mumkin bo'lgan ustun nomlari
+                    course_key_variants = [
+                        interested_course_column.lower().strip(),
+                        'course',
+                        'kurs',
+                        'interested_course',
+                        'qiziqqan kurs'
+                    ]
+                    
+                    # Ustunni topish
+                    found_key = None
+                    for variant in course_key_variants:
+                        if variant in record_keys_lower:
+                            found_key = record_keys_lower[variant]
+                            break
+                    
+                    if found_key:
+                        course_name = str(record.get(found_key, '')).strip()
+                    else:
+                        # Agar variantlardan topilmasa, default ustun nomidan qidirish
+                        course_name = str(record.get(interested_course_column, '') or 
+                                         record.get(interested_course_column.title(), '') or
+                                         record.get(interested_course_column.upper(), '')).strip()
+                    
                     if course_name:
                         try:
                             interested_course = Course.objects.filter(
                                 name__icontains=course_name
                             ).first()
-                        except:
+                        except Exception as e:
+                            print(f"Course biriktirishda xatolik (row {idx + 1}): {e}")
                             pass
                     
                     # Lead yaratish
