@@ -25,6 +25,54 @@
         </a>
     </div>
     
+    <!-- Statistikalar kartalari -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow border border-gray-200 p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Jami</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ stats.total }}</p>
+                </div>
+                <div class="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-tasks text-blue-600"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl shadow border border-yellow-200 p-4 bg-yellow-50">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Kutilmoqda</p>
+                    <p class="text-2xl font-bold text-yellow-600">{{ stats.pending }}</p>
+                </div>
+                <div class="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-clock text-yellow-600"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl shadow border border-red-200 p-4 bg-red-50">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Muddati O'tgan</p>
+                    <p class="text-2xl font-bold text-red-600">{{ stats.overdue }}</p>
+                </div>
+                <div class="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-exclamation-triangle text-red-600"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl shadow border border-green-200 p-4 bg-green-50">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Bajarilgan</p>
+                    <p class="text-2xl font-bold text-green-600">{{ stats.completed }}</p>
+                </div>
+                <div class="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-check-circle text-green-600"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     {% if active_offers %}
     <div class="mb-6 bg-indigo-50 border border-indigo-200 rounded-xl p-4">
         <div class="flex items-center justify-between">
@@ -63,16 +111,19 @@
         </div>
         <ul class="divide-y divide-gray-200">
             {% for followup in followups %}
-            <li class="p-6 {% if followup.is_overdue %}bg-red-50 border-l-4 border-red-500{% elif followup.completed %}bg-green-50 border-l-4 border-green-500{% else %}hover:bg-indigo-50 border-l-4 border-transparent{% endif %} transition-all">
+            <li class="followup-item p-6 {% if followup.is_overdue %}bg-red-50 border-l-4 border-red-500{% elif followup.completed %}bg-green-50 border-l-4 border-green-500{% else %}hover:bg-indigo-50 border-l-4 border-transparent{% endif %} transition-all" 
+                data-status="{% if followup.completed %}completed{% elif followup.is_overdue %}overdue{% else %}pending{% endif %}"
+                data-lead-name="{{ followup.lead.name|lower }}"
+                data-lead-phone="{{ followup.lead.phone }}">
                 <div class="flex justify-between items-start">
                     <div class="flex-1">
                         <div class="flex items-center space-x-3 mb-2">
                             <div class="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md">
                                 {{ followup.lead.name|first|upper }}
                             </div>
-                            <div>
+                            <div class="flex-1">
                                 <h3 class="text-lg font-semibold text-gray-900">{{ followup.lead.name }}</h3>
-                                <div class="flex items-center space-x-4 mt-1 text-sm text-gray-500">
+                                <div class="flex items-center space-x-4 mt-1 text-sm text-gray-500 flex-wrap">
                                     <span class="flex items-center">
                                         <i class="fas fa-phone mr-1.5"></i>{{ followup.lead.phone }}
                                     </span>
@@ -108,15 +159,21 @@
                                 </span>
                                 {% endif %}
                             </div>
-                            <!-- Aloqa vaqti ko'rsatkich -->
+                            <!-- Aloqa vaqti ko'rsatkich va countdown -->
                             {% if not followup.completed %}
                             <div class="flex items-center space-x-2 p-2.5 rounded-lg {% if followup.is_overdue %}bg-red-50 border border-red-200{% else %}bg-blue-50 border border-blue-200{% endif %}">
-                                <i class="fas {% if followup.is_overdue %}fa-exclamation-circle text-red-600{% else %}fa-phone text-blue-600{% endif %} mr-2"></i>
+                                <i class="fas {% if followup.is_overdue %}fa-exclamation-circle text-red-600{% else %}fa-clock text-blue-600{% endif %} mr-2"></i>
                                 <span class="text-xs font-medium {% if followup.is_overdue %}text-red-700{% else %}text-blue-700{% endif %}">
                                     {% if followup.is_overdue %}
-                                        <span class="font-semibold">Aloqa qilish kerak edi:</span> {{ followup.due_date|uzbek_timesince }}
+                                        <span class="font-semibold">Aloqa qilish kerak edi:</span> 
+                                        <span id="countdown-{{ followup.pk }}" data-due-date="{{ followup.due_date|date:'c' }}">
+                                            {{ followup.due_date|uzbek_timesince }}
+                                        </span>
                                     {% else %}
-                                        <span class="font-semibold">Aloqa qilish kerak:</span> {{ followup.due_date|uzbek_timeuntil }}
+                                        <span class="font-semibold">Aloqa qilish kerak:</span> 
+                                        <span id="countdown-{{ followup.pk }}" data-due-date="{{ followup.due_date|date:'c' }}">
+                                            {{ followup.due_date|uzbek_timeuntil }}
+                                        </span>
                                     {% endif %}
                                 </span>
                             </div>
@@ -150,18 +207,23 @@
             </li>
             {% empty %}
             <li>
-                <div class="px-6 py-16 text-center">
+                <div class="px-6 py-20 text-center">
                     <div class="max-w-md mx-auto">
-                        <div class="h-20 w-20 mx-auto bg-green-100 rounded-full flex items-center justify-center mb-4">
-                            <i class="fas fa-check-circle text-green-500 text-3xl"></i>
+                        <div class="h-24 w-24 mx-auto bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mb-6 shadow-lg">
+                            <i class="fas fa-check-circle text-white text-4xl"></i>
                         </div>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Barcha vazifalar bajarildi!</h3>
-                        <p class="text-sm text-gray-500 mb-6">
-                            Bugungi aloqa vazifalar yo'q. Ajoyib ish!
+                        <h3 class="text-2xl font-bold text-gray-900 mb-3">Barcha vazifalar bajarildi! 🎉</h3>
+                        <p class="text-base text-gray-600 mb-8">
+                            Bugungi barcha aloqa vazifalari yakunlandi. Ajoyib ish qildingiz!
                         </p>
-                        <a href="{% url 'leads_list' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-indigo-700/30">
-                            <i class="fas fa-users"></i>Lidlarga O'tish
-                        </a>
+                        <div class="flex justify-center space-x-4">
+                            <a href="{% url 'leads_list' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-indigo-700/30">
+                                <i class="fas fa-users"></i>Lidlarga O'tish
+                            </a>
+                            <a href="{% url 'dashboard' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
+                                <i class="fas fa-chart-bar"></i>Dashboard
+                            </a>
+                        </div>
                     </div>
                 </div>
             </li>
@@ -230,5 +292,46 @@ document.getElementById('confirmModal').addEventListener('click', function(event
         closeConfirmModal();
     }
 });
+
+// Real-time countdown timer
+function updateCountdowns() {
+    document.querySelectorAll('[id^="countdown-"]').forEach(el => {
+        const dueDate = new Date(el.dataset.dueDate);
+        const now = new Date();
+        const diff = dueDate - now;
+        
+        if (diff < 0) {
+            const hours = Math.floor(Math.abs(diff) / (1000 * 60 * 60));
+            const minutes = Math.floor((Math.abs(diff) % (1000 * 60 * 60)) / (1000 * 60));
+            if (hours > 24) {
+                el.textContent = `${Math.floor(hours / 24)} kun ${hours % 24} soat oldin o'tgan`;
+            } else if (hours > 0) {
+                el.textContent = `${hours} soat ${minutes} daqiqa oldin o'tgan`;
+            } else {
+                el.textContent = `${minutes} daqiqa oldin o'tgan`;
+            }
+            el.classList.add('text-red-700', 'font-semibold');
+        } else {
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            if (hours > 0) {
+                el.textContent = `${hours}s ${minutes}m qoldi`;
+            } else {
+                el.textContent = `${minutes}d qoldi`;
+            }
+            if (hours < 1 && minutes < 30) {
+                el.classList.add('text-red-700', 'font-semibold');
+            } else if (hours < 2) {
+                el.classList.add('text-orange-700');
+            }
+        }
+    });
+}
+
+// Countdown yangilash (har minutda)
+if (document.querySelectorAll('[id^="countdown-"]').length > 0) {
+    setInterval(updateCountdowns, 60000); // Har minutda yangilash
+    updateCountdowns(); // Dastlabki yangilash
+}
 </script>
 {% endblock %}

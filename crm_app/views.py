@@ -818,6 +818,15 @@ def followups_today(request):
     )
     active_offers = OfferService.active_offers(channel='followup')
     
+    # Statistikalar
+    stats = {
+        'total': followups.count(),
+        'completed': followups.filter(completed=True).count(),
+        'pending': followups.filter(completed=False, is_overdue=False).count(),
+        'overdue': followups.filter(completed=False, is_overdue=True).count(),
+    }
+    stats['completion_rate'] = (stats['completed'] / stats['total'] * 100) if stats['total'] > 0 else 0
+    
     if request.method == 'POST':
         followup_id = request.POST.get('followup_id')
         followup = get_object_or_404(FollowUp, pk=followup_id)
@@ -876,6 +885,7 @@ def followups_today(request):
     return render(request, 'followups/today.html', {
         'followups': followups,
         'active_offers': active_offers,
+        'stats': stats,
     })
 
 
