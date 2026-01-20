@@ -231,7 +231,7 @@ class FollowUpService:
         if sales:
             queryset = queryset.filter(sales=sales)
         
-        return queryset.order_by('due_date')
+        return queryset.order_by('due_date').distinct()
     
     @staticmethod
     def get_overdue_followups(sales=None, grace_period_hours=2):

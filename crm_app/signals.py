@@ -176,16 +176,6 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
         
         # Interested status uchun ko'p bosqichli follow-up
         elif instance.status == 'interested':
-            # Allaqachon "Interested" follow-up'lar borligini tekshirish
-            existing_interested = FollowUp.objects.filter(
-                lead=instance,
-                notes__startswith="Interested -",
-                completed=False
-            ).exists()
-            
-            if existing_interested:
-                return  # Agar allaqachon bor bo'lsa, yaratmaymiz
-            
             delays = [
                 timedelta(days=1),   # 1-kun: qo'shimcha ma'lumot
                 timedelta(days=3),   # 3-kun: guruhlar bandligi haqida xabar
@@ -199,13 +189,24 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
                 5: "Oxirgi joylar haqida eslatma",
                 7: "Qaror qilishga yordam berish",
             }
+            
             for delay in delays:
+                days = delay.days
+                # Har bir kun uchun alohida tekshirish
+                existing = FollowUp.objects.filter(
+                    lead=instance,
+                    notes__contains=f"Interested - {days} kundan keyin",
+                    completed=False
+                ).exists()
+                
+                if existing:
+                    continue  # Agar allaqachon bor bo'lsa, yaratmaymiz
+                
                 due_date = FollowUpService.calculate_work_hours_due_date(
                     instance.assigned_sales,
                     base_time,
                     delay
                 )
-                days = delay.days
                 followup = FollowUp.objects.create(
                     lead=instance,
                     sales=instance.assigned_sales,
@@ -232,10 +233,10 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
                         one_day_before,
                         timedelta(0)
                     )
-                    # Follow-up allaqachon yaratilganligini tekshirish
+                    # Follow-up allaqachon yaratilganligini tekshirish (trial ID bilan)
                     existing = FollowUp.objects.filter(
                         lead=instance,
-                        notes__contains="Sinovdan 1 kun oldin",
+                        notes__contains=f"Sinovdan 1 kun oldin",
                         completed=False
                     ).exists()
                     if not existing:
@@ -243,7 +244,7 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
                             lead=instance,
                             sales=instance.assigned_sales,
                             due_date=due_date,
-                            notes="Sinovdan 1 kun oldin eslatma"
+                            notes=f"Sinovdan 1 kun oldin eslatma (Trial ID: {trial.id})"
                         )
                         send_followup_created_notification.delay(followup.id)
                 
@@ -257,7 +258,7 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
                     )
                     existing = FollowUp.objects.filter(
                         lead=instance,
-                        notes__contains="Sinovdan 2 soat oldin",
+                        notes__contains=f"Sinovdan 2 soat oldin",
                         completed=False
                     ).exists()
                     if not existing:
@@ -265,7 +266,7 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
                             lead=instance,
                             sales=instance.assigned_sales,
                             due_date=due_date,
-                            notes="Sinovdan 2 soat oldin eslatma + lokatsiya"
+                            notes=f"Sinovdan 2 soat oldin eslatma + lokatsiya (Trial ID: {trial.id})"
                         )
                         send_followup_created_notification.delay(followup.id)
         
@@ -275,16 +276,6 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
         
         # Trial Not Attended uchun follow-up
         elif instance.status == 'trial_not_attended':
-            # Allaqachon "Trial Not Attended" follow-up'lar borligini tekshirish
-            existing_trial_not_attended = FollowUp.objects.filter(
-                lead=instance,
-                notes__contains="Sinovga kelmadi",
-                completed=False
-            ).exists()
-            
-            if existing_trial_not_attended:
-                return  # Agar allaqachon bor bo'lsa, yaratmaymiz
-            
             delays = [
                 timedelta(minutes=30),  # 30 daqiqa
                 timedelta(hours=24),    # 24 soat
@@ -296,7 +287,27 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
                 timedelta(hours=24): "Sinovga kelmadi - 24 soatdan keyin qayta taklif",
                 timedelta(days=3): "Sinovga kelmadi - 3 kundan keyin uzr va qayta imkon taklifi",
             }
+            
             for delay in delays:
+                # Har bir delay uchun alohida tekshirish
+                delay_key = None
+                if delay == timedelta(minutes=30):
+                    delay_key = "30 daqiqadan keyin"
+                elif delay == timedelta(hours=24):
+                    delay_key = "24 soatdan keyin"
+                elif delay == timedelta(days=3):
+                    delay_key = "3 kundan keyin"
+                
+                if delay_key:
+                    existing = FollowUp.objects.filter(
+                        lead=instance,
+                        notes__contains=delay_key,
+                        completed=False
+                    ).exists()
+                    
+                    if existing:
+                        continue  # Agar allaqachon bor bo'lsa, yaratmaymiz
+                
                 due_date = FollowUpService.calculate_work_hours_due_date(
                     instance.assigned_sales,
                     base_time,
