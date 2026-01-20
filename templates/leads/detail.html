@@ -15,50 +15,50 @@
 {% endblock %}
 
 {% block content %}
-<div class="px-4 py-5 sm:p-6">
+<div class="px-2 sm:px-4 py-4 sm:py-5 sm:p-6">
     <!-- Header Actions -->
-    <div class="mb-6 flex justify-between items-center">
-        <a href="{% url 'leads_list' %}" class="inline-flex items-center text-indigo-600 hover:text-indigo-800 transition-colors">
+    <div class="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <a href="{% url 'leads_list' %}" class="inline-flex items-center text-indigo-600 hover:text-indigo-800 transition-colors text-sm sm:text-base">
             <i class="fas fa-arrow-left mr-2"></i>Orqaga
         </a>
-        <div class="flex space-x-3">
+        <div class="flex flex-wrap gap-2 sm:space-x-3">
             {% if user.is_admin or user.is_sales_manager %}
-            <a href="{% url 'lead_assign' lead.pk %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
-                <i class="fas fa-user-tie"></i>Biriktirish
+            <a href="{% url 'lead_assign' lead.pk %}" class="inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md">
+                <i class="fas fa-user-tie"></i><span class="hidden sm:inline">Biriktirish</span><span class="sm:hidden">Biriktir</span>
             </a>
             {% endif %}
-            <button type="button" onclick="toggleEditForm()" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out" id="editToggleBtn">
-                <i class="fas fa-edit"></i>Tahrirlash
+            <button type="button" onclick="toggleEditForm()" class="inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md" id="editToggleBtn">
+                <i class="fas fa-edit"></i><span class="hidden sm:inline">Tahrirlash</span><span class="sm:hidden">Tahrir</span>
             </button>
         </div>
     </div>
     
     <!-- Lead Info Card -->
-    <div class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-100" id="leadInfoCard">
-        <div class="flex justify-between items-start mb-6">
-            <div class="flex items-center space-x-4">
-                <div class="h-16 w-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl shadow-lg">
+    <div class="bg-white shadow-lg rounded-xl p-4 sm:p-6 mb-4 sm:mb-6 border border-gray-100" id="leadInfoCard">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4 sm:mb-6 gap-4">
+            <div class="flex items-center space-x-3 sm:space-x-4">
+                <div class="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl sm:text-2xl shadow-lg flex-shrink-0">
                     {{ lead.name|first|upper }}
                 </div>
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-900" id="leadNameDisplay">{{ lead.name }}</h1>
-                    <div class="mt-2 flex items-center space-x-4 text-gray-600">
+                <div class="min-w-0 flex-1">
+                    <h1 class="text-xl sm:text-3xl font-bold text-gray-900 truncate" id="leadNameDisplay">{{ lead.name }}</h1>
+                    <div class="mt-2 flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-gray-600 space-y-1 sm:space-y-0 text-sm sm:text-base">
                         <span class="flex items-center">
-                            <i class="fas fa-phone mr-2"></i>
-                            <span id="leadPhoneDisplay">{{ lead.phone }}</span>
+                            <i class="fas fa-phone mr-2 w-4"></i>
+                            <a href="tel:{{ lead.phone }}" class="text-indigo-600" id="leadPhoneDisplay">{{ lead.phone }}</a>
                         </span>
                         <span class="flex items-center">
-                            <i class="fas fa-calendar mr-2"></i>{{ lead.created_at|date:"d.m.Y H:i" }}
+                            <i class="fas fa-calendar mr-2 w-4"></i>{{ lead.created_at|date:"d.m.Y H:i" }}
                         </span>
                     </div>
                 </div>
             </div>
-            <span class="status-badge {% if lead.status == 'new' %}bg-blue-100 text-blue-800{% elif lead.status == 'enrolled' %}bg-green-100 text-green-800{% elif lead.status == 'lost' %}bg-red-100 text-red-800{% else %}bg-yellow-100 text-yellow-800{% endif %} text-base px-4 py-2">
+            <span class="status-badge {% if lead.status == 'new' %}bg-blue-100 text-blue-800{% elif lead.status == 'enrolled' %}bg-green-100 text-green-800{% elif lead.status == 'lost' %}bg-red-100 text-red-800{% else %}bg-yellow-100 text-yellow-800{% endif %} text-sm sm:text-base px-3 sm:px-4 py-1.5 sm:py-2 self-start sm:self-auto">
                 {{ lead.get_status_display }}
             </span>
         </div>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
             <div class="bg-gray-50 rounded-lg p-4">
                 <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
                     <i class="fas fa-book mr-1"></i>Kurs

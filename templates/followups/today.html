@@ -14,60 +14,60 @@
 {% endblock %}
 
 {% block content %}
-<div class="px-4 py-5 sm:p-6">
-    <div class="flex justify-between items-center mb-6">
+<div class="px-2 sm:px-4 py-4 sm:py-5 sm:p-6">
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">Bugungi Aloqalar</h1>
-            <p class="mt-1 text-sm text-gray-500">Bugun bajarilishi kerak bo'lgan aloqa vazifalar</p>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Bugungi Aloqalar</h1>
+            <p class="mt-1 text-xs sm:text-sm text-gray-500">Bugun bajarilishi kerak bo'lgan aloqa vazifalar</p>
         </div>
-        <a href="{% url 'leads_list' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
-            <i class="fas fa-arrow-left"></i>Orqaga
+        <a href="{% url 'leads_list' %}" class="inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50">
+            <i class="fas fa-arrow-left"></i><span>Orqaga</span>
         </a>
     </div>
     
     <!-- Statistikalar kartalari -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white rounded-xl shadow border border-gray-200 p-4">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
+        <div class="bg-white rounded-xl shadow border border-gray-200 p-3 sm:p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs text-gray-500 mb-1">Jami</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ stats.total }}</p>
+                    <p class="text-[10px] sm:text-xs text-gray-500 mb-1">Jami</p>
+                    <p class="text-xl sm:text-2xl font-bold text-gray-900">{{ stats.total }}</p>
                 </div>
-                <div class="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-tasks text-blue-600"></i>
+                <div class="h-8 w-8 sm:h-12 sm:w-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-tasks text-blue-600 text-sm sm:text-base"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl shadow border border-yellow-200 p-4 bg-yellow-50">
+        <div class="bg-white rounded-xl shadow border border-yellow-200 p-3 sm:p-4 bg-yellow-50">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs text-gray-500 mb-1">Kutilmoqda</p>
-                    <p class="text-2xl font-bold text-yellow-600">{{ stats.pending }}</p>
+                    <p class="text-[10px] sm:text-xs text-gray-500 mb-1">Kutilmoqda</p>
+                    <p class="text-xl sm:text-2xl font-bold text-yellow-600">{{ stats.pending }}</p>
                 </div>
-                <div class="h-12 w-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-clock text-yellow-600"></i>
+                <div class="h-8 w-8 sm:h-12 sm:w-12 bg-yellow-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-clock text-yellow-600 text-sm sm:text-base"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl shadow border border-red-200 p-4 bg-red-50">
+        <div class="bg-white rounded-xl shadow border border-red-200 p-3 sm:p-4 bg-red-50">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs text-gray-500 mb-1">Muddati O'tgan</p>
-                    <p class="text-2xl font-bold text-red-600">{{ stats.overdue }}</p>
+                    <p class="text-[10px] sm:text-xs text-gray-500 mb-1">Muddati O'tgan</p>
+                    <p class="text-xl sm:text-2xl font-bold text-red-600">{{ stats.overdue }}</p>
                 </div>
-                <div class="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-exclamation-triangle text-red-600"></i>
+                <div class="h-8 w-8 sm:h-12 sm:w-12 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-sm sm:text-base"></i>
                 </div>
             </div>
         </div>
-        <div class="bg-white rounded-xl shadow border border-green-200 p-4 bg-green-50">
+        <div class="bg-white rounded-xl shadow border border-green-200 p-3 sm:p-4 bg-green-50">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs text-gray-500 mb-1">Bajarilgan</p>
-                    <p class="text-2xl font-bold text-green-600">{{ stats.completed }}</p>
+                    <p class="text-[10px] sm:text-xs text-gray-500 mb-1">Bajarilgan</p>
+                    <p class="text-xl sm:text-2xl font-bold text-green-600">{{ stats.completed }}</p>
                 </div>
-                <div class="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-check-circle text-green-600"></i>
+                <div class="h-8 w-8 sm:h-12 sm:w-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-check-circle text-green-600 text-sm sm:text-base"></i>
                 </div>
             </div>
         </div>
@@ -101,69 +101,69 @@
     {% endif %}
 
     <div class="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
-        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+        <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gray-50">
             <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-900">
+                <h3 class="text-base sm:text-lg font-semibold text-gray-900">
                     <i class="fas fa-tasks text-indigo-600 mr-2"></i>Aloqa Vazifalar
                 </h3>
-                <span class="text-sm text-gray-500">{{ followups|length }} ta vazifa</span>
+                <span class="text-xs sm:text-sm text-gray-500">{{ followups|length }} ta</span>
             </div>
         </div>
         <ul class="divide-y divide-gray-200">
             {% for followup in followups %}
-            <li class="followup-item p-6 {% if followup.is_overdue %}bg-red-50 border-l-4 border-red-500{% elif followup.completed %}bg-green-50 border-l-4 border-green-500{% else %}hover:bg-indigo-50 border-l-4 border-transparent{% endif %} transition-all" 
+            <li class="followup-item p-4 sm:p-6 {% if followup.is_overdue %}bg-red-50 border-l-4 border-red-500{% elif followup.completed %}bg-green-50 border-l-4 border-green-500{% else %}hover:bg-indigo-50 border-l-4 border-transparent{% endif %} transition-all" 
                 data-status="{% if followup.completed %}completed{% elif followup.is_overdue %}overdue{% else %}pending{% endif %}"
                 data-lead-name="{{ followup.lead.name|lower }}"
                 data-lead-phone="{{ followup.lead.phone }}">
-                <div class="flex justify-between items-start">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
                     <div class="flex-1">
-                        <div class="flex items-center space-x-3 mb-2">
-                            <div class="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md">
+                        <div class="flex items-center space-x-2 sm:space-x-3 mb-2">
+                            <div class="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md text-sm sm:text-base flex-shrink-0">
                                 {{ followup.lead.name|first|upper }}
                             </div>
-                            <div class="flex-1">
-                                <h3 class="text-lg font-semibold text-gray-900">{{ followup.lead.name }}</h3>
-                                <div class="flex items-center space-x-4 mt-1 text-sm text-gray-500 flex-wrap">
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-base sm:text-lg font-semibold text-gray-900 truncate">{{ followup.lead.name }}</h3>
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-4 mt-1 text-xs sm:text-sm text-gray-500 space-y-1 sm:space-y-0">
                                     <span class="flex items-center">
-                                        <i class="fas fa-phone mr-1.5"></i>{{ followup.lead.phone }}
+                                        <i class="fas fa-phone mr-1.5 w-3"></i><a href="tel:{{ followup.lead.phone }}" class="text-indigo-600">{{ followup.lead.phone }}</a>
                                     </span>
                                     {% if followup.lead.interested_course %}
                                     <span class="flex items-center">
-                                        <i class="fas fa-book mr-1.5"></i>{{ followup.lead.interested_course.name }}
+                                        <i class="fas fa-book mr-1.5 w-3"></i>{{ followup.lead.interested_course.name }}
                                     </span>
                                     {% endif %}
                                 </div>
                             </div>
                         </div>
-                        <div class="ml-13 mt-3 space-y-2">
-                            <div class="flex items-center space-x-4">
-                                <div class="flex items-center text-sm {% if followup.is_overdue %}text-red-700 font-semibold{% else %}text-gray-600{% endif %}">
+                        <div class="ml-0 sm:ml-13 mt-3 space-y-2">
+                            <div class="flex flex-wrap items-center gap-2 sm:gap-4">
+                                <div class="flex items-center text-xs sm:text-sm {% if followup.is_overdue %}text-red-700 font-semibold{% else %}text-gray-600{% endif %}">
                                     <i class="fas fa-calendar-alt mr-2"></i>
                                     <span>{{ followup.due_date|date:"d.m.Y" }}</span>
                                 </div>
-                                <div class="flex items-center text-sm {% if followup.is_overdue %}text-red-700 font-semibold{% else %}text-gray-600{% endif %}">
+                                <div class="flex items-center text-xs sm:text-sm {% if followup.is_overdue %}text-red-700 font-semibold{% else %}text-gray-600{% endif %}">
                                     <i class="fas fa-clock mr-2"></i>
                                     <span>{{ followup.due_date|time:"H:i" }}</span>
                                 </div>
                                 {% if followup.is_overdue %}
-                                <span class="status-badge bg-red-100 text-red-800">
+                                <span class="status-badge bg-red-100 text-red-800 text-xs">
                                     <i class="fas fa-exclamation-triangle mr-1"></i>Muddati o'tgan
                                 </span>
                                 {% elif followup.completed %}
-                                <span class="status-badge bg-green-100 text-green-800">
+                                <span class="status-badge bg-green-100 text-green-800 text-xs">
                                     <i class="fas fa-check-circle mr-1"></i>Bajarildi
                                 </span>
                                 {% else %}
-                                <span class="status-badge bg-yellow-100 text-yellow-800">
+                                <span class="status-badge bg-yellow-100 text-yellow-800 text-xs">
                                     <i class="fas fa-clock mr-1"></i>Kutilmoqda
                                 </span>
                                 {% endif %}
                             </div>
                             <!-- Aloqa vaqti ko'rsatkich va countdown -->
                             {% if not followup.completed %}
-                            <div class="flex items-center space-x-2 p-2.5 rounded-lg {% if followup.is_overdue %}bg-red-50 border border-red-200{% else %}bg-blue-50 border border-blue-200{% endif %}">
-                                <i class="fas {% if followup.is_overdue %}fa-exclamation-circle text-red-600{% else %}fa-clock text-blue-600{% endif %} mr-2"></i>
-                                <span class="text-xs font-medium {% if followup.is_overdue %}text-red-700{% else %}text-blue-700{% endif %}">
+                            <div class="flex items-center space-x-2 p-2 sm:p-2.5 rounded-lg {% if followup.is_overdue %}bg-red-50 border border-red-200{% else %}bg-blue-50 border border-blue-200{% endif %}">
+                                <i class="fas {% if followup.is_overdue %}fa-exclamation-circle text-red-600{% else %}fa-clock text-blue-600{% endif %} mr-2 flex-shrink-0"></i>
+                                <span class="text-[10px] sm:text-xs font-medium {% if followup.is_overdue %}text-red-700{% else %}text-blue-700{% endif %}">
                                     {% if followup.is_overdue %}
                                         <span class="font-semibold">Aloqa qilish kerak edi:</span> 
                                         <span id="countdown-{{ followup.pk }}" data-due-date="{{ followup.due_date|date:'c' }}">
@@ -180,27 +180,27 @@
                             {% endif %}
                         </div>
                         {% if followup.notes %}
-                        <div class="ml-13 mt-3 p-3 bg-white rounded-lg border border-gray-200">
-                            <p class="text-sm text-gray-700">
+                        <div class="ml-0 sm:ml-13 mt-3 p-2 sm:p-3 bg-white rounded-lg border border-gray-200">
+                            <p class="text-xs sm:text-sm text-gray-700">
                                 <i class="fas fa-comment text-gray-400 mr-2"></i>{{ followup.notes }}
                             </p>
                         </div>
                         {% endif %}
                     </div>
-                    <div class="ml-6 flex flex-col items-end space-y-2">
+                    <div class="ml-0 sm:ml-6 flex flex-row sm:flex-col items-stretch sm:items-end gap-2 sm:space-y-2">
                         {% if not followup.completed %}
                         <button type="button" 
-                                class="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-indigo-700/30" 
+                                class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 active:scale-[0.98] transform transition-all duration-200" 
                                 onclick="openConfirmModal({{ followup.pk }}, '{{ followup.lead.name|escapejs }}', '{{ followup.due_date|date:"d.m.Y H:i"|escapejs }}')">
-                            <i class="fas fa-check"></i>Bajarildi
+                            <i class="fas fa-check"></i><span class="hidden sm:inline">Bajarildi</span><span class="sm:hidden">Bajar</span>
                         </button>
                         {% else %}
-                        <span class="status-badge bg-green-100 text-green-800 text-sm px-3 py-1">
+                        <span class="status-badge bg-green-100 text-green-800 text-xs sm:text-sm px-3 py-1">
                             <i class="fas fa-check-circle mr-1"></i>Bajarildi
                         </span>
                         {% endif %}
-                        <a href="{% url 'lead_detail' followup.lead.pk %}" class="text-sm text-indigo-600 hover:text-indigo-800 flex items-center">
-                            <i class="fas fa-eye mr-1"></i>Lidni ko'rish
+                        <a href="{% url 'lead_detail' followup.lead.pk %}" class="flex-1 sm:flex-none text-xs sm:text-sm text-indigo-600 hover:text-indigo-800 flex items-center justify-center sm:justify-start">
+                            <i class="fas fa-eye mr-1"></i><span class="hidden sm:inline">Lidni ko'rish</span><span class="sm:hidden">Ko'rish</span>
                         </a>
                     </div>
                 </div>
@@ -233,32 +233,32 @@
 </div>
 
 <!-- Confirm Modal -->
-<div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+<div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-        <div class="p-6">
-            <div class="flex items-center justify-center w-16 h-16 mx-auto bg-indigo-100 rounded-full mb-4">
-                <i class="fas fa-question-circle text-indigo-600 text-3xl"></i>
+        <div class="p-4 sm:p-6">
+            <div class="flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 mx-auto bg-indigo-100 rounded-full mb-3 sm:mb-4">
+                <i class="fas fa-question-circle text-indigo-600 text-2xl sm:text-3xl"></i>
             </div>
-            <h3 class="text-xl font-bold text-gray-900 text-center mb-2">Aloqani bajarilgan deb belgilash?</h3>
-            <div class="text-center mb-6">
-                <p class="text-gray-600 mb-2">
+            <h3 class="text-lg sm:text-xl font-bold text-gray-900 text-center mb-2">Aloqani bajarilgan deb belgilash?</h3>
+            <div class="text-center mb-4 sm:mb-6">
+                <p class="text-sm sm:text-base text-gray-600 mb-2">
                     <strong class="text-gray-900" id="modalLeadName"></strong> uchun aloqa bajarilgan deb belgilanmoqdami?
                 </p>
-                <p class="text-sm text-gray-500">
+                <p class="text-xs sm:text-sm text-gray-500">
                     <i class="fas fa-calendar-alt mr-1"></i>
                     Vaqt: <span id="modalDueDate"></span>
                 </p>
             </div>
-            <form id="confirmForm" method="post" class="space-y-3">
+            <form id="confirmForm" method="post" class="space-y-2 sm:space-y-3">
                 {% csrf_token %}
                 <input type="hidden" name="followup_id" id="modalFollowupId">
-                <div class="flex space-x-3">
+                <div class="flex flex-col sm:flex-row gap-2 sm:space-x-3">
                     <button type="button" 
                             onclick="closeConfirmModal()" 
-                            class="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out">
+                            class="flex-1 inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:shadow-md hover:bg-gray-50 active:scale-[0.98] transform transition-all duration-200">
                         <i class="fas fa-times"></i>Bekor qilish
                     </button>
-                    <button type="submit" class="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl hover:from-indigo-700 hover:via-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md disabled:hover:from-indigo-600 disabled:hover:via-indigo-600 disabled:hover:to-indigo-700 border border-indigo-700/30">
+                    <button type="submit" class="flex-1 inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 rounded-lg shadow-md hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 active:scale-[0.98] transform transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-700/30">
                         <i class="fas fa-check"></i>Tasdiqlash
                     </button>
                 </div>
