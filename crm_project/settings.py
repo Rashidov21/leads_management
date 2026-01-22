@@ -200,35 +200,11 @@ CELERY_BEAT_SCHEDULE = {
     },
     'daily-sales-summary': {
         'task': 'crm_app.tasks.send_daily_sales_summary_task',
-        'schedule': crontab(hour=18, minute=0),  # Har ish kuni oxiri (18:00)
+        'schedule': crontab(hour=18, minute=0),  # Har ish kuni oxiri (20:00)
     },
     'import-leads-from-google-sheets': {
         'task': 'crm_app.tasks.import_leads_from_google_sheets',
         'schedule': crontab(minute='*/5'),  # Har 5 daqiqada
-    },
-    'google-sheets-import-summary': {
-        'task': 'crm_app.tasks.send_google_sheets_import_summary_task',
-        'schedule': crontab(minute=0, hour='*/2'),  # Har 2 soatda (00:00, 02:00, 04:00, ...)
-    },
-    'critical-alerts': {
-        'task': 'crm_app.tasks.send_critical_alerts_task',
-        'schedule': crontab(minute='*/30'),  # Har 30 daqiqada
-    },
-    'morning-daily-report': {
-        'task': 'crm_app.tasks.send_morning_daily_report_task',
-        'schedule': crontab(hour=9, minute=0),  # Har kuni ertalab 09:00
-    },
-    'weekly-report': {
-        'task': 'crm_app.tasks.send_weekly_report_task',
-        'schedule': crontab(hour=9, minute=0, day_of_week=1),  # Har dushanba 09:00
-    },
-    'monthly-report': {
-        'task': 'crm_app.tasks.send_monthly_report_task',
-        'schedule': crontab(hour=9, minute=0, day_of_month=1),  # Har oyning 1-kuni 09:00
-    },
-    'trial-results-summary': {
-        'task': 'crm_app.tasks.send_trial_results_summary_task',
-        'schedule': crontab(hour=20, minute=0),  # Har kuni kechqurun 20:00
     },
 }
 
