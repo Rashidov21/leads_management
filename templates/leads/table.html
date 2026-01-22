@@ -93,7 +93,7 @@
             <tbody class="divide-y divide-gray-100">
                 {% for lead in leads %}
                 <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 text-sm text-gray-600 font-medium text-center">{{ forloop.counter }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600 font-medium text-center">{{ leads.start_index|add:forloop.counter0 }}</td>
                     <td class="px-4 py-3 text-sm text-gray-900 font-medium">{{ lead.name }}</td>
                     <td class="px-4 py-3 text-sm text-gray-700">{{ lead.phone }}</td>
                     <td class="px-4 py-3 text-sm text-gray-700">{{ lead.secondary_phone|default:"—" }}</td>
@@ -124,7 +124,7 @@
             <div class="flex items-start justify-between mb-3">
                 <div class="flex-1">
                     <div class="flex items-center space-x-2 mb-2">
-                        <span class="text-xs font-medium text-gray-500">№{{ forloop.counter }}</span>
+                        <span class="text-xs font-medium text-gray-500">№{{ leads.start_index|add:forloop.counter0 }}</span>
                         <h3 class="text-base font-bold text-gray-900">{{ lead.name }}</h3>
                     </div>
                     <div class="space-y-1.5 text-sm text-gray-600">
@@ -172,6 +172,9 @@
         </div>
         {% endfor %}
     </div>
+    
+    <!-- Pagination -->
+    {% include 'partials/pagination.html' %}
 </div>
 {% endblock %}
 

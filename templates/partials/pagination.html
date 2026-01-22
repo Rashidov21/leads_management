@@ -1,0 +1,81 @@
+{% if page_obj.has_other_pages %}
+<div class="flex items-center justify-between px-2 sm:px-4 py-3 bg-white border-t border-gray-200 sm:px-6 mt-4">
+    <div class="flex flex-1 justify-between sm:hidden">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+           class="relative inline-flex items-center px-3 py-2 text-xs sm:text-sm border border-gray-300 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            <i class="fas fa-chevron-left mr-1"></i>Oldingi
+        </a>
+        {% else %}
+        <span class="relative inline-flex items-center px-3 py-2 text-xs sm:text-sm border border-gray-300 font-medium rounded-md text-gray-300 bg-white cursor-not-allowed">
+            <i class="fas fa-chevron-left mr-1"></i>Oldingi
+        </span>
+        {% endif %}
+        
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+           class="ml-3 relative inline-flex items-center px-3 py-2 text-xs sm:text-sm border border-gray-300 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            Keyingi<i class="fas fa-chevron-right ml-1"></i>
+        </a>
+        {% else %}
+        <span class="ml-3 relative inline-flex items-center px-3 py-2 text-xs sm:text-sm border border-gray-300 font-medium rounded-md text-gray-300 bg-white cursor-not-allowed">
+            Keyingi<i class="fas fa-chevron-right ml-1"></i>
+        </span>
+        {% endif %}
+    </div>
+    
+    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+        <div>
+            <p class="text-xs sm:text-sm text-gray-700">
+                <span class="font-medium">{{ page_obj.start_index }}</span>
+                dan
+                <span class="font-medium">{{ page_obj.end_index }}</span>
+                gacha,
+                jami <span class="font-medium">{{ paginator.count }}</span> ta
+            </p>
+        </div>
+        <div>
+            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                {% if page_obj.has_previous %}
+                <a href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                   class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50">
+                    <span class="sr-only">Birinchi</span>
+                    <i class="fas fa-angle-double-left"></i>
+                </a>
+                <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                   class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50">
+                    <span class="sr-only">Oldingi</span>
+                    <i class="fas fa-angle-left"></i>
+                </a>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <span class="relative inline-flex items-center px-3 sm:px-4 py-2 border border-indigo-500 bg-indigo-50 text-xs sm:text-sm font-medium text-indigo-600">
+                        {{ num }}
+                    </span>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                       class="relative inline-flex items-center px-3 sm:px-4 py-2 border border-gray-300 bg-white text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50">
+                        {{ num }}
+                    </a>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                   class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50">
+                    <span class="sr-only">Keyingi</span>
+                    <i class="fas fa-angle-right"></i>
+                </a>
+                <a href="?page={{ paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                   class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-xs sm:text-sm font-medium text-gray-500 hover:bg-gray-50">
+                    <span class="sr-only">Oxirgi</span>
+                    <i class="fas fa-angle-double-right"></i>
+                </a>
+                {% endif %}
+            </nav>
+        </div>
+    </div>
+</div>
+{% endif %}

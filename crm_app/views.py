@@ -1772,8 +1772,21 @@ def offers_list(request):
             course=course
         )
 
+    # Pagination qo'shish
+    paginator = Paginator(offers, 20)  # 20 ta per page
+    page = request.GET.get('page', 1)
+    
+    try:
+        offers_page = paginator.page(page)
+    except PageNotAnInteger:
+        offers_page = paginator.page(1)
+    except EmptyPage:
+        offers_page = paginator.page(paginator.num_pages)
+    
     context = {
-        'offers': offers,
+        'offers': offers_page,  # Paginated
+        'paginator': paginator,
+        'page_obj': offers_page,
         'is_admin_or_manager': request.user.is_admin or request.user.is_sales_manager,
         'channel': channel,
         'audience': audience,
