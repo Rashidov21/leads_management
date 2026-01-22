@@ -813,17 +813,36 @@ def google_sheets_manual_import(request):
 @login_required
 @role_required('admin', 'sales_manager', 'sales')
 def followups_today(request):
+    # Bajarilmagan follow-up'larni olish
     followups = FollowUpService.get_today_followups(
         sales=request.user if request.user.is_sales else None
     )
     active_offers = OfferService.active_offers(channel='followup')
     
+    # Statistikalar - to'g'ri hisoblash
+    # get_today_followups allaqachon completed=False filter qilgan
+    # Shuning uchun stats'da bajarilganlarni alohida qidirish kerak
+    now = timezone.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+    
+    # Barcha bugungi follow-up'lar (bajarilganlari ham) - stats uchun
+    all_today_followups = FollowUp.objects.select_related(
+        'lead', 'sales', 'lead__assigned_sales', 'lead__interested_course'
+    ).filter(
+        due_date__gte=today_start,
+        due_date__lte=today_end
+    )
+    
+    if request.user.is_sales:
+        all_today_followups = all_today_followups.filter(sales=request.user)
+    
     # Statistikalar
     stats = {
-        'total': followups.count(),
-        'completed': followups.filter(completed=True).count(),
-        'pending': followups.filter(completed=False, is_overdue=False).count(),
-        'overdue': followups.filter(completed=False, is_overdue=True).count(),
+        'total': all_today_followups.count(),  # Barcha bugungi follow-up'lar
+        'completed': all_today_followups.filter(completed=True).count(),  # Bajarilganlar
+        'pending': followups.filter(is_overdue=False).count(),  # Bajarilmagan va overdue emas
+        'overdue': followups.filter(is_overdue=True).count(),  # Bajarilmagan va overdue
     }
     stats['completion_rate'] = (stats['completed'] / stats['total'] * 100) if stats['total'] > 0 else 0
     

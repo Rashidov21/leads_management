@@ -33,16 +33,6 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
         # Yangi lid - dinamik delay (15-30 daqiqa, lidlar soniga qarab)
         # Agar assigned_sales bo'lsa, follow-up yaratish va notification yuborish
         if instance.assigned_sales:
-            # Allaqachon "Yangi lid" follow-up borligini tekshirish
-            existing = FollowUp.objects.filter(
-                lead=instance,
-                notes__contains="Yangi lid - darhol aloqa qilish kerak",
-                completed=False
-            ).exists()
-            
-            if existing:
-                return  # Agar allaqachon bor bo'lsa, yaratmaymiz
-            
             base_time = timezone.now()
             
             # Sotuvchining hozirgi follow-up yukini hisoblash (keyingi 24 soatda)
@@ -102,6 +92,26 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
                     delay
                 )
             
+            # Yaxshiroq tekshiruv - notes va due_date bo'yicha
+            # 1. Notes bo'yicha tekshirish
+            existing_by_notes = FollowUp.objects.filter(
+                lead=instance,
+                notes__contains="Yangi lid - darhol aloqa qilish kerak",
+                completed=False
+            ).exists()
+            
+            # 2. Due_date bo'yicha tekshirish (xuddi shu kundagi follow-up)
+            existing_by_date = FollowUp.objects.filter(
+                lead=instance,
+                due_date__date=due_date.date(),
+                notes__contains="Yangi lid",
+                completed=False
+            ).exists()
+            
+            # 3. Agar notes yoki due_date bo'yicha allaqachon bor bo'lsa, yaratmaymiz
+            if existing_by_notes or existing_by_date:
+                return  # Agar allaqachon bor bo'lsa, yaratmaymiz
+            
             followup = FollowUp.objects.create(
                 lead=instance,
                 sales=instance.assigned_sales,
@@ -130,9 +140,11 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
         # Contacted status uchun ketma-ket follow-up yaratish
         if instance.status == 'contacted':
             # Allaqachon "Contacted" follow-up'lar borligini tekshirish
+            # Yaxshiroq tekshiruv - notes va followup_sequence bo'yicha
             existing_contacted = FollowUp.objects.filter(
                 lead=instance,
                 notes__contains="Contacted - 24 soatdan keyin aloqa",
+                followup_sequence=1,
                 completed=False
             ).exists()
             
@@ -148,6 +160,18 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
                 base_time,
                 first_delay
             )
+            
+            # Yana bir bor tekshirish - due_date bo'yicha ham
+            existing_by_date = FollowUp.objects.filter(
+                lead=instance,
+                notes__contains="Contacted - 24 soatdan keyin aloqa",
+                due_date__date=first_due_date.date(),
+                completed=False
+            ).exists()
+            
+            if existing_by_date:
+                return  # Agar xuddi shu kundagi follow-up bor bo'lsa, yaratmaymiz
+            
             first_followup = FollowUp.objects.create(
                 lead=instance,
                 sales=instance.assigned_sales,
@@ -192,21 +216,34 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
             
             for delay in delays:
                 days = delay.days
-                # Har bir kun uchun alohida tekshirish
-                existing = FollowUp.objects.filter(
-                    lead=instance,
-                    notes__contains=f"Interested - {days} kundan keyin",
-                    completed=False
-                ).exists()
                 
-                if existing:
-                    continue  # Agar allaqachon bor bo'lsa, yaratmaymiz
-                
+                # Avval due_date ni hisoblash
                 due_date = FollowUpService.calculate_work_hours_due_date(
                     instance.assigned_sales,
                     base_time,
                     delay
                 )
+                
+                # Yaxshiroq tekshiruv - notes, due_date va completed bo'yicha
+                # 1. Notes bo'yicha tekshirish
+                existing_by_notes = FollowUp.objects.filter(
+                    lead=instance,
+                    notes__contains=f"Interested - {days} kundan keyin",
+                    completed=False
+                ).exists()
+                
+                # 2. Due_date bo'yicha tekshirish (xuddi shu kundagi follow-up)
+                existing_by_date = FollowUp.objects.filter(
+                    lead=instance,
+                    due_date__date=due_date.date(),
+                    notes__contains="Interested",
+                    completed=False
+                ).exists()
+                
+                # 3. Agar notes yoki due_date bo'yicha allaqachon bor bo'lsa, yaratmaymiz
+                if existing_by_notes or existing_by_date:
+                    continue  # Agar allaqachon bor bo'lsa, yaratmaymiz
+                
                 followup = FollowUp.objects.create(
                     lead=instance,
                     sales=instance.assigned_sales,
@@ -299,27 +336,40 @@ def create_followup_on_status_change(sender, instance, created, **kwargs):
                     delay_key = "3 kundan keyin"
                 
                 if delay_key:
-                    existing = FollowUp.objects.filter(
+                    # Avval due_date ni hisoblash
+                    due_date = FollowUpService.calculate_work_hours_due_date(
+                        instance.assigned_sales,
+                        base_time,
+                        delay
+                    )
+                    
+                    # Yaxshiroq tekshiruv - notes va due_date bo'yicha
+                    # 1. Notes bo'yicha tekshirish
+                    existing_by_notes = FollowUp.objects.filter(
                         lead=instance,
                         notes__contains=delay_key,
                         completed=False
                     ).exists()
                     
-                    if existing:
+                    # 2. Due_date bo'yicha tekshirish (xuddi shu kundagi follow-up)
+                    existing_by_date = FollowUp.objects.filter(
+                        lead=instance,
+                        due_date__date=due_date.date(),
+                        notes__contains="Sinovga kelmadi",
+                        completed=False
+                    ).exists()
+                    
+                    # 3. Agar notes yoki due_date bo'yicha allaqachon bor bo'lsa, yaratmaymiz
+                    if existing_by_notes or existing_by_date:
                         continue  # Agar allaqachon bor bo'lsa, yaratmaymiz
-                
-                due_date = FollowUpService.calculate_work_hours_due_date(
-                    instance.assigned_sales,
-                    base_time,
-                    delay
-                )
-                followup = FollowUp.objects.create(
-                    lead=instance,
-                    sales=instance.assigned_sales,
-                    due_date=due_date,
-                    notes=notes_map.get(delay, f"Trial Not Attended - {delay}")
-                )
-                send_followup_created_notification.delay(followup.id)
+                    
+                    followup = FollowUp.objects.create(
+                        lead=instance,
+                        sales=instance.assigned_sales,
+                        due_date=due_date,
+                        notes=notes_map.get(delay, f"Sinovga kelmadi - {delay}")
+                    )
+                    send_followup_created_notification.delay(followup.id)
         
         # Lost uchun reactivation (mavjud ReactivationService orqali boshqariladi)
         elif instance.status == 'lost':
