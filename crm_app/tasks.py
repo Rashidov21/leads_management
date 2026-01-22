@@ -1082,3 +1082,574 @@ def import_leads_from_google_sheets(self):
             'success': False,
             'error': str(e)
         }
+
+
+@shared_task
+def send_google_sheets_import_summary_task():
+    """
+    Google Sheets import natijalarini har 2 soatda admin/manager'larga yuborish
+    """
+    try:
+        from django.conf import settings
+        from .services import GoogleSheetsService
+        
+        spreadsheet_id = getattr(settings, 'GOOGLE_SHEETS_SPREADSHEET_ID', None)
+        if not spreadsheet_id:
+            return
+        
+        worksheets = getattr(settings, 'GOOGLE_SHEETS_WORKSHEETS', 
+                           [getattr(settings, 'GOOGLE_SHEETS_WORKSHEET_NAME', 'Sheet1')])
+        
+        summary = {'imported': 0, 'skipped': 0, 'errors': []}
+        
+        for worksheet_name in worksheets:
+            result = GoogleSheetsService.import_new_leads(
+                spreadsheet_id=spreadsheet_id,
+                worksheet_name=worksheet_name
+            )
+            summary['imported'] += result.get('imported', 0)
+            summary['skipped'] += result.get('skipped', 0)
+            summary['errors'].extend([f"{worksheet_name}: {err}" for err in result.get('errors', [])])
+        
+        # Admin/Manager'larga xabar
+        if summary['imported'] > 0 or summary['errors']:
+            message = (
+                f"📊 <b>Google Sheets Import (2 soatlik)</b>\n"
+                f"{'=' * 30}\n\n"
+                f"✅ <b>Import qilindi:</b> {summary['imported']} ta lid\n"
+                f"⏭ <b>O'tkazib yuborildi:</b> {summary['skipped']} ta\n"
+            )
+            
+            if summary['errors']:
+                message += f"\n⚠️ <b>Xatoliklar:</b> {len(summary['errors'])} ta\n"
+                if len(summary['errors']) <= 5:
+                    for err in summary['errors'][:5]:
+                        message += f"  • {err}\n"
+                else:
+                    message += f"  ... va yana {len(summary['errors']) - 5} ta xatolik\n"
+            
+            # Admin ga yuborish
+            if settings.TELEGRAM_ADMIN_CHAT_ID:
+                send_telegram_notification(
+                    settings.TELEGRAM_ADMIN_CHAT_ID,
+                    message
+                )
+            
+            # Manager/Admin telegram group'lariga ham yuborish
+            managers = User.objects.filter(role__in=['admin', 'sales_manager'])
+            for manager in managers:
+                if manager.telegram_group_id:
+                    send_telegram_notification(
+                        manager.telegram_group_id,
+                        message
+                    )
+        
+        print(f"[google sheets summary] {summary['imported']} ta lid, {summary['skipped']} ta o'tkazib yuborildi")
+        
+    except Exception as e:
+        print(f"[google sheets summary] xatolik: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+@shared_task
+def send_critical_alerts_task():
+    """
+    Kritik ogohlantirishlarni darhol admin/manager'larga yuborish
+    """
+    try:
+        from django.conf import settings
+        from .services import FollowUpService
+        
+        alerts = []
+        
+        # 1. Sotuvchilar bloklanganligini tekshirish
+        sales_users = User.objects.filter(role='sales', is_active_sales=True)
+        for sales in sales_users:
+            if FollowUpService.check_sales_blocked(sales):
+                overdue_count = FollowUpService.get_overdue_followups(sales).count()
+                alerts.append(
+                    f"🔴 <b>Sotuvchi bloklangan!</b>\n"
+                    f"👤 {sales.username}\n"
+                    f"⚠️ Overdue: {overdue_count} ta\n"
+                    f"Darhol tekshirish kerak!"
+                )
+        
+        # 2. Katta import xatoliklari (10+)
+        # Bu Google Sheets import task'da tekshiriladi, lekin bu yerda ham tekshirish mumkin
+        
+        # 3. Tizim xatoliklari (database, API) - bu yerda tekshirish qiyin, lekin struktura qoldiramiz
+        
+        if alerts:
+            message = (
+                f"🚨 <b>KRITIK OGOHLANTIRISHLAR</b>\n"
+                f"{'=' * 30}\n\n"
+            )
+            message += "\n\n".join(alerts)
+            
+            # Admin ga yuborish
+            if settings.TELEGRAM_ADMIN_CHAT_ID:
+                send_telegram_notification(
+                    settings.TELEGRAM_ADMIN_CHAT_ID,
+                    message
+                )
+            
+            # Manager/Admin telegram group'lariga ham yuborish
+            managers = User.objects.filter(role__in=['admin', 'sales_manager'])
+            for manager in managers:
+                if manager.telegram_group_id:
+                    send_telegram_notification(
+                        manager.telegram_group_id,
+                        message
+                    )
+        
+        print(f"[critical alerts] {len(alerts)} ta kritik ogohlantirish yuborildi")
+        
+    except Exception as e:
+        print(f"[critical alerts] xatolik: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+@shared_task
+def send_morning_daily_report_task():
+    """
+    Ertalabki kunlik hisobot (09:00)
+    """
+    try:
+        from django.conf import settings
+        from .services import FollowUpService, KPIService
+        
+        today = timezone.localdate()
+        sales_users = User.objects.filter(role='sales', is_active_sales=True)
+        
+        # Bugungi follow-up'lar
+        today_followups = FollowUpService.get_today_followups()
+        total_followups = today_followups.count()
+        completed_followups = today_followups.filter(completed=True).count()
+        pending_followups = today_followups.filter(completed=False).count()
+        overdue_followups = FollowUpService.get_overdue_followups().count()
+        
+        # Bugungi maqsadlar (har bir sotuvchi uchun)
+        per_sales_lines = []
+        for sales in sales_users:
+            kpi = KPIService.calculate_daily_kpi(sales, today)
+            per_sales_lines.append(
+                f"• {sales.username}: "
+                f"aloqa {kpi.daily_contacts}, "
+                f"trial {kpi.trials_registered}, "
+                f"sotuv {kpi.trials_to_sales}, "
+                f"overdue {kpi.overdue_count}"
+            )
+        
+        message = (
+            f"🌅 <b>Ertalabki Briefing ({today.strftime('%d.%m.%Y')})</b>\n"
+            f"{'=' * 30}\n\n"
+            f"📋 <b>Bugungi Follow-up'lar:</b>\n"
+            f"  • Jami: {total_followups} ta\n"
+            f"  • Bajarilgan: {completed_followups} ta\n"
+            f"  • Kutilmoqda: {pending_followups} ta\n"
+            f"  • Overdue: {overdue_followups} ta\n\n"
+            f"🎯 <b>Bugungi Maqsadlar:</b>\n"
+            f"{chr(10).join(per_sales_lines) if per_sales_lines else 'Ma\'lumot topilmadi'}\n\n"
+            f"💪 Yaxshi ish kuni tilaymiz!"
+        )
+        
+        # Admin ga yuborish
+        if settings.TELEGRAM_ADMIN_CHAT_ID:
+            send_telegram_notification(
+                settings.TELEGRAM_ADMIN_CHAT_ID,
+                message
+            )
+        
+        # Manager/Admin telegram group'lariga ham yuborish
+        managers = User.objects.filter(role__in=['admin', 'sales_manager'])
+        for manager in managers:
+            if manager.telegram_group_id:
+                send_telegram_notification(
+                    manager.telegram_group_id,
+                    message
+                )
+        
+        print(f"[morning report] Ertalabki hisobot yuborildi")
+        
+    except Exception as e:
+        print(f"[morning report] xatolik: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+@shared_task
+def send_weekly_report_task():
+    """
+    Haftalik hisobot (Dushanba ertalab)
+    """
+    try:
+        from django.conf import settings
+        from django.db.models import Count, Sum, Avg, Q
+        from datetime import timedelta
+        
+        today = timezone.localdate()
+        
+        # O'tgan hafta (Dushanba - Yakshanba)
+        # Dushanbani topish
+        days_since_monday = today.weekday()
+        week_start = today - timedelta(days=days_since_monday + 7)  # O'tgan hafta dushanba
+        week_end = week_start + timedelta(days=6)  # O'tgan hafta yakshanba
+        
+        # Statistikalar
+        total_leads = Lead.objects.filter(
+            created_at__date__gte=week_start,
+            created_at__date__lte=week_end
+        ).count()
+        
+        total_trials = TrialLesson.objects.filter(
+            date__gte=week_start,
+            date__lte=week_end
+        ).count()
+        
+        total_sales = Lead.objects.filter(
+            status='enrolled',
+            enrolled_at__date__gte=week_start,
+            enrolled_at__date__lte=week_end
+        ).count()
+        
+        # Sotuvchilar reytingi
+        sales_users = User.objects.filter(role='sales', is_active_sales=True)
+        sales_ratings = []
+        
+        for sales in sales_users:
+            sales_leads = Lead.objects.filter(
+                assigned_sales=sales,
+                created_at__date__gte=week_start,
+                created_at__date__lte=week_end
+            ).count()
+            
+            sales_trials = TrialLesson.objects.filter(
+                lead__assigned_sales=sales,
+                date__gte=week_start,
+                date__lte=week_end
+            ).count()
+            
+            sales_enrolled = Lead.objects.filter(
+                assigned_sales=sales,
+                status='enrolled',
+                enrolled_at__date__gte=week_start,
+                enrolled_at__date__lte=week_end
+            ).count()
+            
+            conversion_rate = (sales_enrolled / sales_trials * 100) if sales_trials > 0 else 0
+            
+            sales_ratings.append({
+                'sales': sales,
+                'leads': sales_leads,
+                'trials': sales_trials,
+                'sales_count': sales_enrolled,
+                'conversion': conversion_rate
+            })
+        
+        # Konversiya bo'yicha tartiblash
+        sales_ratings.sort(key=lambda x: x['conversion'], reverse=True)
+        
+        # Top 3 sotuvchi
+        top_sales_lines = []
+        for i, rating in enumerate(sales_ratings[:3], 1):
+            top_sales_lines.append(
+                f"{i}. {rating['sales'].username}: "
+                f"{rating['sales_count']} ta sotuv, "
+                f"{rating['conversion']:.1f}% konversiya"
+            )
+        
+        # Umumiy konversiya
+        total_trials_converted = sum(r['trials'] for r in sales_ratings)
+        total_sales_converted = sum(r['sales_count'] for r in sales_ratings)
+        overall_conversion = (total_sales_converted / total_trials_converted * 100) if total_trials_converted > 0 else 0
+        
+        message = (
+            f"📈 <b>Haftalik Hisobot</b>\n"
+            f"{week_start.strftime('%d.%m')} - {week_end.strftime('%d.%m.%Y')}\n"
+            f"{'=' * 30}\n\n"
+            f"📊 <b>Umumiy Statistikalar:</b>\n"
+            f"  • Jami lidlar: {total_leads} ta\n"
+            f"  • Trial darslar: {total_trials} ta\n"
+            f"  • Sotuvlar: {total_sales} ta\n"
+            f"  • Konversiya: {overall_conversion:.1f}%\n\n"
+            f"🏆 <b>Top 3 Sotuvchi:</b>\n"
+            f"{chr(10).join(top_sales_lines) if top_sales_lines else 'Ma\'lumot topilmadi'}\n\n"
+            f"📅 Keyingi hafta uchun omad!"
+        )
+        
+        # Admin ga yuborish
+        if settings.TELEGRAM_ADMIN_CHAT_ID:
+            send_telegram_notification(
+                settings.TELEGRAM_ADMIN_CHAT_ID,
+                message
+            )
+        
+        # Manager/Admin telegram group'lariga ham yuborish
+        managers = User.objects.filter(role__in=['admin', 'sales_manager'])
+        for manager in managers:
+            if manager.telegram_group_id:
+                send_telegram_notification(
+                    manager.telegram_group_id,
+                    message
+                )
+        
+        print(f"[weekly report] Haftalik hisobot yuborildi ({week_start} - {week_end})")
+        
+    except Exception as e:
+        print(f"[weekly report] xatolik: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+@shared_task
+def send_monthly_report_task():
+    """
+    Oylik hisobot (Oyning 1-kuni)
+    """
+    try:
+        from django.conf import settings
+        from django.db.models import Count, Sum, Avg, Q
+        from datetime import timedelta
+        import calendar
+        
+        today = timezone.localdate()
+        
+        # O'tgan oy
+        if today.month == 1:
+            last_month = 12
+            last_year = today.year - 1
+        else:
+            last_month = today.month - 1
+            last_year = today.year
+        
+        month_start = today.replace(year=last_year, month=last_month, day=1)
+        days_in_month = calendar.monthrange(last_year, last_month)[1]
+        month_end = month_start.replace(day=days_in_month)
+        
+        month_name = calendar.month_name[last_month]
+        
+        # Statistikalar
+        total_leads = Lead.objects.filter(
+            created_at__date__gte=month_start,
+            created_at__date__lte=month_end
+        ).count()
+        
+        total_trials = TrialLesson.objects.filter(
+            date__gte=month_start,
+            date__lte=month_end
+        ).count()
+        
+        total_sales = Lead.objects.filter(
+            status='enrolled',
+            enrolled_at__date__gte=month_start,
+            enrolled_at__date__lte=month_end
+        ).count()
+        
+        # Sotuvchilar reytingi
+        sales_users = User.objects.filter(role='sales', is_active_sales=True)
+        sales_ratings = []
+        
+        for sales in sales_users:
+            sales_leads = Lead.objects.filter(
+                assigned_sales=sales,
+                created_at__date__gte=month_start,
+                created_at__date__lte=month_end
+            ).count()
+            
+            sales_trials = TrialLesson.objects.filter(
+                lead__assigned_sales=sales,
+                date__gte=month_start,
+                date__lte=month_end
+            ).count()
+            
+            sales_enrolled = Lead.objects.filter(
+                assigned_sales=sales,
+                status='enrolled',
+                enrolled_at__date__gte=month_start,
+                enrolled_at__date__lte=month_end
+            ).count()
+            
+            conversion_rate = (sales_enrolled / sales_trials * 100) if sales_trials > 0 else 0
+            
+            sales_ratings.append({
+                'sales': sales,
+                'leads': sales_leads,
+                'trials': sales_trials,
+                'sales_count': sales_enrolled,
+                'conversion': conversion_rate
+            })
+        
+        # Konversiya bo'yicha tartiblash
+        sales_ratings.sort(key=lambda x: x['conversion'], reverse=True)
+        
+        # Top 3 sotuvchi
+        top_sales_lines = []
+        for i, rating in enumerate(sales_ratings[:3], 1):
+            top_sales_lines.append(
+                f"{i}. {rating['sales'].username}: "
+                f"{rating['sales_count']} ta sotuv, "
+                f"{rating['conversion']:.1f}% konversiya"
+            )
+        
+        # Umumiy konversiya
+        total_trials_converted = sum(r['trials'] for r in sales_ratings)
+        total_sales_converted = sum(r['sales_count'] for r in sales_ratings)
+        overall_conversion = (total_sales_converted / total_trials_converted * 100) if total_trials_converted > 0 else 0
+        
+        # O'rtacha kunlik ko'rsatkichlar
+        days_in_month_count = (month_end - month_start).days + 1
+        avg_daily_leads = total_leads / days_in_month_count if days_in_month_count > 0 else 0
+        avg_daily_sales = total_sales / days_in_month_count if days_in_month_count > 0 else 0
+        
+        message = (
+            f"📊 <b>Oylik Hisobot</b>\n"
+            f"{month_name} {last_year}\n"
+            f"{'=' * 30}\n\n"
+            f"📈 <b>Umumiy Statistikalar:</b>\n"
+            f"  • Jami lidlar: {total_leads} ta\n"
+            f"  • Trial darslar: {total_trials} ta\n"
+            f"  • Sotuvlar: {total_sales} ta\n"
+            f"  • Konversiya: {overall_conversion:.1f}%\n"
+            f"  • O'rtacha kunlik lidlar: {avg_daily_leads:.1f} ta\n"
+            f"  • O'rtacha kunlik sotuvlar: {avg_daily_sales:.1f} ta\n\n"
+            f"🏆 <b>Top 3 Sotuvchi:</b>\n"
+            f"{chr(10).join(top_sales_lines) if top_sales_lines else 'Ma\'lumot topilmadi'}\n\n"
+            f"📅 Keyingi oy uchun omad!"
+        )
+        
+        # Admin ga yuborish
+        if settings.TELEGRAM_ADMIN_CHAT_ID:
+            send_telegram_notification(
+                settings.TELEGRAM_ADMIN_CHAT_ID,
+                message
+            )
+        
+        # Manager/Admin telegram group'lariga ham yuborish
+        managers = User.objects.filter(role__in=['admin', 'sales_manager'])
+        for manager in managers:
+            if manager.telegram_group_id:
+                send_telegram_notification(
+                    manager.telegram_group_id,
+                    message
+                )
+        
+        print(f"[monthly report] Oylik hisobot yuborildi ({month_name} {last_year})")
+        
+    except Exception as e:
+        print(f"[monthly report] xatolik: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+@shared_task
+def send_trial_results_summary_task():
+    """
+    Trial dars natijalari hisoboti (har kuni kechqurun)
+    """
+    try:
+        from django.conf import settings
+        
+        today = timezone.localdate()
+        
+        # Bugungi trial'lar
+        today_trials = TrialLesson.objects.filter(date=today).select_related('lead', 'lead__assigned_sales')
+        
+        total_trials = today_trials.count()
+        attended_trials = today_trials.filter(lead__status='trial_attended').count()
+        not_attended_trials = today_trials.filter(lead__status='trial_not_attended').count()
+        # Bugungi trial'dan keyin enrolled bo'lganlar
+        trial_lead_ids = [t.lead.id for t in today_trials]
+        enrolled_after_trial = Lead.objects.filter(
+            status='enrolled',
+            enrolled_at__date=today,
+            id__in=trial_lead_ids
+        ).count() if trial_lead_ids else 0
+        
+        # Konversiya
+        conversion_rate = (enrolled_after_trial / attended_trials * 100) if attended_trials > 0 else 0
+        
+        # Sotuvchilar bo'yicha
+        sales_summary = {}
+        for trial in today_trials:
+            sales = trial.lead.assigned_sales
+            if not sales:
+                continue
+            
+            if sales.username not in sales_summary:
+                sales_summary[sales.username] = {
+                    'total': 0,
+                    'attended': 0,
+                    'not_attended': 0,
+                    'enrolled': 0
+                }
+            
+            sales_summary[sales.username]['total'] += 1
+            if trial.lead.status == 'trial_attended':
+                sales_summary[sales.username]['attended'] += 1
+            elif trial.lead.status == 'trial_not_attended':
+                sales_summary[sales.username]['not_attended'] += 1
+        
+        # Enrolled'lar (bugungi trial'dan keyin)
+        enrolled_today = Lead.objects.filter(
+            status='enrolled',
+            enrolled_at__date=today
+        ).select_related('assigned_sales')
+        
+        for lead in enrolled_today:
+            # Agar bugungi trial'lar ro'yxatida bo'lsa
+            if lead.id in [t.lead.id for t in today_trials]:
+                if lead.assigned_sales and lead.assigned_sales.username in sales_summary:
+                    sales_summary[lead.assigned_sales.username]['enrolled'] += 1
+        
+        # Sotuvchilar bo'yicha qatorlar
+        sales_lines = []
+        for sales_name, data in sales_summary.items():
+            sales_conversion = (data['enrolled'] / data['attended'] * 100) if data['attended'] > 0 else 0
+            sales_lines.append(
+                f"• {sales_name}: "
+                f"jami {data['total']}, "
+                f"keldi {data['attended']}, "
+                f"kelmadi {data['not_attended']}, "
+                f"yozildi {data['enrolled']} "
+                f"({sales_conversion:.1f}%)"
+            )
+        
+        message = (
+            f"📊 <b>Trial Dars Natijalari</b>\n"
+            f"{today.strftime('%d.%m.%Y')}\n"
+            f"{'=' * 30}\n\n"
+            f"📈 <b>Umumiy:</b>\n"
+            f"  • Jami trial'lar: {total_trials} ta\n"
+            f"  • Kelganlar: {attended_trials} ta\n"
+            f"  • Kelmaganlar: {not_attended_trials} ta\n"
+            f"  • Kursga yozilganlar: {enrolled_after_trial} ta\n"
+            f"  • Konversiya: {conversion_rate:.1f}%\n\n"
+        )
+        
+        if sales_lines:
+            message += f"👥 <b>Sotuvchilar bo'yicha:</b>\n{chr(10).join(sales_lines)}\n"
+        
+        # Admin ga yuborish
+        if settings.TELEGRAM_ADMIN_CHAT_ID:
+            send_telegram_notification(
+                settings.TELEGRAM_ADMIN_CHAT_ID,
+                message
+            )
+        
+        # Manager/Admin telegram group'lariga ham yuborish
+        managers = User.objects.filter(role__in=['admin', 'sales_manager'])
+        for manager in managers:
+            if manager.telegram_group_id:
+                send_telegram_notification(
+                    manager.telegram_group_id,
+                    message
+                )
+        
+        print(f"[trial results] Trial natijalari yuborildi ({today})")
+        
+    except Exception as e:
+        print(f"[trial results] xatolik: {e}")
+        import traceback
+        traceback.print_exc()
