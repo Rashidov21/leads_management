@@ -10,8 +10,19 @@ from django.conf import settings
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'crm_project.settings')
 django.setup()
 
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
+# Telegram import'ni lazy qilish - faqat kerak bo'lganda import qilish
+try:
+    from telegram import Update
+    from telegram.ext import Updater, CommandHandler, CallbackContext
+    TELEGRAM_AVAILABLE = True
+except ImportError as e:
+    print(f"Telegram bot handler import xatolik: {e}")
+    print("Telegram bot handler ishlamaydi. Paketlarni tekshiring.")
+    Update = None
+    Updater = None
+    CommandHandler = None
+    CallbackContext = None
+    TELEGRAM_AVAILABLE = False
 from django.utils import timezone
 from datetime import date
 from .models import Lead, FollowUp, User, KPI
@@ -143,6 +154,17 @@ def run_bot():
     """Botni ishga tushirish (sync)"""
     if not settings.TELEGRAM_BOT_TOKEN:
         print("TELEGRAM_BOT_TOKEN sozlanmagan!")
+        return
+    
+    # Telegram paketlarini tekshirish
+    if not TELEGRAM_AVAILABLE or Updater is None:
+        print("Telegram paketlari import qilinmadi. Bot ishlamaydi.")
+        print("Iltimos, python-telegram-bot paketini o'rnating: pip install python-telegram-bot==13.15")
+        return
+    
+    if not TELEGRAM_AVAILABLE or Updater is None:
+        print("Telegram paketlari import qilinmadi. Bot ishlamaydi.")
+        print("Iltimos, python-telegram-bot paketini o'rnating: pip install python-telegram-bot==13.15")
         return
     
     try:

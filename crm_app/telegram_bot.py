@@ -1,7 +1,16 @@
 import os
 from django.conf import settings
-from telegram import Bot
-from telegram.error import TelegramError
+
+# Telegram import'ni lazy qilish - faqat kerak bo'lganda import qilish
+def _get_telegram_bot():
+    """Telegram bot'ni lazy import qilish"""
+    try:
+        from telegram import Bot
+        from telegram.error import TelegramError
+        return Bot, TelegramError
+    except ImportError as e:
+        print(f"Telegram bot import xatolik: {e}")
+        return None, None
 
 
 def send_telegram_notification(chat_id, message, parse_mode='HTML'):
@@ -12,6 +21,12 @@ def send_telegram_notification(chat_id, message, parse_mode='HTML'):
     
     if not chat_id:
         print(f"Chat ID bo'sh: {chat_id}")
+        return False
+    
+    # Lazy import
+    Bot, TelegramError = _get_telegram_bot()
+    if Bot is None:
+        print("Telegram bot import qilinmadi")
         return False
     
     import time
