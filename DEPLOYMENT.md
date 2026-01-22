@@ -132,10 +132,46 @@ sudo systemctl restart celery
 sudo systemctl restart celerybeat
 sudo systemctl reload nginx
 ```
+# Barcha service'larning holatini ko'rish
+sudo systemctl status gunicorn
+sudo systemctl status celery
+sudo systemctl status celerybeat
+sudo systemctl status nginx
 
+# Yoki barchasini bir vaqtda
+sudo systemctl status gunicorn celery celerybeat nginx
 ---
 
 ## Muammo Bo'lsa (Troubleshooting)
+# Service'larni qayta ishga tushirish
+sudo systemctl restart gunicorn
+sudo systemctl restart celery
+sudo systemctl restart celerybeat
+sudo systemctl reload nginx
+
+# Yoki stop qilib, keyin start qilish
+sudo systemctl stop gunicorn
+sudo systemctl start gunicorn
+
+# Service'ni enable qilish (avtomatik ishga tushishi uchun)
+sudo systemctl enable gunicorn
+sudo systemctl enable celery
+sudo systemctl enable celerybeat
+
+# # Gunicorn log'lari
+sudo journalctl -u gunicorn -n 50
+sudo journalctl -u gunicorn -f  # Real-time
+
+# Celery log'lari
+sudo journalctl -u celery -n 50
+sudo journalctl -u celery -f  # Real-time
+
+# Celerybeat log'lari
+sudo journalctl -u celerybeat -n 50
+
+# Nginx log'lari
+sudo tail -f /var/log/nginx/error.log
+sudo tail -f /var/log/nginx/access.log
 
 ### Follow-up'lar yaratilmasa:
 

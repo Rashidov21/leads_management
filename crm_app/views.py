@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.db.models import Q, Count, Sum, F, Avg
 from django.utils import timezone
 from django.http import HttpResponse
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 import csv
 from io import BytesIO
 from openpyxl import Workbook
@@ -272,7 +273,7 @@ def leads_table(request):
         if date_to:
             leads = leads.filter(created_at__date__lte=date_to)
 
-        # Export Excel
+        # Export Excel (pagination dan oldin)
         if request.GET.get('export') == 'excel':
             wb = Workbook()
             ws = wb.active
@@ -302,8 +303,21 @@ def leads_table(request):
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             return response
 
+        # Pagination qo'shish
+        paginator = Paginator(leads.order_by('-created_at'), 50)  # 50 ta per page
+        page = request.GET.get('page', 1)
+        
+        try:
+            leads_page = paginator.page(page)
+        except PageNotAnInteger:
+            leads_page = paginator.page(1)
+        except EmptyPage:
+            leads_page = paginator.page(paginator.num_pages)
+
         context = {
-            'leads': leads.order_by('-created_at'),
+            'leads': leads_page,  # Paginated queryset
+            'paginator': paginator,
+            'page_obj': leads_page,
             'status_filter': status,
             'source_filter': source,
             'sales_filter': sales_id,
@@ -901,8 +915,21 @@ def followups_today(request):
                 messages.error(request, f'Xatolik: {str(e)}')
         return redirect('followups_today')
     
+    # Pagination qo'shish
+    paginator = Paginator(followups, 30)  # 30 ta per page
+    page = request.GET.get('page', 1)
+    
+    try:
+        followups_page = paginator.page(page)
+    except PageNotAnInteger:
+        followups_page = paginator.page(1)
+    except EmptyPage:
+        followups_page = paginator.page(paginator.num_pages)
+    
     return render(request, 'followups/today.html', {
-        'followups': followups,
+        'followups': followups_page,  # Paginated
+        'paginator': paginator,
+        'page_obj': followups_page,
         'active_offers': active_offers,
         'stats': stats,
     })
@@ -947,8 +974,22 @@ def overdue_followups_list(request):
     # Sales list (for filter)
     sales_list = User.objects.filter(role='sales', is_active_sales=True) if (request.user.is_admin or request.user.is_sales_manager) else None
     
+    # Pagination qo'shish
+    overdue_queryset = overdue.select_related('lead', 'sales', 'lead__interested_course')
+    paginator = Paginator(overdue_queryset, 30)  # 30 ta per page
+    page = request.GET.get('page', 1)
+    
+    try:
+        overdue_page = paginator.page(page)
+    except PageNotAnInteger:
+        overdue_page = paginator.page(1)
+    except EmptyPage:
+        overdue_page = paginator.page(paginator.num_pages)
+    
     context = {
-        'overdue_followups': overdue.select_related('lead', 'sales', 'lead__interested_course'),
+        'overdue_followups': overdue_page,  # Paginated
+        'paginator': paginator,
+        'page_obj': overdue_page,
         'stats': stats,
         'sales_list': sales_list,
         'current_sales_filter': sales_filter,
@@ -1370,7 +1411,23 @@ def room_delete(request, pk):
 @admin_required
 def groups_list(request):
     groups = Group.objects.all().select_related('course', 'room').order_by('-created_at')
-    return render(request, 'groups/list.html', {'groups': groups})
+    
+    # Pagination qo'shish
+    paginator = Paginator(groups, 25)  # 25 ta per page
+    page = request.GET.get('page', 1)
+    
+    try:
+        groups_page = paginator.page(page)
+    except PageNotAnInteger:
+        groups_page = paginator.page(1)
+    except EmptyPage:
+        groups_page = paginator.page(paginator.num_pages)
+    
+    return render(request, 'groups/list.html', {
+        'groups': groups_page,  # Paginated
+        'paginator': paginator,
+        'page_obj': groups_page,
+    })
 
 
 @login_required
@@ -1444,7 +1501,23 @@ def group_delete(request, pk):
 def sales_list(request):
     try:
         sales_users = User.objects.filter(role='sales').select_related().order_by('-created_at')
-        return render(request, 'users/sales_list.html', {'sales_users': sales_users})
+        
+        # Pagination qo'shish
+        paginator = Paginator(sales_users, 20)  # 20 ta per page
+        page = request.GET.get('page', 1)
+        
+        try:
+            sales_page = paginator.page(page)
+        except PageNotAnInteger:
+            sales_page = paginator.page(1)
+        except EmptyPage:
+            sales_page = paginator.page(paginator.num_pages)
+        
+        return render(request, 'users/sales_list.html', {
+            'sales_users': sales_page,  # Paginated
+            'paginator': paginator,
+            'page_obj': sales_page,
+        })
     except Exception as e:
         messages.error(request, f'Xatolik yuz berdi: {str(e)}')
         import traceback
