@@ -222,6 +222,17 @@ GOOGLE_SHEETS_WORKSHEETS = [
     if name.strip()
 ]
 
+# Google Sheets Sheet-to-Course Mapping
+# Har bir sheet nomi qaysi kursga tegishli ekanligini belgilaydi
+# Format: 'Sheet1': 'Kurs nomi' (DB'dagi Course.name bilan mos kelishi kerak)
+GOOGLE_SHEETS_SHEET_COURSE_MAPPING = {
+    'Sheet1': 'Soft',  # Soft kursi
+    'Sheet2': 'Mobilografiya',  # Mobilografiya kursi
+    'Sheet3': 'Computer Science',  # Computer Science kursi
+    # Qo'shimcha sheetlar uchun:
+    # 'Sheet4': 'Boshqa Kurs',
+}
+
 # Login URLs
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'

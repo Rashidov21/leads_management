@@ -1406,54 +1406,88 @@ class GoogleSheetsService:
                     if secondary_phone:
                         secondary_phone = secondary_phone.replace('+', '').replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
                     
-                    # Interested course - case-insensitive qidirish
+                    # Sheet nomidan kursni aniqlash (mapping)
+                    from django.conf import settings
+                    sheet_to_course_mapping = getattr(
+                        settings, 
+                        'GOOGLE_SHEETS_SHEET_COURSE_MAPPING', 
+                        {
+                            'Sheet1': 'Soft',
+                            'Sheet2': 'Mobilografiya',
+                            'Sheet3': 'Computer Science',
+                        }
+                    )
+                    
+                    # Sheet nomidan kursni topish
+                    sheet_course_name = sheet_to_course_mapping.get(worksheet_name)
+                    
+                    # Interested course - avval sheet nomidan, keyin record'dan
                     interested_course = None
                     course_name = None
                     
-                    # Barcha ustun nomlarini case-insensitive qilish
-                    record_keys_lower = {str(k).lower().strip(): k for k in record.keys()}
-                    
-                    # Mumkin bo'lgan ustun nomlari
-                    course_key_variants = [
-                        interested_course_column.lower().strip(),
-                        'course',
-                        'kurs',
-                        'interested_course',
-                        'qiziqqan kurs'
-                    ]
-                    
-                    # Ustunni topish
-                    found_key = None
-                    for variant in course_key_variants:
-                        if variant in record_keys_lower:
-                            found_key = record_keys_lower[variant]
-                            break
-                    
-                    if found_key:
-                        course_name = str(record.get(found_key, '')).strip()
-                    else:
-                        # Agar variantlardan topilmasa, default ustun nomidan qidirish
-                        course_name = str(record.get(interested_course_column, '') or 
-                                         record.get(interested_course_column.title(), '') or
-                                         record.get(interested_course_column.upper(), '')).strip()
-                    
-                    if course_name:
+                    # 1. Sheet nomidan kursni aniqlash
+                    if sheet_course_name:
                         try:
                             interested_course = Course.objects.filter(
-                                name__icontains=course_name
+                                name__icontains=sheet_course_name
                             ).first()
+                            if interested_course:
+                                print(f"Sheet '{worksheet_name}' dan kurs topildi: {interested_course.name}")
                         except Exception as e:
-                            print(f"Course biriktirishda xatolik (row {idx + 1}): {e}")
-                            pass
+                            print(f"Sheet nomidan kurs topishda xatolik: {e}")
                     
-                    # Lead yaratish
+                    # 2. Agar sheet nomidan topilmasa, record'dan qidirish
+                    if not interested_course:
+                        # Barcha ustun nomlarini case-insensitive qilish
+                        record_keys_lower = {str(k).lower().strip(): k for k in record.keys()}
+                        
+                        # Mumkin bo'lgan ustun nomlari
+                        course_key_variants = [
+                            interested_course_column.lower().strip(),
+                            'course',
+                            'kurs',
+                            'interested_course',
+                            'qiziqqan kurs'
+                        ]
+                        
+                        # Ustunni topish
+                        found_key = None
+                        for variant in course_key_variants:
+                            if variant in record_keys_lower:
+                                found_key = record_keys_lower[variant]
+                                break
+                        
+                        if found_key:
+                            course_name = str(record.get(found_key, '')).strip()
+                        else:
+                            # Agar variantlardan topilmasa, default ustun nomidan qidirish
+                            course_name = str(record.get(interested_course_column, '') or 
+                                             record.get(interested_course_column.title(), '') or
+                                             record.get(interested_course_column.upper(), '')).strip()
+                        
+                        if course_name:
+                            try:
+                                interested_course = Course.objects.filter(
+                                    name__icontains=course_name
+                                ).first()
+                            except Exception as e:
+                                print(f"Course biriktirishda xatolik (row {idx + 1}): {e}")
+                                pass
+                    
+                    # Lead yaratish - notes'ga sheet nomini qo'shish
                     lead = Lead(
                         name=name,
                         phone=phone,
                         secondary_phone=secondary_phone if secondary_phone else None,
                         source=source,
                         interested_course=interested_course,
-                        notes=f"Google Sheets'dan avtomatik import (row {idx + 1}).\nQiziqish bildirgan kursi: {interested_course.name if interested_course else 'Belgilanmagan'}.\nManba: {source}"
+                        notes=(
+                            f"Google Sheets'dan avtomatik import\n"
+                            f"Sheet: {worksheet_name}\n"
+                            f"Qator: {idx + 1}\n"
+                            f"Qiziqish bildirgan kursi: {interested_course.name if interested_course else 'Belgilanmagan'}\n"
+                            f"Manba: {source}"
+                        )
                     )
                     leads_to_import.append(lead)
                     
