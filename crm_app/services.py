@@ -8,8 +8,59 @@ class LeadDistributionService:
     """Lid taqsimlash xizmati"""
     
     @staticmethod
+    def _extract_sheet_name_from_notes(notes):
+        """Lid notes'idan sheet nomini olish"""
+        if not notes:
+            return None
+        
+        # "Sheet: Sheet1" formatini qidirish
+        import re
+        match = re.search(r'Sheet:\s*([^\n]+)', notes)
+        if match:
+            return match.group(1).strip()
+        
+        return None
+    
+    @staticmethod
+    def _get_course_from_sheet_name(sheet_name):
+        """Sheet nomidan kursni aniqlash"""
+        from django.conf import settings
+        
+        if not sheet_name:
+            return None
+        
+        # Sheet-to-course mapping
+        sheet_to_course_mapping = getattr(
+            settings,
+            'GOOGLE_SHEETS_SHEET_COURSE_MAPPING',
+            {
+                'Sheet1': 'Soft',
+                'Sheet2': 'Mobilografiya',
+                'Sheet3': 'Computer Science',
+            }
+        )
+        
+        # Sheet nomidan kurs nomini topish
+        course_name = sheet_to_course_mapping.get(sheet_name)
+        if not course_name:
+            return None
+        
+        # Kursni topish
+        try:
+            from .models import Course
+            course = Course.objects.filter(name__icontains=course_name).first()
+            return course
+        except Exception as e:
+            print(f"Sheet nomidan kurs topishda xatolik: {e}")
+            return None
+    
+    @staticmethod
     def distribute_leads(leads):
-        """Lidlarni kurs bo'yicha yoki teng taqsimlash"""
+        """
+        Lidlarni kurs bo'yicha taqsimlash
+        MUHIM: Sotuvchilar faqat o'zlariga biriktirilgan kurslar bo'yicha lidlarni qabul qiladi
+        Agar kurs aniqlanmasa, lid eng kam lidi bor sotuvchiga biriktiriladi
+        """
         from .tasks import send_new_lead_notification
         
         # Faqat mavjud va ishda bo'lgan sotuvchilarni olish
@@ -27,16 +78,29 @@ class LeadDistributionService:
             
             assigned_sales = None
             
-            # Agar lid kursga biriktirilgan bo'lsa, kurs bo'yicha taqsimlash
-            if lead.interested_course:
+            # 1. AVVAL: Sheet nomidan kursni aniqlash (Google Sheets import uchun)
+            sheet_name = LeadDistributionService._extract_sheet_name_from_notes(lead.notes)
+            course_from_sheet = None
+            
+            if sheet_name:
+                course_from_sheet = LeadDistributionService._get_course_from_sheet_name(sheet_name)
+                if course_from_sheet:
+                    print(f"Sheet '{sheet_name}' dan kurs topildi: {course_from_sheet.name}")
+            
+            # 2. Kursni aniqlash: avval sheet nomidan, keyin interested_course dan
+            target_course = course_from_sheet or lead.interested_course
+            
+            # 3. Agar kurs topilgan bo'lsa, kurs bo'yicha taqsimlash
+            if target_course:
                 # Ushbu kursga biriktirilgan sotuvchilarni topish
                 course_sales = [
                     sales for sales in active_sales 
-                    if lead.interested_course in sales.assigned_courses.all()
+                    if target_course in sales.assigned_courses.all()
                 ]
                 
                 if course_sales:
-                    # Kursga biriktirilgan sotuvchilar bor, ular orasida taqsimlash
+                    # Kursga biriktirilgan sotuvchilar bor, ular orasida teng taqsimlash
+                    # (eng kam lidga ega bo'lganiga)
                     sales_lead_counts = {}
                     for sales in course_sales:
                         sales_lead_counts[sales.id] = Lead.objects.filter(
@@ -47,10 +111,33 @@ class LeadDistributionService:
                     if sales_lead_counts:
                         min_sales_id = min(sales_lead_counts.items(), key=lambda x: x[1])[0]
                         assigned_sales = User.objects.get(id=min_sales_id)
-            
-            # Agar kursga biriktirilgan sotuvchi topilmasa yoki kurs belgilanmagan bo'lsa
-            # Oddiy teng taqsimlash
-            if not assigned_sales:
+                        print(f"Lid '{lead.name}' '{target_course.name}' kursiga biriktirilgan sotuvchiga taqsimlandi: {assigned_sales.username}")
+                else:
+                    # Kursga biriktirilgan sotuvchi yo'q - eng kam lidi bor sotuvchiga biriktirish
+                    print(f"⚠️ Lid '{lead.name}' uchun '{target_course.name}' kursiga biriktirilgan faol sotuvchi topilmadi. Eng kam lidi bor sotuvchiga biriktirilmoqda...")
+                    # Oddiy teng taqsimlash (eng kam lidi bor sotuvchiga)
+                    sales_lead_counts = {}
+                    for sales in active_sales:
+                        sales_lead_counts[sales.id] = Lead.objects.filter(
+                            assigned_sales=sales,
+                            status__in=['new', 'contacted', 'interested', 'trial_registered']
+                        ).count()
+                    
+                    if sales_lead_counts:
+                        min_sales_id = min(sales_lead_counts.items(), key=lambda x: x[1])[0]
+                        assigned_sales = User.objects.get(id=min_sales_id)
+                    else:
+                        # Agar barcha sotuvchilar ishda bo'lmasa, eng kam lidga ega bo'lganiga berish
+                        all_sales = User.objects.filter(role='sales', is_active_sales=True)
+                        if all_sales:
+                            assigned_sales = min(all_sales, key=lambda s: Lead.objects.filter(
+                                assigned_sales=s,
+                                status__in=['new', 'contacted', 'interested', 'trial_registered']
+                            ).count())
+            else:
+                # Kurs aniqlanmadi - eng kam lidi bor sotuvchiga biriktirish
+                print(f"⚠️ Lid '{lead.name}' uchun kurs aniqlanmadi (sheet nomi ham, interested_course ham yo'q). Eng kam lidi bor sotuvchiga biriktirilmoqda...")
+                # Oddiy teng taqsimlash (eng kam lidi bor sotuvchiga)
                 sales_lead_counts = {}
                 for sales in active_sales:
                     sales_lead_counts[sales.id] = Lead.objects.filter(
@@ -58,7 +145,10 @@ class LeadDistributionService:
                         status__in=['new', 'contacted', 'interested', 'trial_registered']
                     ).count()
                 
-                if not sales_lead_counts:
+                if sales_lead_counts:
+                    min_sales_id = min(sales_lead_counts.items(), key=lambda x: x[1])[0]
+                    assigned_sales = User.objects.get(id=min_sales_id)
+                else:
                     # Agar barcha sotuvchilar ishda bo'lmasa, eng kam lidga ega bo'lganiga berish
                     all_sales = User.objects.filter(role='sales', is_active_sales=True)
                     if all_sales:
@@ -66,18 +156,21 @@ class LeadDistributionService:
                             assigned_sales=s,
                             status__in=['new', 'contacted', 'interested', 'trial_registered']
                         ).count())
-                else:
-                    min_sales_id = min(sales_lead_counts.items(), key=lambda x: x[1])[0]
-                    assigned_sales = User.objects.get(id=min_sales_id)
             
-            # Lidni biriktirish va saqlash
+            # 4. Lidni biriktirish va saqlash
             if assigned_sales:
                 lead.assigned_sales = assigned_sales
+                # Agar sheet nomidan kurs topilgan bo'lsa va interested_course bo'sh bo'lsa, yangilash
+                if course_from_sheet and not lead.interested_course:
+                    lead.interested_course = course_from_sheet
                 lead.save()
                 
                 # Notification yuborish
                 if was_new_lead or (not old_assigned_sales_id or old_assigned_sales_id != assigned_sales.id):
                     send_new_lead_notification.delay(lead.id)
+            else:
+                # Agar hech kimga biriktirilmasa (juda kam ehtimol)
+                print(f"❌ Lid '{lead.name}' hech kimga biriktirilmadi - faol sotuvchilar yo'q")
         
         return len(active_sales)
 
