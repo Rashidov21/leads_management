@@ -1442,8 +1442,34 @@ class GoogleSheetsService:
                 worksheet_name
             )
             
-            # Barcha qatorlarni olish (dictionary formatda)
-            all_records = worksheet.get_all_records()
+            # Barcha qatorlarni olish (sarlavhalar dublikat/bo'sh bo'lsa ham ishlashi uchun)
+            all_values = worksheet.get_all_values()
+            if not all_values or len(all_values) < 2:
+                return result
+            
+            # Ustunlar soni (eng uzun qator bo'yicha)
+            num_cols = max(len(row) for row in all_values)
+            header_row = (all_values[0] + [''] * (num_cols - len(all_values[0])))[:num_cols]
+            
+            # Sarlavhalarni unikal qilish (bo'sh yoki takroriy ustunlar gspread xatolik beradi)
+            unique_headers = []
+            seen = {}
+            for i, h in enumerate(header_row):
+                key = (h or '').strip()
+                if not key:
+                    key = f'_col{i}'
+                if key in seen:
+                    seen[key] += 1
+                    key = f'{key}_{seen[key]}'
+                else:
+                    seen[key] = 1
+                unique_headers.append(key)
+            
+            # Recordlar ro'yxati (dict)
+            all_records = []
+            for row in all_values[1:]:
+                row_padded = (row + [''] * (num_cols - len(row)))[:num_cols]
+                all_records.append(dict(zip(unique_headers, row_padded)))
             
             if not all_records:
                 return result
@@ -1491,7 +1517,7 @@ class GoogleSheetsService:
                         'excel': 'excel',
                         'google_sheets': 'google_sheets',
                     }
-                    source = source_mapping.get(source_value, 'google_sheets')
+                    source = source_mapping.get(source_value, 'instagram')
                     
                     # Qo'shimcha telefon
                     secondary_phone = str(record.get(secondary_phone_column, 
@@ -1636,3 +1662,5 @@ class GoogleSheetsService:
                 'success': False,
                 'message': f'Xatolik: {str(e)}'
             }
+
+
