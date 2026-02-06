@@ -226,9 +226,8 @@ GOOGLE_SHEETS_WORKSHEETS = [
 # Har bir sheet nomi qaysi kursga tegishli ekanligini belgilaydi
 # Format: 'Sheet1': 'Kurs nomi' (DB'dagi Course.name bilan mos kelishi kerak)
 GOOGLE_SHEETS_SHEET_COURSE_MAPPING = {
-    'Sheet1': 'Soft',  # Soft kursi
+    'Sheet1': 'Computer Science',  # Computer Science kursi
     'Sheet2': 'Mobilografiya',  # Mobilografiya kursi
-    'Sheet3': 'Computer Science',  # Computer Science kursi
     # Qo'shimcha sheetlar uchun:
     # 'Sheet4': 'Boshqa Kurs',
 }
