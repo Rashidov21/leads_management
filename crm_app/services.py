@@ -1505,9 +1505,8 @@ class GoogleSheetsService:
                         settings, 
                         'GOOGLE_SHEETS_SHEET_COURSE_MAPPING', 
                         {
-                            'Sheet1': 'Soft',
+                            'Sheet1': 'Computer Science',
                             'Sheet2': 'Mobilografiya',
-                            'Sheet3': 'Computer Science',
                         }
                     )
                     
