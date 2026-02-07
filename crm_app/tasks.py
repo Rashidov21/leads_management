@@ -933,26 +933,19 @@ def expire_offers_task():
 @shared_task
 def send_daily_sales_summary_task():
     """
-    Har ish kuni oxirida sotuv statistikalarini admin (shaxsiy chat) va
-    admin/sales_manager guruhlariga Telegram orqali yuborish.
+    Har ish kuni belgilangan vaqtda sotuv statistikalarini barcha admin va
+    sales_manager larga (shaxsiy chat + guruh) Telegram orqali yuborish.
     """
+    from .telegram_bot import get_admin_manager_telegram_chat_ids
+
     today = timezone.now().date()
     message = KPIService.build_daily_report_message(today)
+    chat_ids = get_admin_manager_telegram_chat_ids()
     sent = 0
-    admin_chat_id = getattr(settings, 'TELEGRAM_ADMIN_CHAT_ID', None)
-    if admin_chat_id:
-        if send_telegram_notification(admin_chat_id, message):
+    for chat_id in chat_ids:
+        if chat_id and send_telegram_notification(chat_id, message):
             sent += 1
-    group_ids = set(
-        User.objects.filter(
-            role__in=['admin', 'sales_manager'],
-            telegram_group_id__isnull=False
-        ).values_list('telegram_group_id', flat=True)
-    )
-    for gid in group_ids:
-        if gid and send_telegram_notification(gid, message):
-            sent += 1
-    print(f"[daily summary] {sent} ta chat/guruhga yuborildi.")
+    print(f"[daily summary] {sent} ta chat/guruhga (barcha admin/manager) yuborildi.")
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=300)

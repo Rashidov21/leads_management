@@ -2235,21 +2235,28 @@ def sales_kpi(request, sales_id=None):
 @login_required
 @manager_or_admin_required
 def send_kpi_report_telegram(request):
-    """Kunlik KPI hisobotini admin Telegram'iga yuborish (istalgan vaqt)."""
-    from django.conf import settings
+    """Kunlik KPI hisobotini barcha admin va sales_manager larning Telegram'iga yuborish (Analitika → Telegram ga yuborish)."""
     from .services import KPIService
-    from .telegram_bot import send_telegram_notification
-    
-    admin_chat_id = getattr(settings, 'TELEGRAM_ADMIN_CHAT_ID', None)
-    if not admin_chat_id:
-        messages.warning(request, 'TELEGRAM_ADMIN_CHAT_ID sozlanmagan. Admin chat ID ni .env da kiriting.')
+    from .telegram_bot import send_telegram_notification, get_admin_manager_telegram_chat_ids
+
+    chat_ids = get_admin_manager_telegram_chat_ids()
+    if not chat_ids:
+        messages.warning(
+            request,
+            'Telegram chat ID topilmadi. .env da TELEGRAM_ADMIN_CHAT_ID kiriting yoki admin/sales_manager larda '
+            'Telegram chat ID / guruh ID ni to\'ldiring.'
+        )
         return redirect('analytics')
     try:
         message = KPIService.build_daily_report_message()
-        if send_telegram_notification(admin_chat_id, message):
-            messages.success(request, 'KPI hisobot admin Telegram\'iga yuborildi.')
+        sent = 0
+        for chat_id in chat_ids:
+            if chat_id and send_telegram_notification(chat_id, message):
+                sent += 1
+        if sent:
+            messages.success(request, f'KPI hisobot {sent} ta admin/sales_manager ga Telegram orqali yuborildi.')
         else:
-            messages.warning(request, 'Telegram\'ga yuborish amalga oshmadi. Bot token va chat ID ni tekshiring.')
+            messages.warning(request, 'Telegram\'ga yuborish amalga oshmadi. Bot token va chat ID larni tekshiring.')
     except Exception as e:
         messages.error(request, f'Xatolik: {str(e)}')
     return redirect('analytics')

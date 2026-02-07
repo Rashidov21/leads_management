@@ -88,6 +88,24 @@ def send_telegram_notification(chat_id, message, parse_mode='HTML'):
     return False
 
 
+def get_admin_manager_telegram_chat_ids():
+    """
+    Barcha admin va sales_manager larga hisobot yuborish uchun chat ID larni qaytaradi.
+    TELEGRAM_ADMIN_CHAT_ID + har bir admin/manager ning telegram_chat_id va telegram_group_id.
+    """
+    from .models import User
+    chat_ids = set()
+    admin_chat_id = getattr(settings, 'TELEGRAM_ADMIN_CHAT_ID', None)
+    if admin_chat_id:
+        chat_ids.add(str(admin_chat_id).strip())
+    for user in User.objects.filter(role__in=['admin', 'sales_manager']):
+        if user.telegram_chat_id:
+            chat_ids.add(str(user.telegram_chat_id).strip())
+        if user.telegram_group_id:
+            chat_ids.add(str(user.telegram_group_id).strip())
+    return chat_ids
+
+
 def send_to_admin(message):
     """Admin ga xabar yuborish"""
     if settings.TELEGRAM_ADMIN_CHAT_ID:
