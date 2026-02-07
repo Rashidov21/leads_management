@@ -1843,12 +1843,22 @@ def offer_delete(request, pk):
 @login_required
 @manager_or_admin_required
 def analytics(request):
-    from datetime import datetime, time as dt_time
+    from datetime import datetime, time as dt_time, timedelta
     from collections import defaultdict
     
     context = {}
     today = timezone.now().date()
     now = timezone.now()
+    period = request.GET.get('period', 'daily')
+    if period not in ('daily', 'weekly', 'monthly'):
+        period = 'daily'
+    context['period'] = period
+    context['period_label'] = {'daily': 'Kunlik', 'weekly': 'Haftalik', 'monthly': 'Oylik'}[period]
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+    current_month_start = datetime(today.year, today.month, 1).date()
+    context['week_range_text'] = f"{week_start.strftime('%d.%m')} - {week_end.strftime('%d.%m.%Y')}"
+    context['month_range_text'] = f"{current_month_start.strftime('%d.%m.%Y')} - {today.strftime('%d.%m.%Y')}"
     
     # Lid statistikasi (cached)
     from django.core.cache import cache
@@ -1867,52 +1877,74 @@ def analytics(request):
     
     context['leads_stats'] = leads_stats
     
-    # Sotuvchi statistikasi (Admin va Manager uchun) - aniq statistikalar
+    # Sotuvchi statistikasi (Admin va Manager uchun) - kunlik / haftalik / oylik
     sales_stats = []
     for sales in User.objects.filter(role='sales', is_active_sales=True):
         kpi = KPIService.calculate_daily_kpi(sales, today)
-        
-        # Sotuvchi tomonidan jalb qilingan mijozlar soni
         leads_assigned = Lead.objects.filter(assigned_sales=sales).count()
-        
-        # Sotuvchi tomonidan sotilgan (enrolled) lidlar soni
         sales_count = Lead.objects.filter(
             assigned_sales=sales,
             status='enrolled'
         ).count()
-        
-        # Sotuvchi tomonidan sinovga yozilgan lidlar soni
         trials_registered = TrialLesson.objects.filter(
             lead__assigned_sales=sales
         ).select_related('lead', 'group').count()
         
-        # Oylik KPI (o'rtacha)
-        from datetime import datetime
-        current_month_start = datetime(today.year, today.month, 1).date()
         monthly_kpis = KPI.objects.filter(
             sales=sales,
             date__gte=current_month_start,
             date__lte=today
         )
-        
-        # Reyting (conversion_rate bo'yicha)
         ranking = KPIService.get_sales_ranking(sales, period='month', metric='conversion_rate')
+        
+        # Haftalik ko'rsatkichlar
+        weekly_summary = KPIService.get_weekly_kpi_summary(sales, week_start)
+        weekly_conv = KPIService.get_accurate_conversion_rate(sales, week_start, week_end)
+        weekly_contacts = weekly_summary.get('total_contacts', 0) or 0
+        weekly_followups = weekly_summary.get('total_followups', 0) or 0
+        weekly_trials = weekly_summary.get('total_trials', 0) or 0
+        weekly_sales_count = weekly_summary.get('total_sales', 0) or 0
+        weekly_conversion = weekly_conv.get('conversion_rate', 0) or 0
+        
+        # Oylik to'liq ko'rsatkichlar (yig'indi)
+        monthly_total_contacts = monthly_kpis.aggregate(s=Sum('daily_contacts'))['s'] or 0
+        monthly_total_followups = monthly_kpis.aggregate(s=Sum('daily_followups'))['s'] or 0
+        monthly_total_trials = monthly_kpis.aggregate(s=Sum('trials_registered'))['s'] or 0
+        monthly_total_sales = monthly_kpis.aggregate(s=Sum('trials_to_sales'))['s'] or 0
+        monthly_conv = KPIService.calculate_monthly_conversion_rate(sales, today.year, today.month)
+        monthly_conversion = monthly_conv.get('conversion_rate', 0) or 0
         
         sales_stats.append({
             'sales': sales,
             'kpi': kpi,
             'overdue': FollowUpService.get_overdue_followups(sales).count(),
-            'leads_assigned': leads_assigned,  # Jalb qilingan mijozlar
-            'sales_count': sales_count,  # Sotuvlar
-            'trials_registered': trials_registered,  # Sinovga yozilganlar
+            'leads_assigned': leads_assigned,
+            'sales_count': sales_count,
+            'trials_registered': trials_registered,
             'monthly_avg_contacts': monthly_kpis.aggregate(avg=Avg('daily_contacts'))['avg'] or 0 if monthly_kpis.exists() else 0,
             'monthly_avg_conversion': monthly_kpis.aggregate(avg=Avg('conversion_rate'))['avg'] or 0 if monthly_kpis.exists() else 0,
-            'monthly_total_sales': monthly_kpis.aggregate(sum=Sum('trials_to_sales'))['sum'] or 0 if monthly_kpis.exists() else 0,
+            'monthly_total_sales': monthly_total_sales,
             'ranking': ranking,
+            # Haftalik
+            'weekly_contacts': weekly_contacts,
+            'weekly_followups': weekly_followups,
+            'weekly_trials': weekly_trials,
+            'weekly_sales_count': weekly_sales_count,
+            'weekly_conversion': weekly_conversion,
+            # Oylik (yig'indi)
+            'monthly_total_contacts': monthly_total_contacts,
+            'monthly_total_followups': monthly_total_followups,
+            'monthly_total_trials': monthly_total_trials,
+            'monthly_conversion': monthly_conversion,
         })
     
-    # Reyting bo'yicha tartiblash
-    sales_stats.sort(key=lambda x: x['ranking']['value'] if x['ranking'] else 0, reverse=True)
+    # Reyting bo'yicha tartiblash (davr bo'yicha)
+    if period == 'weekly':
+        sales_stats.sort(key=lambda x: x['weekly_conversion'], reverse=True)
+    elif period == 'monthly':
+        sales_stats.sort(key=lambda x: x['monthly_conversion'], reverse=True)
+    else:
+        sales_stats.sort(key=lambda x: x['ranking']['value'] if x['ranking'] else 0, reverse=True)
     
     # Reyting raqamlarini qo'shish
     for idx, stat in enumerate(sales_stats):

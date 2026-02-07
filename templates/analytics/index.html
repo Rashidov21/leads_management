@@ -52,11 +52,20 @@
     <!-- Sotuvchi statistikasi -->
     <div class="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-100">
         <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
-            <div class="flex items-center">
-                <div class="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
-                    <i class="fas fa-user-tie text-indigo-600"></i>
+            <div class="flex items-center flex-wrap gap-4">
+                <div class="flex items-center">
+                    <div class="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                        <i class="fas fa-user-tie text-indigo-600"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-900">Sotuvchi Reytingi ({{ period_label }})</h2>
                 </div>
-                <h2 class="text-xl font-bold text-gray-900">Sotuvchi Reytingi (Oylik)</h2>
+                <nav class="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5" aria-label="Davr">
+                    <a href="{% url 'analytics' %}?period=daily" class="px-3 py-1.5 text-sm font-medium rounded-md {% if period == 'daily' %}bg-white text-indigo-700 shadow{% else %}text-gray-600 hover:text-gray-900{% endif %}">Kunlik</a>
+                    <a href="{% url 'analytics' %}?period=weekly" class="px-3 py-1.5 text-sm font-medium rounded-md {% if period == 'weekly' %}bg-white text-indigo-700 shadow{% else %}text-gray-600 hover:text-gray-900{% endif %}">Haftalik</a>
+                    <a href="{% url 'analytics' %}?period=monthly" class="px-3 py-1.5 text-sm font-medium rounded-md {% if period == 'monthly' %}bg-white text-indigo-700 shadow{% else %}text-gray-600 hover:text-gray-900{% endif %}">Oylik</a>
+                </nav>
+                {% if period == 'weekly' %}<span class="text-xs text-gray-500">Hafta: {{ week_range_text }}</span>{% endif %}
+                {% if period == 'monthly' %}<span class="text-xs text-gray-500">Oy: {{ month_range_text }}</span>{% endif %}
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="{% url 'export_analytics_excel' %}" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-green-600 via-green-600 to-green-700 rounded-lg shadow-md hover:shadow-xl hover:from-green-700 hover:via-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 focus:ring-opacity-50 active:scale-[0.98] transform transition-all duration-200 ease-in-out border border-green-700/30">
@@ -136,26 +145,49 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">{{ stat.leads_assigned }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                {{ stat.kpi.daily_contacts }}
-                                {% if stat.monthly_avg_contacts %}
-                                <span class="text-xs text-gray-500">(O'rtacha: {{ stat.monthly_avg_contacts|floatformat:1 }})</span>
+                                {% if period == 'daily' %}
+                                    {{ stat.kpi.daily_contacts }}
+                                    {% if stat.monthly_avg_contacts %}<span class="text-xs text-gray-500">(O'rt: {{ stat.monthly_avg_contacts|floatformat:1 }})</span>{% endif %}
+                                {% elif period == 'weekly' %}
+                                    {{ stat.weekly_contacts }}
+                                {% else %}
+                                    {{ stat.monthly_total_contacts }}
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ stat.kpi.daily_followups }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ stat.trials_registered }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {% if period == 'daily' %}{{ stat.kpi.daily_followups }}
+                                {% elif period == 'weekly' %}{{ stat.weekly_followups }}
+                                {% else %}{{ stat.monthly_total_followups }}{% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {% if period == 'daily' %}{{ stat.trials_registered }}
+                                {% elif period == 'weekly' %}{{ stat.weekly_trials }}
+                                {% else %}{{ stat.monthly_total_trials }}{% endif %}
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
-                                {{ stat.sales_count }}
-                                {% if stat.monthly_total_sales %}
-                                <span class="text-xs text-gray-500">(Oylik: {{ stat.monthly_total_sales }})</span>
-                                {% endif %}
+                                {% if period == 'daily' %}
+                                    {{ stat.sales_count }}
+                                    {% if stat.monthly_total_sales %}<span class="text-xs text-gray-500">(Oylik: {{ stat.monthly_total_sales }})</span>{% endif %}
+                                {% elif period == 'weekly' %}{{ stat.weekly_sales_count }}
+                                {% else %}{{ stat.monthly_total_sales }}{% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if stat.kpi.conversion_rate >= 50 %}bg-green-100 text-green-800{% elif stat.kpi.conversion_rate >= 30 %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
-                                    {{ stat.kpi.conversion_rate|floatformat:1 }}%
-                                    {% if stat.monthly_avg_conversion %}
-                                    <span class="ml-1 text-xs">(O'rtacha: {{ stat.monthly_avg_conversion|floatformat:1 }}%)</span>
-                                    {% endif %}
-                                </span>
+                                {% if period == 'daily' %}
+                                    {% with conv=stat.kpi.conversion_rate %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if conv >= 50 %}bg-green-100 text-green-800{% elif conv >= 30 %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                        {{ conv|floatformat:1 }}%
+                                        {% if stat.monthly_avg_conversion %}<span class="ml-1 text-xs">(O'rt: {{ stat.monthly_avg_conversion|floatformat:1 }}%)</span>{% endif %}
+                                    </span>
+                                    {% endwith %}
+                                {% elif period == 'weekly' %}
+                                    {% with conv=stat.weekly_conversion %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if conv >= 50 %}bg-green-100 text-green-800{% elif conv >= 30 %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">{{ conv|floatformat:1 }}%</span>
+                                    {% endwith %}
+                                {% else %}
+                                    {% with conv=stat.monthly_conversion %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if conv >= 50 %}bg-green-100 text-green-800{% elif conv >= 30 %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">{{ conv|floatformat:1 }}%</span>
+                                    {% endwith %}
+                                {% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if stat.overdue > 0 %}bg-red-100 text-red-800{% else %}bg-green-100 text-green-800{% endif %}">
