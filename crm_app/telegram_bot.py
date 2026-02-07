@@ -30,16 +30,29 @@ def send_telegram_notification(chat_id, message, parse_mode='HTML'):
         return False
     
     import time
+    import asyncio
     from urllib3.exceptions import HTTPError, NewConnectionError, MaxRetryError
     from requests.exceptions import ConnectionError, Timeout
+    
+    async def _send_async():
+        bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
+        await bot.send_message(chat_id=chat_id, text=message, parse_mode=parse_mode)
+    
+    def _send_sync():
+        bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
+        bot.send_message(chat_id=chat_id, text=message, parse_mode=parse_mode)
     
     max_retries = 3
     retry_delay = 2  # soniya
     
     for attempt in range(max_retries):
         try:
+            import inspect
             bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
-            bot.send_message(chat_id=chat_id, text=message, timeout=10, parse_mode=parse_mode)
+            if inspect.iscoroutinefunction(bot.send_message):
+                asyncio.run(_send_async())
+            else:
+                _send_sync()
             return True
         except (HTTPError, ConnectionError, Timeout, NewConnectionError, MaxRetryError) as e:
             # Network xatolarini qayta urinish

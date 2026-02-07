@@ -64,8 +64,10 @@ urlpatterns = [
     
     # Analytics
     path('analytics/', views.analytics, name='analytics'),
+    path('analytics/my-kpi/<int:sales_id>/', views.sales_kpi, name='sales_kpi_sales'),
     path('analytics/my-kpi/', views.sales_kpi, name='sales_kpi'),
     path('analytics/export-excel/', views.export_analytics_excel, name='export_analytics_excel'),
+    path('analytics/send-telegram/', views.send_kpi_report_telegram, name='send_kpi_report_telegram'),
     
     # Leave Requests (Sales)
     path('leaves/create/', views.leave_request_create, name='leave_request_create'),

@@ -933,65 +933,26 @@ def expire_offers_task():
 @shared_task
 def send_daily_sales_summary_task():
     """
-    Har ish kuni oxirida (kechqurun) sotuv statistikalarini admin/sales_manager guruhlariga yuborish.
-    Guruh ID admin/sales_manager profilinga kiritiladi (telegram_group_id).
+    Har ish kuni oxirida sotuv statistikalarini admin (shaxsiy chat) va
+    admin/sales_manager guruhlariga Telegram orqali yuborish.
     """
-    today = timezone.localdate()
-    sales_users = User.objects.filter(role='sales', is_active_sales=True)
-
-    # KPI'larni hisoblash va agregat
-    per_sales_lines = []
-    totals = {
-        'contacts': 0,
-        'followups': 0,
-        'trials': 0,
-        'sales': 0,
-        'overdue': 0,
-    }
-
-    for sales in sales_users:
-        kpi = KPIService.calculate_daily_kpi(sales, today)
-        totals['contacts'] += kpi.daily_contacts
-        totals['followups'] += kpi.daily_followups
-        totals['trials'] += kpi.trials_registered
-        totals['sales'] += kpi.trials_to_sales
-        totals['overdue'] += kpi.overdue_count
-
-        line = (
-            f"• {sales.username}: "
-            f"aloqa {kpi.daily_contacts}, fu {kpi.daily_followups}, "
-            f"trial {kpi.trials_registered}, sotuv {kpi.trials_to_sales}, "
-            f"overdue {kpi.overdue_count}"
-        )
-        per_sales_lines.append(line)
-
-    # Guruhlar ro'yxati (takrorlanmasin)
+    today = timezone.now().date()
+    message = KPIService.build_daily_report_message(today)
+    sent = 0
+    admin_chat_id = getattr(settings, 'TELEGRAM_ADMIN_CHAT_ID', None)
+    if admin_chat_id:
+        if send_telegram_notification(admin_chat_id, message):
+            sent += 1
     group_ids = set(
         User.objects.filter(
             role__in=['admin', 'sales_manager'],
             telegram_group_id__isnull=False
         ).values_list('telegram_group_id', flat=True)
     )
-
-    if not group_ids:
-        print("[daily summary] Hech qaysi guruh ID topilmadi.")
-        return
-
-    header = f"📊 Kunlik sotuv hisobot ({today.strftime('%d.%m.%Y')})"
-    totals_line = (
-        f"Jami: aloqa {totals['contacts']}, fu {totals['followups']}, "
-        f"trial {totals['trials']}, sotuv {totals['sales']}, overdue {totals['overdue']}"
-    )
-    body = "\n".join(per_sales_lines) if per_sales_lines else "Ma'lumot topilmadi."
-    message = f"{header}\n{totals_line}\n\n{body}"
-
-    sent = 0
     for gid in group_ids:
-        if gid:
-            if send_telegram_notification(gid, message):
-                sent += 1
-
-    print(f"[daily summary] {sent} ta guruhga yuborildi.")
+        if gid and send_telegram_notification(gid, message):
+            sent += 1
+    print(f"[daily summary] {sent} ta chat/guruhga yuborildi.")
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=300)

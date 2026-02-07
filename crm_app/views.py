@@ -2056,10 +2056,23 @@ def analytics(request):
 
 
 @login_required
-@role_required('sales')
-def sales_kpi(request):
-    """Sotuvchi uchun o'z KPI'larini ko'rish"""
-    sales = request.user
+@role_required('admin', 'sales_manager', 'sales')
+def sales_kpi(request, sales_id=None):
+    """
+    KPI sahifasi.
+    - Sotuvchi: faqat o'z KPI'si (/analytics/my-kpi/).
+    - Admin/Sales manager: berilgan sotuvchi KPI'si (/analytics/my-kpi/<sales_id>/).
+    """
+    if request.user.role == 'sales':
+        sales = request.user
+        if sales_id is not None:
+            messages.error(request, "Siz faqat o'z KPI'ingizni ko'rishingiz mumkin.")
+            return redirect('sales_kpi')
+    else:
+        if sales_id is None:
+            messages.info(request, "Sotuvchi tanlang: Analitika jadvalidan KPI ustunidagi havolani bosing.")
+            return redirect('analytics')
+        sales = get_object_or_404(User, pk=sales_id, role='sales')
     today = timezone.now().date()
     
     # Bugungi KPI
@@ -2199,6 +2212,8 @@ def sales_kpi(request):
     overdue_summary = FollowUpService.get_sales_overdue_summary(sales)
     
     context = {
+        'sales': sales,
+        'viewing_own': (request.user == sales),
         'today_kpi': today_kpi,
         'last_7_days': last_7_days,
         'last_30_days_kpi': last_30_days_kpi,
@@ -2215,6 +2230,29 @@ def sales_kpi(request):
     }
     
     return render(request, 'analytics/sales_kpi.html', context)
+
+
+@login_required
+@manager_or_admin_required
+def send_kpi_report_telegram(request):
+    """Kunlik KPI hisobotini admin Telegram'iga yuborish (istalgan vaqt)."""
+    from django.conf import settings
+    from .services import KPIService
+    from .telegram_bot import send_telegram_notification
+    
+    admin_chat_id = getattr(settings, 'TELEGRAM_ADMIN_CHAT_ID', None)
+    if not admin_chat_id:
+        messages.warning(request, 'TELEGRAM_ADMIN_CHAT_ID sozlanmagan. Admin chat ID ni .env da kiriting.')
+        return redirect('analytics')
+    try:
+        message = KPIService.build_daily_report_message()
+        if send_telegram_notification(admin_chat_id, message):
+            messages.success(request, 'KPI hisobot admin Telegram\'iga yuborildi.')
+        else:
+            messages.warning(request, 'Telegram\'ga yuborish amalga oshmadi. Bot token va chat ID ni tekshiring.')
+    except Exception as e:
+        messages.error(request, f'Xatolik: {str(e)}')
+    return redirect('analytics')
 
 
 @login_required

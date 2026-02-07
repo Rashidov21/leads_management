@@ -767,6 +767,169 @@ class KPIService:
         return kpi
     
     @staticmethod
+    def get_daily_report_stats(sales, date):
+        """
+        Kunlik hisobot uchun barcha ko'rsatkichlar (sotuvchi + sana).
+        Qaytaradi: lid qabul qilindi, task belgilandi, FU bajarildi, aloqa, trial, sotuv,
+        overdue, yangi aloqa qilinmagan, overdue 24+, status bo'yicha lidlar.
+        """
+        from django.db.models import Count
+        
+        # Shu kuni sotuvchiga tushgan lidlar
+        leads_received = Lead.objects.filter(
+            assigned_sales=sales,
+            created_at__date=date
+        ).count()
+        
+        # Shu kuni sotuvchi yaratgan follow-up'lar (task belgilangan)
+        tasks_created = FollowUp.objects.filter(
+            sales=sales,
+            created_at__date=date
+        ).count()
+        
+        # Shu kuni bajarilgan follow-up'lar (completed_at yoki due_date shu kun)
+        follow_ups_completed = FollowUp.objects.filter(
+            sales=sales,
+            completed=True,
+            completed_at__date=date
+        ).count()
+        
+        # Shu kunga rejalashtirilgan follow-up'lar soni
+        follow_ups_planned = FollowUp.objects.filter(
+            sales=sales,
+            due_date__date=date
+        ).count()
+        
+        # Aloqa (contacted/interested) - shu kuni yangilangan
+        contacts = Lead.objects.filter(
+            assigned_sales=sales,
+            updated_at__date=date,
+            status__in=['contacted', 'interested']
+        ).count()
+        
+        # Sinovga yozilganlar (shu kun)
+        trials_registered = Lead.objects.filter(
+            assigned_sales=sales,
+            status='trial_registered',
+            updated_at__date=date
+        ).count()
+        
+        # Sotuv (enrolled) - shu kun
+        sales_count = Lead.objects.filter(
+            assigned_sales=sales,
+            status='enrolled',
+            enrolled_at__date=date
+        ).count()
+        
+        # Overdue (umumiy)
+        overdue_count = FollowUpService.get_overdue_followups(sales).count()
+        
+        # Overdue 24+ soat (due_date 24 soatdan oldin o'tgan, hali bajarilmagan)
+        from datetime import timedelta
+        now = timezone.now()
+        overdue_24h = FollowUp.objects.filter(
+            sales=sales,
+            completed=False,
+            due_date__lt=now - timedelta(hours=24)
+        ).count()
+        
+        # Bugun tushgan, hali new (aloqa qilinmagan) lidlar
+        new_not_contacted = Lead.objects.filter(
+            assigned_sales=sales,
+            status='new',
+            created_at__date=date
+        ).count()
+        
+        # Status bo'yicha lidlar (joriy pipeline - barcha sotuvchiga biriktirilgan)
+        status_counts = Lead.objects.filter(
+            assigned_sales=sales
+        ).values('status').annotate(count=Count('id'))
+        by_status_raw = {item['status']: item['count'] for item in status_counts}
+        status_order = [
+            'new', 'contacted', 'interested', 'trial_registered',
+            'trial_attended', 'trial_not_attended', 'offer_sent', 'enrolled', 'lost', 'reactivation'
+        ]
+        by_status = {s: by_status_raw.get(s, 0) for s in status_order}
+        
+        return {
+            'leads_received': leads_received,
+            'tasks_created': tasks_created,
+            'follow_ups_completed': follow_ups_completed,
+            'follow_ups_planned': follow_ups_planned,
+            'contacts': contacts,
+            'trials_registered': trials_registered,
+            'sales_count': sales_count,
+            'overdue_count': overdue_count,
+            'overdue_24h': overdue_24h,
+            'new_not_contacted': new_not_contacted,
+            'by_status': by_status,
+        }
+    
+    @staticmethod
+    def build_daily_report_message(date=None):
+        """
+        Kunlik KPI hisobot matnini yig'adi (Telegram uchun).
+        date bo'lmasa bugungi sana ishlatiladi.
+        Qaytaradi: str (HTML formatda xabar).
+        """
+        if date is None:
+            date = timezone.now().date()
+        sales_users = User.objects.filter(role='sales', is_active_sales=True)
+        totals = {
+            'leads_received': 0,
+            'tasks_created': 0,
+            'follow_ups_completed': 0,
+            'follow_ups_planned': 0,
+            'contacts': 0,
+            'trials': 0,
+            'sales': 0,
+            'overdue': 0,
+            'overdue_24h': 0,
+            'new_not_contacted': 0,
+        }
+        per_sales_lines = []
+        for sales in sales_users:
+            KPIService.calculate_daily_kpi(sales, date)
+            st = KPIService.get_daily_report_stats(sales, date)
+            totals['leads_received'] += st['leads_received']
+            totals['tasks_created'] += st['tasks_created']
+            totals['follow_ups_completed'] += st['follow_ups_completed']
+            totals['follow_ups_planned'] += st['follow_ups_planned']
+            totals['contacts'] += st['contacts']
+            totals['trials'] += st['trials_registered']
+            totals['sales'] += st['sales_count']
+            totals['overdue'] += st['overdue_count']
+            totals['overdue_24h'] += st['overdue_24h']
+            totals['new_not_contacted'] += st['new_not_contacted']
+            line1 = (
+                f"• <b>{sales.username}</b>\n"
+                f"  Yangi lidlar: {st['leads_received']} | Vazifa: {st['tasks_created']} | "
+                f"Qayta aloqa: {st['follow_ups_completed']}/{st['follow_ups_planned']} | "
+                f"Aloqa qilindi: {st['contacts']} | Sinovga yoz.: {st['trials_registered']} | "
+                f"Kursga yoz.: {st['sales_count']} | Muddati o'tgan: {st['overdue_count']}"
+            )
+            if st['new_not_contacted'] > 0 or st['overdue_24h'] > 0:
+                line1 += f"\n  ⚠️ Yangi aloqa qilinmagan: {st['new_not_contacted']} | 24 soatdan ortiq kechikkan: {st['overdue_24h']}"
+            per_sales_lines.append(line1)
+            bs = st['by_status']
+            status_line = (
+                f"  Lidlar holati: yangi {bs['new']}, aloqa qilindi {bs['contacted']}, qiziqmoqda {bs['interested']}, "
+                f"sinovga yoz. {bs['trial_registered']}, kursga yoz. {bs['enrolled']}, yo'qotilgan {bs['lost']}"
+            )
+            per_sales_lines.append(status_line)
+        header = f"📊 <b>Kunlik sotuv hisobot</b> ({date.strftime('%d.%m.%Y')})"
+        totals_line = (
+            f"Jami: Yangi lidlar {totals['leads_received']} | Vazifa {totals['tasks_created']} | "
+            f"Qayta aloqa {totals['follow_ups_completed']}/{totals['follow_ups_planned']} | "
+            f"Aloqa {totals['contacts']} | Sinov {totals['trials']} | Kursga yoz. {totals['sales']} | "
+            f"Muddati o'tgan {totals['overdue']}"
+        )
+        if totals['new_not_contacted'] > 0 or totals['overdue_24h'] > 0:
+            totals_line += f"\n⚠️ Yangi aloqa qilinmagan: {totals['new_not_contacted']} | 24 soatdan ortiq kechikkan: {totals['overdue_24h']}"
+        body = "\n".join(per_sales_lines) if per_sales_lines else "Ma'lumot topilmadi."
+        return f"{header}\n{totals_line}\n\n{body}"
+    
+    @staticmethod
     def get_sales_ranking(sales, period='month', metric='conversion_rate'):
         """
         Sotuvchi reytingini hisoblash
